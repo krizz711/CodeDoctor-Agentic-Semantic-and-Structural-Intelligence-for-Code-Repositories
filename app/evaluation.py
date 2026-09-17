@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import math
-from typing import Sequence
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 def reciprocal_rank(results: Sequence[str], relevant: set[str]) -> float:

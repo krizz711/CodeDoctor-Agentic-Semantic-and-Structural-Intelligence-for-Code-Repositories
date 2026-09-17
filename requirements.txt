@@ -1,1 +1,37 @@
+# Core
 pytest>=8.0.0
+pytest-cov>=4.0.0
+
+# AST Parsing (replaces regex chunker)
+tree-sitter>=0.22.0
+tree-sitter-javascript>=0.21.0
+tree-sitter-typescript>=0.21.0
+tree-sitter-python>=0.21.0
+
+# Fast BM25 (replaces hand-rolled BM25, ~500x faster)
+bm25s>=0.2.0
+
+# Call Graph
+networkx>=3.2
+
+# API
+fastapi[standard]>=0.110.0
+
+# Data models
+pydantic>=2.5.0
+
+# Code metrics
+radon>=6.0.0
+pygments>=2.17.0
+
+# CLI output
+rich>=13.7.0
+
+# IR evaluation
+ranx>=0.3.0
+
+# Code quality
+ruff>=0.4.0
+
+# LLM integration (provider-agnostic)
+litellm>=1.30.0

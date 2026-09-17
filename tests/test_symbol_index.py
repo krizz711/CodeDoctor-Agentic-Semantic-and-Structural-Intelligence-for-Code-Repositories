@@ -8,9 +8,9 @@ def test_normalize_identifier_variants_match():
 
 
 def test_symbol_index_returns_exact_named_symbols():
-    index = SQLiteIndex(path=':memory:')
+    index = SQLiteIndex(path=":memory:")
     index.index_file(
-        'src/auth.js',
+        "src/auth.js",
         """
         export function loginUser(email, password) {
             return { email, password };
@@ -22,14 +22,14 @@ def test_symbol_index_returns_exact_named_symbols():
             }
         }
         """,
-        commit_hash='abc123',
-        language='javascript',
+        commit_hash="abc123",
+        language="javascript",
     )
 
-    matches = index.search_symbols('loginUser')
+    matches = index.search_symbols("loginUser")
     assert matches
-    assert any(item['name'] == 'loginUser' for item in matches)
+    assert any(item["name"] == "loginUser" for item in matches)
 
-    class_matches = index.search_symbols('get_user_data')
+    class_matches = index.search_symbols("get_user_data")
     assert class_matches
-    assert any(item['name'] == 'getUserData' for item in class_matches)
+    assert any(item["name"] == "getUserData" for item in class_matches)

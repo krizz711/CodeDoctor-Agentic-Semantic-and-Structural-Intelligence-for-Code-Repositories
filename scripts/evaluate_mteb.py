@@ -15,14 +15,12 @@ def main() -> None:
         import mteb
         from sentence_transformers import SentenceTransformer
     except ImportError as error:
-        raise SystemExit(
-            "Install evaluator dependencies first: pip install -r requirements-eval.txt"
-        ) from error
+        raise SystemExit("Install evaluator dependencies first: pip install -r requirements-eval.txt") from error
 
     model = SentenceTransformer(args.model, device="cpu")
     task = mteb.get_task("AppsRetrieval")
     results = mteb.evaluate(model, [task], encode_kwargs={"batch_size": 32})
-    task_result = list(results.task_results)[0]
+    task_result = next(iter(results.task_results))
     args.output.write_text(json.dumps(task_result.to_dict(), indent=2), encoding="utf-8")
     print(f"Wrote {args.output}")
 

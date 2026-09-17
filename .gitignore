@@ -4,3 +4,11 @@ build/
 *.graph
 __pycache__/
 .pytest_cache/
+.venv/
+.hypothesis/
+-p/
+*.egg-info/
+.ruff_cache/
+*.pyc
+.coverage
+htmlcov/

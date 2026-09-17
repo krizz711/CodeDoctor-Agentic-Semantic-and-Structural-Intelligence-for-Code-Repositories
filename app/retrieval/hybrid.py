@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from collections import Counter, defaultdict
-from dataclasses import dataclass
 import math
 import re
-from typing import Iterable, Sequence
+from collections import Counter, defaultdict
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
 
 TOKEN_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9_]*")
 QUERY_EXPANSIONS = {
@@ -81,9 +83,13 @@ class HybridRetriever:
                 if not term_frequency:
                     continue
                 document_frequency = self._document_frequency[token]
-                inverse_frequency = math.log(1 + (total_documents - document_frequency + 0.5) / (document_frequency + 0.5))
+                inverse_frequency = math.log(
+                    1 + (total_documents - document_frequency + 0.5) / (document_frequency + 0.5)
+                )
                 denominator = term_frequency + 1.5 * (0.25 + 0.75 * length / max(1.0, self._average_length))
-                scores[index] += inverse_frequency * (term_frequency * 2.5 / denominator) * (1 + math.log1p(query_count))
+                scores[index] += (
+                    inverse_frequency * (term_frequency * 2.5 / denominator) * (1 + math.log1p(query_count))
+                )
         return dict(scores)
 
     def _tfidf(self, query_tokens: list[str]) -> dict[int, float]:
@@ -91,7 +97,9 @@ class HybridRetriever:
         query_vector: dict[str, float] = {}
         total_documents = len(self.documents)
         for token, count in query_counts.items():
-            query_vector[token] = (1 + math.log(count)) * math.log(1 + total_documents / (1 + self._document_frequency[token]))
+            query_vector[token] = (1 + math.log(count)) * math.log(
+                1 + total_documents / (1 + self._document_frequency[token])
+            )
         query_norm = math.sqrt(sum(value * value for value in query_vector.values())) or 1.0
         scores: dict[int, float] = {}
         for index, tokens in enumerate(self._tokens):
@@ -129,8 +137,7 @@ class HybridRetriever:
         results: list[RankedDocument] = []
         for index in ranked:
             sources = tuple(
-                source for source, ranking in (("exact", exact), ("bm25", bm25), ("tfidf", tfidf))
-                if index in ranking
+                source for source, ranking in (("exact", exact), ("bm25", bm25), ("tfidf", tfidf)) if index in ranking
             )
             results.append(RankedDocument(self.documents[index], fused[index], sources))
         return results

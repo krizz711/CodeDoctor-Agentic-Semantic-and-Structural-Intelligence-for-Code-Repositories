@@ -68,14 +68,3 @@ python -m compileall -q app tests
 ```
 
 The implementation is intentionally CPU-only. Dense model retrieval, FAISS, and an LLM response layer remain optional extensions rather than runtime requirements for the reproducible core product.
-
-## BYOK model catalog
-
-The optional model layer includes 30 configurable aliases in `config/models.json`, including DeepSeek, Kimi, GLM, Qwen, MiMo, MiniMax, Claude, GPT, Gemini, Grok, Llama, Mistral, Command, Perplexity, Ollama, and custom OpenAI-compatible endpoints.
-
-```bash
-python scripts/list_models.py
-python scripts/list_models.py --configured-only
-```
-
-Set provider keys in your shell or secret manager using the names in `.env.example`. CodeDoctor never stores or prints key values. Model IDs and endpoints are configuration, because provider availability and naming change over time. The client supports OpenAI-compatible `/chat/completions` APIs and native Anthropic Messages requests. Local Ollama aliases do not require a remote key.

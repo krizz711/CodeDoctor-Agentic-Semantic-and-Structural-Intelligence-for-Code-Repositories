@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
+from typing import TYPE_CHECKING
 
 from app.retrieval.hybrid import Document, HybridRetriever, RankedDocument
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
 
 
 @dataclass(frozen=True)
@@ -16,7 +19,7 @@ class VersionedDocument:
     content_hash: str
 
     @classmethod
-    def create(cls, commit: str, document: Document) -> "VersionedDocument":
+    def create(cls, commit: str, document: Document) -> VersionedDocument:
         digest = hashlib.sha256(document.content.encode("utf-8")).hexdigest()
         return cls(commit, document, digest)
 
@@ -24,9 +27,11 @@ class VersionedDocument:
 class VersionedIndex:
     def __init__(self) -> None:
         self._snapshots: dict[str, list[VersionedDocument]] = {}
+        self._retriever_cache: dict[str, HybridRetriever] = {}
 
     def add_snapshot(self, commit: str, documents: Iterable[Document]) -> None:
         self._snapshots[commit] = [VersionedDocument.create(commit, document) for document in documents]
+        self._retriever_cache.pop(commit, None)  # invalidate cache on update
 
     def commits(self) -> list[str]:
         return sorted(self._snapshots)
@@ -34,8 +39,10 @@ class VersionedIndex:
     def retrieve(self, query: str, commit: str, limit: int = 10) -> list[RankedDocument]:
         if commit not in self._snapshots:
             raise KeyError(f"Snapshot {commit} is not indexed")
-        documents = [item.document for item in self._snapshots[commit]]
-        return HybridRetriever(documents).search(query, limit=limit)
+        if commit not in self._retriever_cache:
+            documents = [item.document for item in self._snapshots[commit]]
+            self._retriever_cache[commit] = HybridRetriever(documents)
+        return self._retriever_cache[commit].search(query, limit=limit)
 
     def verify_no_cross_commit_leakage(self, results: Sequence[RankedDocument], commit: str) -> bool:
         allowed = {item.document.document_id for item in self._snapshots.get(commit, [])}
@@ -61,14 +68,19 @@ class VersionedIndex:
         Path(path).write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     @classmethod
-    def load(cls, path: str | Path) -> "VersionedIndex":
+    def load(cls, path: str | Path) -> VersionedIndex:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
         index = cls()
         for commit, rows in payload.items():
             documents = [
                 Document(
-                    row["document_id"], row["file_path"], row["content"], row.get("name", ""),
-                    row.get("type", ""), row.get("start_line", 1), row.get("end_line", 1),
+                    row["document_id"],
+                    row["file_path"],
+                    row["content"],
+                    row.get("name", ""),
+                    row.get("type", ""),
+                    row.get("start_line", 1),
+                    row.get("end_line", 1),
                 )
                 for row in rows
             ]

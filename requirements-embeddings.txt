@@ -1,0 +1,4 @@
+# Optional: CPU-first vector embedding layer
+# Install only if you need semantic (vector) code search
+fastembed>=0.3.0
+hnswlib>=0.8.0
