@@ -33,25 +33,21 @@ def _extract_metrics(payload: dict) -> dict[str, float]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Generate the official MTEB AppsRetrieval result JSON on CPU."
-    )
+    parser = argparse.ArgumentParser(description="Generate the official MTEB AppsRetrieval result JSON on CPU.")
     parser.add_argument("--model", default="BAAI/bge-small-en-v1.5", help="dense backbone")
     parser.add_argument("--output", type=Path, default=Path("appsretrieval_results.json"))
     parser.add_argument("--batch-size", type=int, default=64, help="required by the brief")
-    parser.add_argument("--lexical-weight", type=float, default=0.35,
-                        help="set 0.0 for a dense-only ablation")
+    parser.add_argument("--lexical-weight", type=float, default=0.35, help="set 0.0 for a dense-only ablation")
     parser.add_argument("--device", default="cpu")
-    parser.add_argument("--skip-sanity-check", action="store_true",
-                        help="write the JSON even if scores look like random noise")
+    parser.add_argument(
+        "--skip-sanity-check", action="store_true", help="write the JSON even if scores look like random noise"
+    )
     args = parser.parse_args()
 
     try:
         import mteb
     except ImportError as error:
-        raise SystemExit(
-            "Install evaluator dependencies first: pip install -r requirements-eval.txt"
-        ) from error
+        raise SystemExit("Install evaluator dependencies first: pip install -r requirements-eval.txt") from error
 
     from app.retrieval.mteb_encoder import PrePostPipelineEncoder
 
@@ -79,9 +75,7 @@ def main() -> int:
 
     ndcg = metrics.get("ndcg_at_10")
     mrr = metrics.get("mrr_at_10")
-    suspicious = (ndcg is not None and ndcg < RANDOM_BASELINE_NDCG) or (
-        mrr is not None and mrr < RANDOM_BASELINE_MRR
-    )
+    suspicious = (ndcg is not None and ndcg < RANDOM_BASELINE_NDCG) or (mrr is not None and mrr < RANDOM_BASELINE_MRR)
     if suspicious and not args.skip_sanity_check:
         print(
             "\nSANITY CHECK FAILED: scores are at or below random-retrieval level.\n"

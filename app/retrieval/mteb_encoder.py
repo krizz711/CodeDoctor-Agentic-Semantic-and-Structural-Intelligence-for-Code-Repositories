@@ -13,7 +13,7 @@ cannot be expressed inside ``encode()`` because it needs the whole candidate lis
 So the lexical signal is carried into the vector space instead of being fused after
 the fact. Each output vector is the concatenation of two L2-normalised blocks::
 
-    [ dense_weight * dense_embedding | lexical_weight * projected_lexical ]
+    [dense_weight * dense_embedding | lexical_weight * projected_lexical]
 
 Because both blocks are unit-norm and the weights are constant across every vector,
 cosine similarity over the concatenation is exactly the weighted sum of the dense
