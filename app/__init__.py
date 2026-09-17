@@ -1,0 +1,1 @@
+"""CodeDoctor application package."""
