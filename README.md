@@ -39,10 +39,22 @@ For the official AppsRetrieval artifact:
 
 ```bash
 pip install -r requirements-eval.txt
+python scripts/verify_encoder.py --real-model          # sanity check first
 python scripts/evaluate_mteb.py --output appsretrieval_results.json
 ```
 
-This runs the evaluation model on CPU and writes the MTEB task JSON required for a release upload. The evaluator dependencies remain separate because they are substantially heavier than the core product.
+This evaluates **CodeDoctor's own `PrePostPipelineEncoder`** (`app/retrieval/mteb_encoder.py`)
+on CPU, not a stock baseline model, and writes the MTEB task JSON required for the release
+upload. The encoder pre-processes queries and code differently based on `prompt_type`, encodes
+with a CPU dense backbone, and concatenates a seeded hashed-lexical block so that cosine
+similarity becomes a weighted sum of dense and lexical similarity — hybrid retrieval expressed
+within MTEB's encode-only interface.
+
+The script exits non-zero if the resulting scores sit at random-retrieval level, so a broken
+encoder cannot silently produce a submission file. Run a dense-only ablation with
+`--lexical-weight 0.0`.
+
+See `SUBMISSION_CHECKLIST.md` for the full release procedure.
 
 ## Version-aware retrieval
 
