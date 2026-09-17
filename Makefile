@@ -1,5 +1,14 @@
 CXX := g++
 CXXFLAGS := -std=c++17 -Wall -Wextra -Iinclude
+
+ifeq ($(OS),Windows_NT)
+MKDIR_BUILD := if not exist build mkdir build
+REMOVE_BUILD := if exist build rmdir /s /q build
+else
+MKDIR_BUILD := mkdir -p build
+REMOVE_BUILD := rm -rf build
+endif
+
 TARGET := build/codedoctor_demo.exe
 PRODUCT_TARGET := build/codedoctor.exe
 TEST_TARGET := build/codedoctor_cpp_test.exe
@@ -13,18 +22,18 @@ test: $(TEST_TARGET)
 	$(TEST_TARGET)
 
 $(TARGET): $(SRC)
-	@if not exist build mkdir build
+	@$(MKDIR_BUILD)
 	$(CXX) $(CXXFLAGS) $(SRC) -o $(TARGET)
 
 $(PRODUCT_TARGET): $(PRODUCT_SRC)
-	@if not exist build mkdir build
+	@$(MKDIR_BUILD)
 	$(CXX) $(CXXFLAGS) $(PRODUCT_SRC) -o $(PRODUCT_TARGET)
 
 $(TEST_TARGET): $(CORE_SRC) tests/cpp_core_test.cpp
-	@if not exist build mkdir build
+	@$(MKDIR_BUILD)
 	$(CXX) $(CXXFLAGS) $(CORE_SRC) tests/cpp_core_test.cpp -o $(TEST_TARGET)
 
 clean:
-	@if exist build rmdir /s /q build
+	@$(REMOVE_BUILD)
 
 .PHONY: all clean
