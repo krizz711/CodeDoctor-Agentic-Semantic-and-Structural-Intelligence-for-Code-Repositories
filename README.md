@@ -25,6 +25,40 @@ build/codedoctor.exe stats build/my-repository.index
 
 The indexer scans `.js`, `.jsx`, `.mjs`, `.cjs`, `.ts`, and `.tsx`, while skipping `.git`, `node_modules`, `dist`, `build`, `coverage`, `.cache`, `.idea`, and `.vscode`. Search results include the relative file, symbol, chunk type, score, and exact source span.
 
+## CPU retrieval evaluation
+
+The Python retrieval layer combines exact identifier matching, BM25-style lexical scoring, TF-IDF cosine similarity, query expansion, and reciprocal-rank fusion. It is deterministic and CPU-only.
+
+```bash
+python scripts/evaluate.py scripts/sample_eval.jsonl --output build/sample_results.json
+```
+
+The input is JSONL with `query`, `documents`, and `relevant_ids`. The output contains ranked predictions plus `mrr` and `ndcg_at_10`. Replace the sample JSONL with a converted CoIR Apps split for local experiments. The official MTEB package and Apps dataset are intentionally not downloaded as part of the default build.
+
+For the official AppsRetrieval artifact:
+
+```bash
+pip install -r requirements-eval.txt
+python scripts/evaluate_mteb.py --output appsretrieval_results.json
+```
+
+This runs the evaluation model on CPU and writes the MTEB task JSON required for a release upload. The evaluator dependencies remain separate because they are substantially heavier than the core product.
+
+## Version-aware retrieval
+
+`app/indexing/versioned.py` provides explicit snapshot membership and persistence:
+
+```python
+from app.indexing.versioned import VersionedIndex
+from app.retrieval.hybrid import Document
+
+index = VersionedIndex()
+index.add_snapshot("commit-a", [Document("chunk-a", "src/auth.js", "function auth() {}", "auth")])
+results = index.retrieve("authentication", commit="commit-a")
+```
+
+Unknown snapshots fail explicitly, and retrieval results are restricted to the requested commit. This prevents silent fallback to current HEAD content.
+
 ## Test
 
 ```bash
