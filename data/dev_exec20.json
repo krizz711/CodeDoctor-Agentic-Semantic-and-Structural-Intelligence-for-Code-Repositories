@@ -1,0 +1,53 @@
+{
+  "model": "f2llm17b",
+  "split": "dev",
+  "depth": 50,
+  "n_queries": 853,
+  "pool_ceiling": 0.9929660023446659,
+  "retrieval_recall_at_pool_depth": 0.9941383352872216,
+  "retrieval_pool_depth": 100,
+  "dense": {
+    "ndcg_at_10": 0.8965893493222349,
+    "mrr_at_10": 0.8756047749306834,
+    "recall_at_1": 0.8276670574443142,
+    "recall_at_10": 0.9613130128956624,
+    "recall_at_50": 0.9929660023446659,
+    "recall_at_100": 1.0,
+    "n_queries": 853.0
+  },
+  "execution": {
+    "ndcg_at_10": 0.9548611947743606,
+    "mrr_at_10": 0.9473003777517259,
+    "recall_at_1": 0.9273153575615475,
+    "recall_at_10": 0.977725674091442,
+    "recall_at_50": 0.9929660023446659,
+    "recall_at_100": 1.0,
+    "n_queries": 853.0
+  },
+  "execution_bootstrap": {
+    "mean_delta": 0.05827184545212576,
+    "ci_low": 0.04573726632453792,
+    "ci_high": 0.07017838472154353,
+    "p_value": 0.0,
+    "n_resamples": 1000
+  },
+  "execution_fired": 783,
+  "execution_verified": 745,
+  "execution_seconds": 1377.535362958908,
+  "final": {
+    "ndcg_at_10": 0.9548611947743606,
+    "mrr_at_10": 0.9473003777517259,
+    "recall_at_1": 0.9273153575615475,
+    "recall_at_10": 0.977725674091442,
+    "recall_at_50": 0.9929660023446659,
+    "recall_at_100": 1.0,
+    "n_queries": 853.0
+  },
+  "overall_bootstrap": {
+    "mean_delta": 0.05827184545212576,
+    "ci_low": 0.04573726632453792,
+    "ci_high": 0.07017838472154353,
+    "p_value": 0.0,
+    "n_resamples": 1000
+  }
+}

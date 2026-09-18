@@ -1,22 +1,47 @@
 from __future__ import annotations
 
-import hashlib
+import os
 from pathlib import Path
 from typing import Any, Sequence, Union
+
 import numpy as np
+import torch
 import yaml
 
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "retrieval.yaml"
 FROZEN_CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "frozen.yaml"
 
+#: The published F2LLM-v2 retrieval recipe, reproduced verbatim from
+#: ``mteb/models/model_implementations/codefuse_models.py``.  These four facts
+#: are the difference between the leaderboard score and a silently degraded
+#: one, so they are constants in the source, not defaults scattered in YAML:
+#:
+#:   * queries carry an instruction, documents carry none;
+#:   * the instruction is the task-specific one, not the generic QA prompt;
+#:   * ``add_eos_token=True`` -- pooling is *last-token*, so a missing EOS
+#:     pools an arbitrary interior token;
+#:   * ``max_seq_length=8192`` -- and for the same reason, truncation is not a
+#:     graceful degradation here, it is a wrong vector.
+F2LLM_INSTRUCTION_TEMPLATE = "Instruct: {instruction}\nQuery: "
+APPS_INSTRUCTION = "Retrieve the most relevant code snippet for the given query."
+APPS_QUERY_PREFIX = F2LLM_INSTRUCTION_TEMPLATE.format(instruction=APPS_INSTRUCTION)
+PUBLISHED_MAX_SEQ_LENGTH = 8192
 
-import os
-import torch
+#: Attention memory scales as ``batch * seq^2``, not ``batch * seq``.  A batch
+#: size tuned on 100-token snippets therefore asks for *tens of gigabytes* on
+#: an 8192-token one: encoding this corpus with a fixed batch size died twice
+#: on CUDA OOM (32 GiB, then 12 GiB) before the budget was made quadratic.
+#:
+#: The unit is "padded attention cells": ``max_len_in_batch ** 2 * batch``.
+#: 6.7e7 admits one 8192-token sequence alone (~2 GiB of fp16 attention across
+#: 16 heads) and 64 sequences of 1024 tokens.
+DEFAULT_ATTENTION_BUDGET = 67_000_000
+DEFAULT_MAX_BATCH = 64
 
 
 def _select_device(preferred: str | None = None) -> str:
-    """Select compute device. Defaults to GPU if present only when preferred='auto', else CPU."""
+    """Select compute device. Defaults to CPU unless 'auto' finds a GPU."""
     if preferred and preferred != "auto":
         return preferred
     if preferred == "auto":
@@ -24,15 +49,65 @@ def _select_device(preferred: str | None = None) -> str:
     return "cpu"
 
 
-_LOADED_MODELS: dict[tuple[str, str], Any] = {}
+def select_dtype(device: str) -> str:
+    """Pick a numerically sane *and* fast dtype for the device.
+
+    Turing GPUs (T4, compute capability 7.5) have no native bfloat16: torch
+    emulates it and the encode slows by roughly an order of magnitude — the
+    first GPU run of this corpus took over an hour before the dtype was fixed.
+    Ampere and newer get bfloat16, which is what the model was trained in.
+    CPU stays float32, where half precision is slower, not faster.
+    """
+    if device != "cuda" or not torch.cuda.is_available():
+        return "float32"
+    major, _ = torch.cuda.get_device_capability(0)
+    return "bfloat16" if major >= 8 else "float16"
+
+
+_LOADED_MODELS: dict[tuple[str, str, str], Any] = {}
+
+
+def plan_batches(
+    lengths: Sequence[int],
+    *,
+    attention_budget: int = DEFAULT_ATTENTION_BUDGET,
+    max_batch: int = DEFAULT_MAX_BATCH,
+) -> list[list[int]]:
+    """Group indices into length-sorted batches under a quadratic memory budget.
+
+    A batch costs ``max_len_in_batch ** 2 * batch_size`` attention cells, so
+    that is what is budgeted.  Returns batches of *original* indices; sorting
+    by length also removes padding waste, which is where most of the speed-up
+    comes from on a corpus that averages 225 tokens and reaches 289k.
+
+    A single input that exceeds the budget on its own still gets a batch of
+    one rather than being dropped.
+    """
+    order = sorted(range(len(lengths)), key=lambda i: lengths[i])
+    batches: list[list[int]] = []
+    current: list[int] = []
+    current_max = 0
+    for index in order:
+        candidate_max = max(current_max, lengths[index])
+        cost = candidate_max * candidate_max * (len(current) + 1)
+        if current and (cost > attention_budget or len(current) >= max_batch):
+            batches.append(current)
+            current, current_max = [index], lengths[index]
+        else:
+            current.append(index)
+            current_max = candidate_max
+    if current:
+        batches.append(current)
+    return batches
 
 
 class CodeEncoder:
-    """
-    Prefix-aware code encoder wrapper.
-    Enforces separate query-mode and document-mode instruction prefixes.
-    Ensures deterministic, reproducible embeddings.
-    Defaults to CPU for verified offline/service parity.
+    """Prefix-aware code encoder wrapping the frozen production model.
+
+    Query mode applies the task instruction; document mode applies none.  Both
+    modes share one sequence-length cap, because the encoder input *is* the
+    cache key and a mode-dependent cap would make the same text hash to two
+    different vectors.
     """
 
     def __init__(
@@ -46,6 +121,9 @@ class CodeEncoder:
         max_seq_length: int | None = None,
         query_max_seq_length: int | None = None,
         document_max_seq_length: int | None = None,
+        revision: str | None = None,
+        torch_dtype: str | None = None,
+        tier: str = "interactive",
     ) -> None:
         if config_path is not None:
             self.config_path = config_path
@@ -53,6 +131,9 @@ class CodeEncoder:
             self.config_path = FROZEN_CONFIG_PATH
         else:
             self.config_path = DEFAULT_CONFIG_PATH
+        if tier not in ("accuracy", "interactive"):
+            raise ValueError(f"tier must be 'accuracy' or 'interactive', got {tier!r}")
+        self.tier = tier
         config = self._load_config()
 
         self.model_name = (
@@ -60,152 +141,227 @@ class CodeEncoder:
             or config.get("production_model")
             or config.get("model_name", "codefuse-ai/F2LLM-v2-0.6B")
         )
-        self.query_prefix = query_prefix if query_prefix is not None else config.get(
-            "query_prefix", "Instruct: Given a coding task, retrieve relevant code snippet\nQuery: "
+        self.revision = revision if revision is not None else config.get("revision")
+        self.query_prefix = (
+            query_prefix if query_prefix is not None else config.get("query_prefix", APPS_QUERY_PREFIX)
         )
-        self.document_prefix = document_prefix if document_prefix is not None else config.get("document_prefix", "")
-        self.max_seq_length = max_seq_length or config.get("max_seq_length", 512)
-        self.query_max_seq_length = (
-            query_max_seq_length
-            or config.get("query_max_seq_length")
-            or 1024
+        self.document_prefix = (
+            document_prefix if document_prefix is not None else config.get("document_prefix", "")
         )
-        self.document_max_seq_length = (
-            document_max_seq_length
-            or config.get("document_max_seq_length")
-            or self.max_seq_length
+
+        cap = max_seq_length or config.get("max_seq_length", PUBLISHED_MAX_SEQ_LENGTH)
+        # Per-mode caps are accepted for backwards compatibility but are
+        # collapsed to one value: see the class docstring.
+        self.max_seq_length = int(cap)
+        self.query_max_seq_length = int(query_max_seq_length or config.get("query_max_seq_length") or cap)
+        self.document_max_seq_length = int(
+            document_max_seq_length or config.get("document_max_seq_length") or cap
         )
+
         self.similarity_metric = similarity_metric or config.get("similarity_metric", "cosine")
         self.device = device or config.get("device", "cpu")
-        self.normalize_embeddings = config.get("normalize_embeddings", True)
+        self.normalize_embeddings = bool(config.get("normalize_embeddings", True))
+        self.add_eos_token = bool(config.get("add_eos_token", True))
+        self.torch_dtype = (
+            torch_dtype or config.get("torch_dtype") or select_dtype(self.device)
+        )
+        self.attention_budget = int(config.get("attention_budget", DEFAULT_ATTENTION_BUDGET))
+        self.max_batch = int(config.get("max_batch", DEFAULT_MAX_BATCH))
 
         self._model = None
 
     def _load_config(self) -> dict:
-        if self.config_path.exists():
-            try:
-                content = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
-                return content.get("encoder", {})
-            except Exception:
-                pass
-        return {}
+        """Merge the base ``encoder`` block with the requested tier's overrides.
+
+        ``accuracy`` is the submission encoder; ``interactive`` is the smaller
+        one the live service and the hands-on demo run.  Both share every other
+        recipe value, so a tier can only change *which* model, never *how* it
+        is prompted or truncated.
+        """
+        if not self.config_path.exists():
+            return {}
+        try:
+            content = yaml.safe_load(self.config_path.read_text(encoding="utf-8")) or {}
+        except Exception:
+            return {}
+        base = dict(content.get("encoder", {}) or {})
+        if self.tier == "interactive":
+            base.update(content.get("interactive_encoder", {}) or {})
+        return base
 
     @property
     def model(self):
         if self._model is None:
-            cache_key = (self.model_name, self.device)
-            if cache_key in _LOADED_MODELS:
-                self._model = _LOADED_MODELS[cache_key]
-            else:
-                from sentence_transformers import SentenceTransformer
+            cache_key = (self.model_name, self.device, self.torch_dtype)
+            cached = _LOADED_MODELS.get(cache_key)
+            if cached is not None:
+                self._model = cached
+                return self._model
 
-                torch.manual_seed(42)
-                model_kwargs: dict[str, Any] = {}
-                if self.device == "cpu":
-                    model_kwargs["torch_dtype"] = torch.float32
-                elif self.device == "cuda":
-                    model_kwargs["torch_dtype"] = torch.float16
+            from sentence_transformers import SentenceTransformer
 
-                m = SentenceTransformer(self.model_name, device=self.device, model_kwargs=model_kwargs)
-                m.eval()
-                if hasattr(m, "max_seq_length"):
-                    m.max_seq_length = self.max_seq_length
-                if len(m) > 0 and hasattr(m[0], "max_seq_length"):
-                    m[0].max_seq_length = self.max_seq_length
-                if hasattr(m, "tokenizer") and hasattr(m.tokenizer, "model_max_length"):
-                    m.tokenizer.model_max_length = self.max_seq_length
-                _LOADED_MODELS[cache_key] = m
-                self._model = m
+            torch.manual_seed(42)
+            model_kwargs: dict[str, Any] = {
+                "torch_dtype": getattr(torch, self.torch_dtype),
+                "attn_implementation": "sdpa",
+            }
+            load_kwargs: dict[str, Any] = {
+                "device": self.device,
+                "model_kwargs": model_kwargs,
+                "tokenizer_kwargs": {
+                    "add_eos_token": self.add_eos_token,
+                    "model_max_length": self.max_seq_length,
+                },
+            }
+            if self.revision:
+                load_kwargs["revision"] = self.revision
+
+            model = SentenceTransformer(self.model_name, **load_kwargs)
+            model.max_seq_length = self.max_seq_length
+            model.eval()
+            self._verify_recipe_applied(model)
+            _LOADED_MODELS[cache_key] = model
+            self._model = model
         return self._model
 
+    def _verify_recipe_applied(self, model: Any) -> None:
+        """Assert the loaded model really got the recipe it was asked for.
+
+        ``tokenizer_kwargs`` is deprecated in sentence-transformers 6 in favour
+        of ``processor_kwargs``.  If a future release stops honouring it, the
+        EOS token silently stops being appended — and because pooling is
+        last-token, every embedding quietly becomes wrong while the run still
+        completes and reports a plausible-looking score.  That is the exact
+        failure this project already paid ~3 NDCG points for once, so it is
+        checked rather than trusted.
+        """
+        tokenizer = getattr(model, "tokenizer", None)
+        if tokenizer is None:  # pragma: no cover - non-transformer backends
+            return
+
+        if int(getattr(model, "max_seq_length", 0)) != self.max_seq_length:
+            raise RuntimeError(
+                f"max_seq_length is {model.max_seq_length}, expected {self.max_seq_length}. "
+                "Truncation under last-token pooling produces wrong vectors, not degraded ones."
+            )
+
+        if not self.add_eos_token:
+            return
+        eos_id = getattr(tokenizer, "eos_token_id", None)
+        if eos_id is None:  # pragma: no cover - tokenizer without an EOS
+            return
+        probe = tokenizer.encode("def f(): return 1", add_special_tokens=True)
+        if not probe or probe[-1] != eos_id:
+            # Try to repair before giving up: some loaders accept the flag only
+            # as a tokenizer attribute.
+            setattr(tokenizer, "add_eos_token", True)
+            probe = tokenizer.encode("def f(): return 1", add_special_tokens=True)
+        if not probe or probe[-1] != eos_id:
+            raise RuntimeError(
+                f"{self.model_name} was loaded without an appended EOS token "
+                f"(last id {probe[-1] if probe else None}, expected {eos_id}). "
+                "Pooling is last-token, so every embedding would be taken from an "
+                "arbitrary interior token. Refusing to encode."
+            )
+
+    # -- prompt handling ---------------------------------------------------
+
     def get_prompt_text(self, text: str, mode: str = "document") -> str:
+        """The exact string handed to the tokenizer. This is the cache key."""
         if mode == "query":
             return f"{self.query_prefix}{text}"
         return f"{self.document_prefix}{text}"
 
     def inspect_encoding_input(self, text: str, mode: str = "document") -> dict[str, Any]:
-        """Inspection helper returning the exact prompt, prefix, token length, and cap for verification."""
+        """Report the prompt, token count and truncation state for one input."""
         prefix = self.query_prefix if mode == "query" else self.document_prefix
         prompt_text = self.get_prompt_text(text, mode=mode)
         cap = self.query_max_seq_length if mode == "query" else self.document_max_seq_length
-        toks = []
+        tokens: list[int] = []
         if hasattr(self.model, "tokenizer"):
-            toks = self.model.tokenizer.encode(prompt_text, truncation=False)
+            tokens = self.model.tokenizer.encode(prompt_text, truncation=False)
         return {
             "mode": mode,
             "prefix": prefix,
             "has_prefix": bool(prefix),
             "raw_text_sample": text[:120],
             "final_input_sample": prompt_text[:160],
-            "token_count": len(toks),
+            "token_count": len(tokens),
             "max_seq_length_cap": cap,
-            "is_truncated": len(toks) > cap,
+            "is_truncated": len(tokens) > cap,
         }
+
+    # -- encoding ----------------------------------------------------------
+
+    def _token_lengths(self, texts: Sequence[str], mode: str) -> list[int]:
+        tokenizer = self.model.tokenizer
+        prefix = self.query_prefix if mode == "query" else self.document_prefix
+        prefix_len = len(tokenizer.encode(prefix, add_special_tokens=False)) if prefix else 0
+        cap = self.max_seq_length
+        return [
+            min(cap, prefix_len + len(tokenizer.encode(t, add_special_tokens=False)) + 1)
+            for t in texts
+        ]
 
     def encode(
         self,
         texts: Union[str, Sequence[str]],
         mode: str = "document",
-        batch_size: int = 32,
+        batch_size: int | None = None,
         show_progress_bar: bool = False,
     ) -> np.ndarray:
-        """
-        Encodes text(s) into numpy float32 array.
-        mode: 'query' or 'document' (applies respective prefix and sequence length cap).
+        """Encode text(s) into a float32 array.
+
+        ``mode`` selects the prefix; batching is length-aware so a single long
+        outlier cannot blow up memory for the whole batch.  ``batch_size`` is
+        accepted for API compatibility and, when given, caps the batch count.
         """
         single = isinstance(texts, str)
         text_list = [texts] if single else list(texts)
+        if not text_list:
+            return np.empty((0, self.model.get_sentence_embedding_dimension()), dtype=np.float32)
 
-        # Apply appropriate sequence length cap per mode
-        target_seq_len = self.query_max_seq_length if mode == "query" else self.document_max_seq_length
-        if hasattr(self.model, "max_seq_length"):
-            self.model.max_seq_length = target_seq_len
-        if len(self.model) > 0 and hasattr(self.model[0], "max_seq_length"):
-            self.model[0].max_seq_length = target_seq_len
-        if hasattr(self.model, "tokenizer") and hasattr(self.model.tokenizer, "model_max_length"):
-            self.model.tokenizer.model_max_length = target_seq_len
+        prompt = self.query_prefix if mode == "query" else self.document_prefix
+        max_batch = min(self.max_batch, batch_size) if batch_size else self.max_batch
+        batches = plan_batches(
+            self._token_lengths(text_list, mode),
+            attention_budget=self.attention_budget,
+            max_batch=max_batch,
+        )
 
-        # Apply appropriate instruction prefix
-        prefixed = [self.get_prompt_text(t, mode=mode) for t in text_list]
-
-        # sentence-transformers encode
-        torch.manual_seed(42)
-        orig_threads = torch.get_num_threads()
+        out: list[np.ndarray | None] = [None] * len(text_list)
+        original_threads = torch.get_num_threads()
         try:
             if self.device == "cpu":
-                if single or len(text_list) <= 16:
-                    torch.set_num_threads(1)
-                else:
-                    torch.set_num_threads(os.cpu_count() or 1)
+                torch.set_num_threads(os.cpu_count() or 1)
+            torch.manual_seed(42)
             with torch.inference_mode():
-                embeddings = self.model.encode(
-                    prefixed,
-                    batch_size=batch_size,
-                    show_progress_bar=show_progress_bar,
-                    normalize_embeddings=self.normalize_embeddings,
-                    convert_to_numpy=True,
-                )
+                for batch in batches:
+                    embeddings = self.model.encode(
+                        [text_list[i] for i in batch],
+                        prompt=prompt or None,
+                        batch_size=len(batch),
+                        show_progress_bar=False,
+                        normalize_embeddings=self.normalize_embeddings,
+                        convert_to_numpy=True,
+                    )
+                    for slot, vector in zip(batch, embeddings):
+                        out[slot] = vector
         finally:
             if self.device == "cpu":
-                torch.set_num_threads(orig_threads)
+                torch.set_num_threads(original_threads)
 
-        embeddings = np.asarray(embeddings, dtype=np.float32)
-        if single:
-            return embeddings[0]
-        return embeddings
+        stacked = np.asarray(np.vstack(out), dtype=np.float32)
+        return stacked[0] if single else stacked
 
     def similarity(self, emb1: np.ndarray, emb2: np.ndarray) -> np.ndarray:
-        """
-        Compute similarity score between embeddings.
-        Asserts metric matches model configuration.
-        """
+        """Similarity under the configured metric."""
         if emb1.ndim == 1:
             emb1 = emb1.reshape(1, -1)
         if emb2.ndim == 1:
             emb2 = emb2.reshape(1, -1)
 
         if self.similarity_metric == "cosine":
-            # If already unit-normalized, dot product equals cosine similarity
             if not self.normalize_embeddings:
                 norm1 = np.linalg.norm(emb1, axis=1, keepdims=True)
                 norm2 = np.linalg.norm(emb2, axis=1, keepdims=True)
@@ -214,18 +370,22 @@ class CodeEncoder:
                 emb1 = emb1 / norm1
                 emb2 = emb2 / norm2
             return np.dot(emb1, emb2.T)
-        elif self.similarity_metric == "dot":
+        if self.similarity_metric == "dot":
             return np.dot(emb1, emb2.T)
-        else:
-            raise ValueError(f"Unsupported similarity metric: {self.similarity_metric}")
+        raise ValueError(f"Unsupported similarity metric: {self.similarity_metric}")
 
 
-# Global shared instance for parity between harness and service
 _GLOBAL_ENCODER: CodeEncoder | None = None
 
 
-def get_shared_encoder() -> CodeEncoder:
+def get_shared_encoder(tier: str = "interactive") -> CodeEncoder:
+    """The process-wide encoder for the live service.
+
+    Defaults to the interactive tier: the developer UI answers queries in a
+    browser, so it runs the smaller model.  The submission path asks for
+    ``tier="accuracy"`` explicitly.
+    """
     global _GLOBAL_ENCODER
-    if _GLOBAL_ENCODER is None:
-        _GLOBAL_ENCODER = CodeEncoder(device="cpu")
+    if _GLOBAL_ENCODER is None or _GLOBAL_ENCODER.tier != tier:
+        _GLOBAL_ENCODER = CodeEncoder(device="cpu", tier=tier)
     return _GLOBAL_ENCODER

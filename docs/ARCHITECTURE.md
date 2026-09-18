@@ -40,6 +40,31 @@ This invariant must hold across 100.0% of indexed chunks.
 
 To guarantee reproducibility and insulation from active tuning:
 1. **Config Hierarchy:** `config/frozen.yaml` takes precedence over `config/retrieval.yaml`. If `config/frozen.yaml` is present, all evaluation and production retrieval services lock into the frozen specification.
-2. **Model Identifier:** `CodeEncoder` and `scripts/evaluate_mteb.py` read `encoder.production_model` as the single authoritative model identifier (pointing to `codefuse-ai/F2LLM-v2-0.6B`). The decorative `model_name` key was removed from the active configuration files to eliminate divergence between the screening harness and the runtime service.
+2. **Model Identifier:** `CodeEncoder` and `scripts/evaluate_mteb.py` read `encoder.production_model` as the single authoritative model identifier. Two tiers are configured and a tier may change *which* model runs, never *how* it is prompted or truncated:
+   - `encoder.production_model` = `codefuse-ai/F2LLM-v2-1.7B` — the accuracy tier, used by the screening submission.
+   - `interactive_encoder.production_model` = `codefuse-ai/F2LLM-v2-0.6B` — the interactive tier, used by the live service and the hands-on demo, and the default for `get_shared_encoder()` so the service never pulls the larger weights.
+   Both entries pin an explicit Hugging Face revision. `tests/test_published_recipe.py` asserts the recipe values against MTEB's own model registry.
 3. **Instruction Prefixes:** Prompt prefixes are pinned per mode (`query` vs `document`) and automatically applied by `CodeDoctorMTEBEncoder` using MTEB 2.x `PromptType` dispatch.
 
+
+
+## 6. Retrieval Pipeline
+
+The two-pass retrieval design — query and snippet categorization, the nine-feature
+linear reranker, the distribution-matched development splits, and the optional
+execution-verification pass — is documented in full in
+[`RETRIEVAL-PIPELINE.md`](RETRIEVAL-PIPELINE.md).
+
+Three constraints from that document bind the architecture here:
+
+1. **The encoder input is the cache key.** `K_emb = H(encoder_rev, tokenizer_rev,
+   template_rev, encoder_input_bytes)` excludes path and line numbers, so a
+   per-mode sequence-length cap would make the same text hash to two different
+   vectors. `CodeEncoder` therefore collapses query and document caps to one value.
+2. **Attention memory is quadratic in sequence length.** Batches are planned
+   against `max_len ** 2 * batch_size`, not a token count. See
+   `app/retrieval/encode.py:plan_batches`.
+3. **The pipeline is handed text only.** `app/pipeline/encoder.py` records the
+   texts MTEB supplied during `encode()` and reads nothing else in `similarity()`.
+   Dataset metadata, corpus partitions and document ids are reachable in the raw
+   CoIR files and are deliberately never consulted.

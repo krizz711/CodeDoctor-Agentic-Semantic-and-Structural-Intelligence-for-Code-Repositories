@@ -13,6 +13,7 @@ def clean_encoder_state():
     enc._LOADED_MODELS.clear()
 
 
+@pytest.mark.model
 def test_service_encoder_defaults_to_cpu(monkeypatch):
     """
     Section 3.4 Acceptance Test:

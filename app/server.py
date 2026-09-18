@@ -9,10 +9,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from app.indexing.cache import EmbeddingCache
+import numpy as np
+
+from app.indexing.cache import EmbeddingCache, compute_embedding_key
 from app.indexing.incremental import IncrementalIndexer, IncrementalStats
 from app.indexing.sqlite_index import SQLiteIndex
 from app.indexing.versioned import GitVersionManager, VersionedIndex
+from app.pipeline.query_analysis import analyze_query
 from app.retrieval.hybrid import Document, HybridRetriever
 from app.retrieval.structural import StructuralEngine
 
@@ -55,6 +58,30 @@ class SearchRequest(BaseModel):
     commit: Optional[str] = None
     limit: int = 10
     weights: Optional[dict[str, float]] = None
+
+
+def _cached_document_embeddings(documents: list[Document]) -> Optional[np.ndarray]:
+    """Vectors for every chunk, or ``None`` if the index is not fully embedded.
+
+    The key is the encoder *input*, matching how IncrementalIndexer stored it,
+    so a renamed or moved file still hits.  Returning ``None`` on a partial
+    index is deliberate: a dense pass over some of the corpus would silently
+    rank the embedded chunks above the rest.
+    """
+    vectors: list[np.ndarray] = []
+    for document in documents:
+        encoder_input = (
+            f"{document.signature}\n{document.content}"
+            if document.signature
+            else document.content
+        )
+        vector = cache.get(compute_embedding_key(encoder_input), real_only=True)
+        if vector is None:
+            return None
+        vectors.append(vector)
+    if not vectors:
+        return None
+    return np.asarray(np.vstack(vectors), dtype=np.float32)
 
 
 @app.get("/api/repo/info")
@@ -182,8 +209,14 @@ def search_code(req: SearchRequest) -> dict[str, Any]:
         for c in raw_chunks
     ]
 
-    retriever = HybridRetriever(docs, use_dense=False)
+    # Dense scoring uses the vectors the indexer already cached, keyed on the
+    # encoder input. Re-encoding the corpus per query would cost minutes; a
+    # cache lookup costs microseconds. If any chunk is missing a vector the
+    # dense pass is skipped entirely rather than run on a partial index.
+    document_embeddings = _cached_document_embeddings(docs)
+    retriever = HybridRetriever(docs, document_embeddings=document_embeddings)
     results = retriever.search(query, limit=req.limit, weights=req.weights)
+    query_facts = analyze_query(query)
 
     # Classify into evidence facets (entry point / implementation / caller / test / configuration)
     evidence_bundles: dict[str, list[dict]] = {
@@ -235,6 +268,17 @@ def search_code(req: SearchRequest) -> dict[str, Any]:
         "total": len(formatted_results),
         "results": formatted_results,
         "evidence_bundles": active_evidence,
+        "query_analysis": {
+            "family": query_facts.family.value,
+            "confidence": round(query_facts.confidence, 3),
+            "verified": query_facts.is_verified(),
+            "identifiers": sorted(query_facts.identifiers)[:12],
+        },
+        "retrieval": {
+            "dense": document_embeddings is not None,
+            "lexical": True,
+            "indexed_chunks": len(docs),
+        },
     }
 
 

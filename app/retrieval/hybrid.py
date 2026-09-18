@@ -85,11 +85,27 @@ class HybridRetriever:
         documents: Sequence[Document],
         encoder: Optional[CodeEncoder] = None,
         use_dense: bool = False,
+        document_embeddings: Optional[np.ndarray] = None,
     ) -> None:
+        """
+        ``document_embeddings`` supplies vectors the indexer already computed,
+        aligned row-for-row with ``documents``.  Supplying them is what keeps
+        query latency in milliseconds: without them the dense path has to
+        encode the whole corpus on the first query.
+        """
         self.documents = list(documents)
         self.encoder = encoder
         self.use_dense = use_dense
         self._doc_embeddings: Optional[np.ndarray] = None
+        if document_embeddings is not None:
+            embeddings = np.asarray(document_embeddings, dtype=np.float32)
+            if embeddings.shape[0] != len(self.documents):
+                raise ValueError(
+                    f"{embeddings.shape[0]} precomputed embeddings for "
+                    f"{len(self.documents)} documents"
+                )
+            self._doc_embeddings = embeddings
+            self.use_dense = True
 
         # Build lexical index
         self._tokens = [tokenize(f"{doc.content} {doc.name} {doc.signature}") for doc in self.documents]

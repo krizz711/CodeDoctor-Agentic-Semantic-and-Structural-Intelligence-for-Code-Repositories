@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from app.retrieval.encode import CodeEncoder, get_shared_encoder
 from app.retrieval.hybrid import Document, HybridRetriever, reciprocal_rank_fusion
 
@@ -46,6 +47,7 @@ def test_reciprocal_rank_fusion_properties():
     assert abs(fused[2] - expected_2) < 1e-6
 
 
+@pytest.mark.model
 def test_vector_parity_between_callers():
     """
     Acceptance test: Harness and service wrappers, given the same input string

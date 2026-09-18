@@ -1,138 +1,151 @@
+"""Generate a Colab notebook that runs the evaluation on a hosted GPU.
+
+The pipeline is embedded as a base64 tarball built from the working tree at
+generation time — the same packer the Kaggle kernel builder uses — so the
+notebook can never ship code that has drifted from this repository.
+
+    python scripts/make_notebook.py --out running.ipynb
+"""
+
 from __future__ import annotations
 
-import base64
+import argparse
 import json
+import sys
 from pathlib import Path
 
-b64_str = base64.b64encode(open("repo_bundle.zip", "rb").read()).decode("utf-8")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-notebook = {
-    "cells": [
-        {
-            "cell_type": "markdown",
-            "metadata": {},
-            "source": [
-                "# CodeDoctor — GPU Acceleration Addendum (Google Colab T4)\n",
-                "\n",
-                "This notebook runs the **offline evaluation, full-corpus ablation (T6), recall ceiling (T3), and MTEB benchmark generation** with GPU hardware acceleration (NVIDIA T4 16GB).\n",
-                "\n",
-                "- **Authority:** `THEME1-BUILD-PLAN-v3.pdf` & `changes_3.md`.\n",
-                "- **Model:** `codefuse-ai/F2LLM-v2-0.6B` (inference only, no fine-tuning).\n",
-                "- **Constraint:** Live service and juror re-indexing remain strictly CPU-based."
-            ]
-        },
-        {
-            "cell_type": "code",
-            "execution_count": None,
-            "metadata": {},
-            "outputs": [],
-            "source": [
-                "# 1. Verify GPU environment\n",
-                "import torch\n",
-                "\n",
-                "print(f\"PyTorch Version: {torch.__version__}\")\n",
-                "print(f\"CUDA Available:  {torch.cuda.is_available()}\")\n",
-                "if torch.cuda.is_available():\n",
-                "    print(f\"Device Name:     {torch.cuda.get_device_name(0)}\")\n",
-                "    print(f\"Device Memory:   {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB\")\n",
-                "else:\n",
-                "    print(\"WARNING: No GPU detected. Please ensure a T4 GPU is selected in the kernel / Colab settings.\")"
-            ]
-        },
-        {
-            "cell_type": "code",
-            "execution_count": None,
-            "metadata": {},
-            "outputs": [],
-            "source": [
-                "# 2. Workspace Setup & Dependency Installation\n",
-                "import os, base64, io, zipfile\n",
-                "from pathlib import Path\n",
-                "\n",
-                "if not Path(\"app\").exists():\n",
-                "    print(\"Remote Colab environment detected: unpacking CodeDoctor workspace bundle...\")\n",
-                f"    _BUNDLE_B64 = \"{b64_str}\"\n",
-                "    zipfile.ZipFile(io.BytesIO(base64.b64decode(_BUNDLE_B64))).extractall(\".\")\n",
-                "    print(\"CodeDoctor workspace extracted successfully!\")\n",
-                "else:\n",
-                "    print(\"Local CodeDoctor workspace detected.\")\n",
-                "\n",
-                "!pip install -q mteb sentence-transformers accelerate faiss-cpu datasets pyyaml"
-            ]
-        },
-        {
-            "cell_type": "code",
-            "execution_count": None,
-            "metadata": {},
-            "outputs": [],
-            "source": [
-                "# 3. Run Throughput Benchmark on T4 GPU (Task 3.1)\n",
-                "!python scripts/benchmark_throughput.py"
-            ]
-        },
-        {
-            "cell_type": "code",
-            "execution_count": None,
-            "metadata": {},
-            "outputs": [],
-            "source": [
-                "# 4. Plan T3: Recall Ceiling Measurement on Real Split (Task 3.6)\n",
-                "!python scripts/measure_recall_ceiling.py --max-queries 50 --batch-size 256"
-            ]
-        },
-        {
-            "cell_type": "code",
-            "execution_count": None,
-            "metadata": {},
-            "outputs": [],
-            "source": [
-                "# 5. Plan T6: Full-Corpus Ablation Matrix on T4 GPU (Task 3.3)\n",
-                "!python scripts/run_ablation.py --max-queries 150 --max-corpus 0 --batch-size 256 --device cuda"
-            ]
-        },
-        {
-            "cell_type": "code",
-            "execution_count": None,
-            "metadata": {},
-            "outputs": [],
-            "source": [
-                "# 6. Official MTEB AppsRetrieval Submission Evaluation (Task 2.3)\n",
-                "!python scripts/evaluate_mteb.py --output appsretrieval_results.json --batch-size 256 --device cuda"
-            ]
-        },
-        {
-            "cell_type": "code",
-            "execution_count": None,
-            "metadata": {},
-            "outputs": [],
-            "source": [
-                "# 7. Verify artifacts and display results\n",
-                "import json\n",
-                "from pathlib import Path\n",
-                "\n",
-                "res_path = Path(\"appsretrieval_results.json\")\n",
-                "if res_path.exists():\n",
-                "    data = json.loads(res_path.read_text(encoding=\"utf-8\"))\n",
-                "    print(\"Successfully generated appsretrieval_results.json!\")\n",
-                "    scores = data.get(\"scores\", {})\n",
-                "    print(\"Task Scores Summary:\")\n",
-                "    print(json.dumps(scores, indent=2)[:500])\n",
-                "else:\n",
-                "    print(\"Warning: appsretrieval_results.json not found.\")\n",
-                "\n",
-                "print(\"\\nAll offline GPU evaluation steps completed successfully.\")"
-            ]
-        }
-    ],
-    "metadata": {
-        "language_info": {
-            "name": "python"
-        }
-    },
-    "nbformat": 4,
-    "nbformat_minor": 2,
-}
+from app.packaging import build_payload  # noqa: E402
 
-out_path = Path("running.ipynb")
-out_path.write_text(json.dumps(notebook, indent=1), encoding="utf-8")
-print(f"Successfully generated {out_path}, size: {out_path.stat().st_size} bytes")
+
+def code(*lines: str) -> dict:
+    return {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [line + "\n" for line in lines],
+    }
+
+
+def markdown(*lines: str) -> dict:
+    return {"cell_type": "markdown", "metadata": {}, "source": [line + "\n" for line in lines]}
+
+
+def build_notebook(payload: str) -> dict:
+    return {
+        "cells": [
+            markdown(
+                "# CodeDoctor — AppsRetrieval evaluation on a hosted GPU",
+                "",
+                "Runs the two-pass retrieval pipeline through `mteb.evaluate` and writes the",
+                "submission artifact. The pipeline source is embedded below, generated from",
+                "the repository by `scripts/make_notebook.py` — there is no stale bundle to",
+                "drift out of sync.",
+                "",
+                "The *solution* is CPU-only; a GPU is used here purely to encode 17,530 texts",
+                "once. Everything downstream runs on cached vectors.",
+            ),
+            code(
+                "# 1. Environment",
+                "import torch",
+                "",
+                "print('torch', torch.__version__, 'cuda', torch.cuda.is_available())",
+                "if torch.cuda.is_available():",
+                "    name = torch.cuda.get_device_name(0)",
+                "    major = torch.cuda.get_device_capability(0)[0]",
+                "    mem = torch.cuda.get_device_properties(0).total_memory / 1e9",
+                "    print(f'{name}  compute {major}.x  {mem:.1f} GB')",
+                "    # Turing (T4, compute 7.5) has no native bfloat16: torch emulates it and",
+                "    # the encode slows by roughly 10x. select_dtype handles this for us.",
+                "else:",
+                "    print('No GPU. This will work but the encode takes hours.')",
+            ),
+            code(
+                "# 2. Unpack the pipeline (generated from the repo working tree)",
+                f'PAYLOAD = "{payload}"',
+                "",
+                "import base64, io, os, sys, tarfile",
+                "",
+                "WORK = '/content/codedoctor'",
+                "os.makedirs(WORK, exist_ok=True)",
+                "with tarfile.open(fileobj=io.BytesIO(base64.b64decode(PAYLOAD)), mode='r:gz') as tar:",
+                "    tar.extractall(WORK)",
+                "sys.path.insert(0, WORK)",
+                "os.chdir(WORK)",
+                "print(sorted(os.listdir(WORK)))",
+            ),
+            code(
+                "# 3. Dependencies (mteb pinned: it decides the result-JSON schema)",
+                "!pip install -q -U 'mteb==2.21.0' 'sentence-transformers>=5.0' "
+                "'transformers>=4.57' datasets pyyaml",
+            ),
+            markdown(
+                "## Encode once",
+                "",
+                "Dumps texts, qrels and embeddings to `artifacts/apps`. Reranker tuning then",
+                "runs on those cached vectors in seconds instead of hours.",
+            ),
+            code(
+                "!python scripts/encode_apps.py --tier interactive --device auto --tag f2llm06b",
+                "!python scripts/encode_apps.py --tier accuracy    --device auto --tag f2llm17b",
+            ),
+            markdown(
+                "## Fit the second pass on TRAIN, report on held-out DEV",
+                "",
+                "The dev split is seeded-random and filtered to the query family the test",
+                "split is actually made of — see `app/pipeline/splits.py` for why a",
+                "contiguous half-split of this corpus is not exchangeable.",
+            ),
+            code("!python scripts/tune_reranker.py --model f2llm17b --depth 50"),
+            markdown("## Stage-by-stage ablation, each gain gated on a paired bootstrap"),
+            code(
+                "!python scripts/dev_eval.py --model f2llm17b",
+                "!python scripts/dev_eval.py --model f2llm17b --execution",
+            ),
+            markdown(
+                "## The submission artifact",
+                "",
+                "Produced by `mteb.evaluate` itself — no score is assembled by hand.",
+            ),
+            code(
+                "!python scripts/evaluate_mteb.py --device auto --predictions build/predictions",
+                "!python scripts/validate_submission.py appsretrieval_results.json",
+            ),
+            code(
+                "# Download the artifacts",
+                "from google.colab import files  # noqa: F401",
+                "for name in ('appsretrieval_results.json', 'submission_predictions.csv',",
+                "             'submission_metrics.csv', 'config/reranker.json'):",
+                "    if os.path.exists(name):",
+                "        files.download(name)",
+            ),
+        ],
+        "metadata": {
+            "accelerator": "GPU",
+            "colab": {"provenance": []},
+            "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+            "language_info": {"name": "python"},
+        },
+        "nbformat": 4,
+        "nbformat_minor": 0,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--out", type=Path, default=REPO_ROOT / "running.ipynb")
+    args = parser.parse_args()
+
+    payload, included = build_payload()
+    print(f"Packed {len(included)} paths -> {len(payload) / 1024:.0f} KB base64")
+    args.out.write_text(json.dumps(build_notebook(payload), indent=1), encoding="utf-8")
+    print(f"Wrote {args.out}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

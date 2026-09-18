@@ -1,0 +1,126 @@
+{
+  "train_dense": {
+    "ndcg_at_10": 0.9328523984757306,
+    "mrr_at_10": 0.9190885714285714,
+    "recall_at_1": 0.885,
+    "recall_at_10": 0.9748,
+    "recall_at_50": 0.9906,
+    "recall_at_100": 1.0,
+    "n_queries": 5000.0
+  },
+  "dev_dense": {
+    "ndcg_at_10": 0.8965893493222349,
+    "mrr_at_10": 0.8756047749306834,
+    "recall_at_1": 0.8276670574443142,
+    "recall_at_10": 0.9613130128956624,
+    "recall_at_50": 0.9929660023446659,
+    "recall_at_100": 1.0,
+    "n_queries": 853.0
+  },
+  "dev_reranked": {
+    "ndcg_at_10": 0.901387912220211,
+    "mrr_at_10": 0.8799652021809115,
+    "recall_at_1": 0.8288393903868698,
+    "recall_at_10": 0.9671746776084408,
+    "recall_at_50": 0.9929660023446659,
+    "recall_at_100": 1.0,
+    "n_queries": 853.0
+  },
+  "weights": {
+    "dense": 1.0,
+    "dense_margin": 0.07999999821186066,
+    "family_compat": -0.30000001192092896,
+    "defined_name_hit": 0.0,
+    "ident_idf_overlap": 0.11999999731779099,
+    "number_idf_overlap": 0.029999999329447746,
+    "string_idf_overlap": 0.11999999731779099,
+    "length_prior": 0.003000000026077032,
+    "hub_penalty": 0.1736000031232834
+  },
+  "history": [
+    [
+      "<start>",
+      0.0,
+      0.9154914378258661
+    ],
+    [
+      "family_compat",
+      -0.2,
+      0.9155726128164126
+    ],
+    [
+      "ident_idf_overlap",
+      0.12,
+      0.9165543746739091
+    ],
+    [
+      "number_idf_overlap",
+      0.0366,
+      0.9196395449150946
+    ],
+    [
+      "string_idf_overlap",
+      0.12,
+      0.9208523516049015
+    ],
+    [
+      "length_prior",
+      0.003,
+      0.9216661857577129
+    ],
+    [
+      "hub_penalty",
+      0.1736,
+      0.9273616725903028
+    ],
+    [
+      "dense_margin",
+      0.08,
+      0.9278968832261525
+    ],
+    [
+      "family_compat",
+      -0.3,
+      0.9279236675982541
+    ],
+    [
+      "number_idf_overlap",
+      0.03,
+      0.9279595523993389
+    ]
+  ],
+  "corpus_families": {
+    "stdin_script": 5442,
+    "class_solution": 757,
+    "unknown": 51,
+    "function_library": 2515
+  },
+  "query_families": {
+    "competitive_stdin": 1707,
+    "leetcode_method": 729,
+    "unknown": 412,
+    "kata_function": 2152
+  },
+  "provenance": {
+    "fitted_on": "CoIR-Retrieval/apps train split",
+    "embedding_model_tag": "f2llm17b",
+    "family_filter": "competitive_stdin",
+    "split_seed": 20260919,
+    "train_queries_total": 5000,
+    "tune_queries": 854,
+    "dev_queries": 853,
+    "candidate_depth": 50,
+    "dev_dense_ndcg_at_10": 0.8965893493222349,
+    "dev_reranked_ndcg_at_10": 0.901387912220211,
+    "dev_bootstrap": {
+      "mean_delta": 0.004798562897976123,
+      "ci_low": -0.0008887002015016448,
+      "ci_high": 0.01087218478150106,
+      "p_value": 0.103,
+      "significant": false
+    },
+    "shipped_tuned_weights": false,
+    "fitted_at": "2026-09-18T19:51:59Z",
+    "elapsed_seconds": 22.3
+  }
+}

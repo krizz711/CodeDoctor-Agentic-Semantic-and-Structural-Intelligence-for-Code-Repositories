@@ -1,155 +1,277 @@
 # CodeDoctor — Agentic Code Intelligence
 
-> **Target System:** Samsung PRISM GenAI Hackathon 2026 · Theme 01: Agentic Code Intelligence  
-> **Authority:** `THEME1-BUILD-PLAN-v3.pdf`  
-> **Architecture Record:** `docs/ARCHITECTURE.md`
+> Samsung PRISM GenAI Hackathon 2026 · **Theme 01: Agentic Code Intelligence**
+> Approach in depth: [`docs/RETRIEVAL-PIPELINE.md`](docs/RETRIEVAL-PIPELINE.md) ·
+> System record: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
-CodeDoctor is a grounded repository intelligence system and developer workspace for code search, understanding, and evolutionary retrieval over code repositories.
-
----
-
-## 1. System Architecture
-
-CodeDoctor implements a two-product architecture powered by a single shared core:
-
-```
-                          ┌──────────────────────────┐
-                          │   Unified Shared Core    │
-                          │                          │
-                          │ • Tree-Sitter Chunker    │
-                          │ • Prefix-Aware Encoder   │
-                          │ • Content Hash Cache     │
-                          │ • SQLite FTS5 / BM25     │
-                          │ • Reciprocal Rank Fusion │
-                          └────────────┬─────────────┘
-                                       │
-                ┌──────────────────────┴──────────────────────┐
-                ▼                                             ▼
-  ┌───────────────────────────┐                 ┌───────────────────────────┐
-  │   Product A (Screening)   │                 │   Product B (Developer)   │
-  │                           │                 │                           │
-  │ • MTEB AbsEncoder         │                 │ • FastAPI Backend         │
-  │ • CoIR AppsRetrieval      │                 │ • VS Code-Style UI        │
-  │ • Leakage Firewall (T2)   │                 │ • Incremental Indexer     │
-  │ • NDCG@10 & MRR Score     │                 │ • Structural Call Graph   │
-  │ • Reproducible Artifact   │                 │ • Git Version Scoping     │
-  └───────────────────────────┘                 └───────────────────────────┘
-```
-
-- **Product A (Screening Gate):** An MTEB-compliant evaluation harness over `AppsRetrieval` producing reproducible `appsretrieval_results.json` with leakage firewall isolation.
-- **Product B (Developer Agent & UI):** A live developer tool and API providing sub-second incremental indexing, honest AST structural relationships, commit-isolated evolutionary search, and a VS Code-grade explorer.
+Given a library of code and a natural-language query, rank the snippets by
+relevance. CodeDoctor does it in three passes over a frozen CPU encoder, and
+reports honestly what each pass bought — including the one that bought nothing.
 
 ---
 
-## 2. Verified Capabilities & Contributions
+## 1. Quick start
 
-1. **Unified AST Chunker (100.0% Span Fidelity)**: Full Tree-Sitter parsing across JavaScript, TypeScript, and Python. Re-reading raw source bytes at stored chunk offsets guarantees exact textual round-trip (`PASS: 100.0% exact match` on 489 chunks across 171 files in `commander`).
-2. **Deterministic Incremental Indexing ($K_{\text{emb}}$ Invariance)**:
-   $$K_{\text{emb}} = H(\text{encoder\_rev}, \text{tokenizer\_rev}, \text{template\_rev}, \text{encoder\_input\_bytes})$$
-   Path and line numbers are strictly excluded. Renaming or moving files triggers **0 re-embeddings**. Editing a single function re-indexes in **~0.01s**.
-3. **Honest Structural Relationships**: Bounded AST extraction of callers, imports, requires, and deeplinks. Dynamic dispatch and computed lookups are labelled `CANDIDATE` (confidence $< 1.0$) with cited spans; direct AST matches are `VERIFIED`.
-4. **Git Snapshot Isolation (Zero Cross-Commit Leakage)**: Pinned commit queries restrict candidates strictly to that commit's tree snapshot. 50/50 randomized property trials yield **0 leaks**. "When did X change" ranking ranks diff hunks by change evidence.
-5. **Evaluation Integrity**: Development harness with active Leakage Firewall that throws explicit errors if test split is accessed during tuning. Paired bootstrap test (1,000 resamples) prevents shipping components within the statistical noise band.
-
----
-
-## 3. Quick Start
-
-### 3.1 Installation
-
-Ensure Python 3.11+ is installed.
+Python 3.11+.
 
 ```bash
-# Install core runtime dependencies
-pip install -r requirements.txt
-
-# Install evaluation dependencies (MTEB, PyTorch, FAISS)
-pip install -r requirements-eval.txt
+pip install -r requirements.txt        # runtime
+pip install -r requirements-eval.txt   # MTEB, torch, sentence-transformers
+pytest -q -m "not model"               # 188 tests, no weights needed, ~60s
 ```
 
-### 3.2 Run the Test Suite
+The two deselected tests load real encoder weights (a multi-GB download). Run
+the full suite with plain `pytest -q` when you want them.
 
-Execute all 43 automated unit, integration, and property tests:
+### Reproduce the submission artifact
 
 ```bash
-python -m pytest -v
+python scripts/evaluate_mteb.py --device cpu --predictions build/predictions
+python scripts/validate_submission.py appsretrieval_results.json
 ```
 
-### 3.3 Verify Span Fidelity (Plan T7)
+This runs the real pipeline through `mteb.evaluate`, so `appsretrieval_results.json`
+is MTEB's own output — no score is ever assembled by hand. It also writes
+`submission_predictions.csv` and `submission_metrics.csv`, the readable ranked
+responses behind that JSON.
 
-Verify 100.0% span fidelity across an open-source JavaScript repository:
+> **This command executes Python that came from the dataset.** The third pass
+> verifies candidate snippets by running them against the worked examples in
+> the problem statement. Each run is a fresh `python -I -S` subprocess in a
+> throwaway directory, with a stripped environment, a 2-second wall-clock
+> timeout, and an address-space cap where the platform supports one. It never
+> runs in-process and never runs anything you did not download from
+> `CoIR-Retrieval/apps`.
+>
+> It is **on by default** so that this command reproduces the submitted number
+> exactly. It is also the only pass that cleared the significance gate
+> (+0.0440 NDCG@10 at top-10, +0.0583 at top-20, both p = 0.0000 on held-out
+> DEV). To turn it off:
+>
+> ```bash
+> python scripts/evaluate_mteb.py --no-execution   # reports the dense-only score
+> ```
+
+### See it answer a query
+
+```bash
+python scripts/encode_apps.py --tier interactive     # one-time index build
+python scripts/demo_query.py --interactive
+```
+
+Each answer prints the query's detected family, the ranked snippets, *why*
+each one moved (per-feature contributions), and a per-stage latency breakdown.
+
+### Developer service and UI
+
+```bash
+python -m uvicorn app.server:app --host 0.0.0.0 --port 8000   # then open http://localhost:8000
+docker build -t codedoctor . && docker run -p 8000:8000 codedoctor
+```
+
+---
+
+## 2. What the solution does
+
+```
+                    query text                       code corpus
+                         |                                |
+              ┌──────────▼──────────┐        ┌────────────▼────────────┐
+   PASS 1     │  categorize (1,2)   │        │   categorize (3,4)      │
+              │  family · identifiers│        │  AST facts · shape      │
+              │  literals · cleanup  │        │  VERIFIED vs CANDIDATE  │
+              └──────────┬──────────┘        └────────────┬────────────┘
+                         │                                │
+                    ┌────▼────────────────────────────────▼────┐
+                    │  frozen dense encoder (F2LLM-v2, CPU)    │
+                    │  published recipe, pinned by test        │
+                    └────────────────────┬─────────────────────┘
+                                         │  candidate pool (top 50)
+                    ┌────────────────────▼─────────────────────┐
+   PASS 2 (5)       │  linear reranker over 9 features         │
+                    │  gated on held-out DEV — did NOT clear   │
+                    │  the bar, ships as identity (see §3b)    │
+                    └────────────────────┬─────────────────────┘
+                                         │
+                    ┌────────────────────▼─────────────────────┐
+   PASS 3 (5)       │  execution verification — the only pass  │
+                    │  that cleared the bar. ON; --no-execution │
+                    └────────────────────┬─────────────────────┘
+                                         ▼
+                                   ranked snippets
+```
+
+Numbers in parentheses are the improvement axes named in the Theme 01 brief.
+
+| Module | Role |
+|---|---|
+| [`app/pipeline/query_analysis.py`](app/pipeline/query_analysis.py) | query family, named identifiers, literals, boilerplate stripping |
+| [`app/pipeline/code_analysis.py`](app/pipeline/code_analysis.py) | AST facts per snippet, regex fallback labelled `CANDIDATE` |
+| [`app/pipeline/features.py`](app/pipeline/features.py) | the nine rerank features, corpus-side IDF, hubness |
+| [`app/pipeline/reranker.py`](app/pipeline/reranker.py) | the second pass; identity config = exact dense passthrough |
+| [`app/pipeline/tuning.py`](app/pipeline/tuning.py) | coordinate ascent on NDCG@10, weights capped at ±2.0 |
+| [`app/pipeline/splits.py`](app/pipeline/splits.py) | distribution-matched development splits |
+| [`app/pipeline/execution_rerank.py`](app/pipeline/execution_rerank.py) | sandboxed execution verification — runs dataset code; see the warning in §1 |
+| [`app/pipeline/encoder.py`](app/pipeline/encoder.py) | the MTEB-facing two-pass encoder |
+| [`app/retrieval/encode.py`](app/retrieval/encode.py) | the frozen encoder, two tiers, quadratic batch planner |
+
+---
+
+## 3. Three things worth knowing about this task
+
+**The published recipe is worth ~2.8 NDCG points.** An earlier build of this
+repository scored 0.87603 with a model whose published score is 0.90446. The
+gap was configuration: F2LLM pools with **last-token** pooling, so truncating a
+sequence cuts the EOS and the pooled vector becomes an arbitrary interior
+token — a wrong vector, not a degraded one.
+[`tests/test_published_recipe.py`](tests/test_published_recipe.py) pins the
+prefix, the EOS flag and the 8192-token cap against MTEB's own model registry,
+and the encoder probes the *loaded* tokenizer and refuses to run if the EOS is
+missing. With the recipe applied, both tiers reproduce their published scores:
+0.90427 for the 0.6B (published 0.90446) and **0.93756** for the 1.7B
+(published 0.93690).
+
+**The train and test splits are different datasets.** From query text alone:
+
+| split | competitive-stdin | kata | leetcode | unknown |
+|---|---|---|---|---|
+| train (5000) | 34.1% | **43.0%** | 14.6% | 8.2% |
+| test (3765) | **98.4%** | 0.1% | 0.8% | 0.8% |
+
+The corpus is ordered by source and the test split is a contiguous tail of it.
+A contiguous half-split of train scores 0.209 on one half and 0.623 on the
+other, so a "held-out" number taken that way reports distribution shift rather
+than generalization. Development splits are seeded-random and filtered to the
+family the scored split is actually made of.
+
+**Attention memory is quadratic.** Document lengths run from 225 tokens on
+average to 289,002 at the tail. Batching by count, or even by a linear token
+budget, asks for tens of gigabytes on that tail — this corpus OOMed at 32 GiB
+and then at 12 GiB before the budget was made quadratic in sequence length.
+
+---
+
+## 3b. What each pass is actually worth
+
+Held-out DEV — 853 competitive-stdin train queries the weights never saw,
+first pass = F2LLM-v2-1.7B, every delta from a 1000-resample paired bootstrap:
+
+| stage | NDCG@10 | MRR@10 | R@1 | R@10 | Δ vs dense (95% CI) |
+|---|---|---|---|---|---|
+| dense only | 0.89659 | 0.87560 | 0.8277 | 0.9613 | — |
+| + feature reranker | 0.90139 | 0.87997 | — | 0.9613 | +0.0048 [−0.0009, +0.0109] · **rejected, inside noise** |
+| + execution, top-5 | 0.93207 | 0.92293 | 0.9050 | 0.9613 | +0.0355 [+0.0269, +0.0438] |
+| + execution, top-10 | 0.94061 | 0.93382 | 0.9168 | 0.9613 | +0.0440 [+0.0342, +0.0532] |
+| + execution, top-20 | **0.95486** | **0.94730** | **0.9273** | **0.9777** | **+0.0583 [+0.0457, +0.0702]** |
+
+**Our own nine-feature reranker did not clear its own gate.** Against a weak
+encoder it is worth +0.037; against F2LLM-v2-1.7B it is worth +0.0048 with a
+confidence interval that includes zero, so `scripts/tune_reranker.py` shipped
+the identity configuration and recorded why. A 1.7B code-trained encoder
+already models identifier overlap and answer shape well enough that restating
+them as hand-built features buys nothing.
+
+Two more first-pass ideas were measured and rejected the same way — dual-encoder
+fusion (+0.0038, p = 0.164, and double the inference cost) and pseudo-relevance
+feedback (neutral at best, significantly negative at α ≥ 0.4). The full grid is
+in `data/first_pass_variants.json`.
+
+Recall@10 holds at 0.9613 through top-10 — execution reorders the head of the
+list, it cannot retrieve what the dense pass missed. At top-20 it *does* move,
+to 0.9777, because execution then reaches candidates ranked 11–20 and promotes
+verified ones into the top ten. The pool ceiling is 99.30% and nothing goes
+past it. Cost is linear in depth: 0.42 / 0.83 / 1.76 s per firing query.
+
+---
+
+## 4. What the solution deliberately does not use
+
+The raw CoIR APPS files carry more than the retrieval system is given:
+
+- `meta_information` holds the original problem URL and, for kata problems,
+  the **starter code** — which names the exact function signature of the answer.
+- a `partition` column marks each document `train` or `test`, which would halve
+  the candidate set for free.
+- the qrels are the identity map `q<N> -> d<N>`.
+
+MTEB hands the encoder `text` and nothing else, and the pipeline is built to
+match: it records the texts it was given during `encode()` and reads nothing
+else in `similarity()`. Each of those three would raise the reported score
+without improving retrieval.
+
+---
+
+## 5. Evaluation integrity
+
+- **Frozen config.** The submission path reads `config/frozen.yaml`, never the
+  mutable `config/retrieval.yaml`;
+  [`tests/test_config_freeze.py`](tests/test_config_freeze.py) proves the
+  insulation by mutating the live file and asserting the evaluation path is
+  unaffected.
+- **Leakage firewall.** `DevelopmentHarness.get_test_split` raises unless the
+  firewall is lowered with an accepted reason, and every access is appended to
+  `data/test_split_audit_log.json` against a two-access lifetime budget.
+- **Nothing ships inside the noise band.** Every component is gated on a
+  1000-resample paired bootstrap on held-out DEV. If the 95% interval includes
+  zero, `scripts/tune_reranker.py` ships the identity configuration and says so.
+- **Weight cap.** No non-dense feature may exceed ±2.0, so the dense score
+  always still matters. Unbounded, coordinate ascent ran one weight to −6.31.
+- **Negative control.** A planted-noise feature buys in-sample NDCG in
+  [`tests/test_pipeline_reranker.py`](tests/test_pipeline_reranker.py) — which
+  is exactly why the held-out gate exists.
+
+---
+
+## 6. Reproducing every number
+
+```bash
+# 1. dump texts + embeddings once (GPU optional; CPU works, slowly — see below)
+python scripts/encode_apps.py --tier accuracy --device auto --tag f2llm17b
+
+# 2. fit the reranker on TRAIN, report on held-out DEV.
+#    Expect it to REJECT the tuned weights and ship the identity: that is the
+#    published result, not a failure of the run.
+python scripts/tune_reranker.py --model f2llm17b --depth 50
+
+# 3. stage-by-stage ablation with paired bootstrap
+python scripts/dev_eval.py --model f2llm17b                               # dense only
+python scripts/dev_eval.py --model f2llm17b --execution                   # + execution
+python scripts/explore_first_pass.py --models f2llm17b f2llm06b           # fusion + PRF
+
+# 4. the submission artifact
+python scripts/evaluate_mteb.py --device cpu --predictions build/predictions
+python scripts/validate_submission.py appsretrieval_results.json
+```
+
+**On hardware.** Step 1 is the only expensive part: 17,530 texts through a
+1.7B encoder. On one T4 it is 24 minutes. On a 6-core laptop CPU it is roughly
+four hours, because a single document encode costs ~1.6 s there. Everything
+after step 1 runs on the cached vectors in seconds.
+`scripts/build_eval_kernel.py` packages the whole thing into a self-contained
+Kaggle GPU kernel — the pipeline is embedded as a tarball built from the
+working tree, so the kernel can never run code that has drifted from this
+repository.
+
+---
+
+## 7. Repository-side capabilities (P1 and the bonus goal)
+
+The same core backs a live developer service over a real repository:
+
+- **AST chunking with 100% span fidelity** — re-reading raw source bytes at
+  stored offsets round-trips exactly (489 chunks across 171 files in
+  `test_repos/commander`).
+- **Incremental re-indexing.** The embedding cache is keyed on
+  `H(encoder_rev, tokenizer_rev, template_rev, encoder_input_bytes)` — path and
+  line numbers are excluded, so renaming or moving a file triggers **zero**
+  re-embeddings and editing one function re-indexes in ~0.01s.
+- **Commit-scoped retrieval (bonus).** A pinned-commit query restricts
+  candidates to that commit's tree snapshot; 50 randomized property trials
+  yield zero cross-commit leakage.
+- **Labelled structural edges.** Direct AST matches are `VERIFIED`; dynamic
+  dispatch and computed lookups are `CANDIDATE` with cited spans. Unknown is
+  reported as unknown.
 
 ```bash
 python scripts/verify_span_fidelity.py test_repos/commander
 ```
-
-*Expected output:*
-```
-PASS: 100.0% exact match  (489 chunks across 171 files, repo=commander@ba6d13ddb4243e5913367734f8c159089ffe7834)
-Chunk coverage: 25.3% of total source bytes covered by AST chunks.
-```
-
-### 3.4 Start the Backend & Developer UI (Product B)
-
-Start the FastAPI server:
-
-```bash
-python -m uvicorn app.server:app --host 0.0.0.0 --port 8000
-```
-
-Open `http://localhost:8000` in any modern web browser to access the CodeDoctor UI:
-- **Repository Explorer**: Browse files and view active branch/commit.
-- **Code Search**: Natural language queries with hybrid RRF fusion.
-- **Evidence Bundles**: Organized into entry points, implementations, callers, tests, and configuration.
-- **Monaco Code Viewer**: View exact cited spans with visual line highlighting.
-- **Structural Inspector**: Examine verified vs candidate callers and jump to call sites.
-- **Historical Commit Selector**: Query historical git commits with guaranteed zero cross-commit leakage.
-- **Live Index Status**: Real-time Phase 3 counters for chunk reuse and re-embedding.
-
-### 3.5 Evaluation & Offline Benchmarks (Product A)
-
-CodeDoctor supports two execution modes for offline evaluation:
-
-1. **Reproducible Submission Run (CPU, Required):**
-   Matches jury evaluation on CPU without any GPU hardware dependency:
-   ```bash
-   # Run MTEB AppsRetrieval evaluation on CPU
-   python scripts/evaluate_mteb.py --device cpu --batch-size 32 --output appsretrieval_results.json
-
-   # Validate MTEB result file schema
-   python scripts/validate_submission.py appsretrieval_results.json
-   ```
-
-2. **Fast Offline Iteration (GPU Optional — Google Colab T4):**
-   For rapid full-corpus re-encoding of the 8,765 APPS documents and full T6 ablation:
-   - Open `running.ipynb` in Google Colab with a T4 GPU runtime.
-   - Or run locally if CUDA is present:
-   ```bash
-   python scripts/evaluate_mteb.py --device cuda --batch-size 256 --output appsretrieval_results.json
-   python scripts/run_ablation.py --device cuda --batch-size 256 --max-corpus 0
-   ```
-
----
-
-## 4. Docker Deployment
-
-Build and run the reproducible Docker container (runs strictly on CPU):
-
-```bash
-docker build -t codedoctor .
-docker run -p 8000:8000 codedoctor
-```
-
-Once running, access the service and UI at `http://localhost:8000`.
-
----
-
-## 5. Measured Benchmarks & Latency
-
-All live service and jury measurements are performed strictly on CPU:
-- **Tree-Sitter Chunker**: 171 files / 489 chunks parsed in **0.38s**.
-- **CPU Encode Throughput (Fixed)**: **2.74 sec/doc** (reduced from 8.6s/doc via float32 AVX SIMD, max_seq_length=512, and thread allocation).
-- **Single Function Incremental Re-Index (B5)**: **0.317s – 0.546s** (well under the 1.0s requirement).
-- **File Rename Re-Embeddings**: **0** (cache hit rate 100% on moved code).
-- **Cross-Commit Leakage**: **0.0%** across 50 randomized trials.
-- **Recall Ceiling (Plan T3)**: `Recall@10 = 0.9000`, `Recall@50 = 0.9667` (6.67% headroom, mathematically confirming reranker cancellation).

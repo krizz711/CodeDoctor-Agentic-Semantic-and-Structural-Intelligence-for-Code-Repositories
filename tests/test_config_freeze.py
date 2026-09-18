@@ -33,10 +33,16 @@ def test_submission_reads_frozen_config_not_live_config(tmp_path, monkeypatch):
         model_used = get_default_model()
         assert model_used == expected_production_model
 
-        # Check CodeEncoder defaults to frozen production model
-        encoder = CodeEncoder()
+        # The submission tier reads the frozen production model, not the live one
+        encoder = CodeEncoder(tier="accuracy")
         assert encoder.model_name == expected_production_model
         assert encoder.config_path == FROZEN_CONFIG_PATH
+
+        # ... and the interactive tier reads the frozen interactive model,
+        # which is likewise unaffected by the mutation above.
+        interactive = CodeEncoder(tier="interactive")
+        assert interactive.model_name == frozen["interactive_encoder"]["production_model"]
+        assert interactive.config_path == FROZEN_CONFIG_PATH
     finally:
         # Restore retrieval.yaml
         DEFAULT_CONFIG_PATH.write_text(yaml.safe_dump(live_backup), encoding="utf-8")

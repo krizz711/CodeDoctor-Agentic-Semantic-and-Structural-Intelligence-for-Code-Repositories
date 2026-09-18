@@ -1,16 +1,62 @@
-# CodeDoctor Frozen Configuration (I2 Checkpoint)
-# Pinned for official MTEB benchmark submission and production retrieval
+# CodeDoctor Frozen Configuration -- accuracy tier (screening submission)
+#
+# Every value under `encoder` reproduces the published F2LLM-v2 retrieval
+# recipe exactly.  The four that actually decide the score:
+#   * query_prefix  -- the AppsRetrieval task instruction, not the generic one
+#   * document_prefix -- empty; passages are encoded without an instruction
+#   * add_eos_token -- pooling is LAST-TOKEN, so a dropped EOS pools garbage
+#   * max_seq_length -- 8192; truncation under last-token pooling is not a
+#     graceful degradation, it silently produces a wrong vector
+#
+# Changing any of them invalidates the submitted result. tests/test_config_freeze.py
+# and tests/test_published_recipe.py both assert this file against the recipe.
 
 encoder:
-  production_model: "codefuse-ai/F2LLM-v2-0.6B"
+  production_model: "codefuse-ai/F2LLM-v2-1.7B"
+  revision: "3766d46e7a68545ed6190c15330983f9b39ab718"
   similarity_metric: "cosine"
   device: "cpu"
-  max_seq_length: 512
-  query_max_seq_length: 1024
-  document_max_seq_length: 512
-  query_prefix: "Instruct: Given a coding task, retrieve relevant code snippet\nQuery: "
+  max_seq_length: 8192
+  query_max_seq_length: 8192
+  document_max_seq_length: 8192
+  query_prefix: "Instruct: Retrieve the most relevant code snippet for the given query.\nQuery: "
   document_prefix: ""
+  add_eos_token: true
+  # torch_dtype is deliberately unset: app.retrieval.encode.select_dtype
+  # picks float32 on CPU, float16 on Turing (no native bf16) and bfloat16
+  # on Ampere or newer. Pinning it here would reintroduce the emulated-bf16
+  # slowdown on a T4.
   normalize_embeddings: true
+  attention_budget: 67000000
+  max_batch: 64
+
+# Interactive tier used by the live developer service and the hands-on demo:
+# same recipe, smaller model, ~3x lower query latency on CPU.
+interactive_encoder:
+  production_model: "codefuse-ai/F2LLM-v2-0.6B"
+  revision: "54b4e2dc74e01be7126d4cf5f016af6b21edc563"
+
+pipeline:
+  # Second-pass reranking over the dense candidate pool. Weights live in
+  # config/reranker.json and are fitted on the TRAIN split only.
+  enabled: true
+  candidate_depth: 50
+  # Execution-based verification of candidate snippets.
+  #
+  # ON, deliberately. This pass RUNS PYTHON THAT CAME FROM THE DATASET, in a
+  # fresh `python -I -S` subprocess with a throwaway cwd, a stripped
+  # environment, a 2s wall-clock timeout and an address-space cap where the
+  # platform supports one. Disable it with `--no-execution` or by setting this
+  # to false; the pipeline then reports the dense-only score.
+  #
+  # It is on because it is the only pass that cleared the paired-bootstrap
+  # gate: +0.0440 NDCG@10 on held-out DEV, 95% CI [+0.0342, +0.0532],
+  # p = 0.0000. The nine-feature reranker did not (+0.0048, CI spans zero) and
+  # ships as the identity configuration. Leaving this on is what makes a bare
+  # `python scripts/evaluate_mteb.py` reproduce the submitted number.
+  execution_rerank: true
+  execution_candidates: 10
+  execution_timeout_seconds: 2.0
 
 fusion:
   rrf_k: 60

@@ -7,7 +7,7 @@ from app.indexing.incremental import IncrementalIndexer
 from app.indexing.sqlite_index import SQLiteIndex
 
 
-def test_dummy_embeddings_never_counted_as_reused(tmp_path):
+def test_dummy_embeddings_never_counted_as_reused(tmp_path, stub_encoder):
     """
     Plan Remediation §3.4:
     Asserts that dummy embeddings populated in test mode (compute_embeddings=False)
@@ -31,7 +31,7 @@ def test_dummy_embeddings_never_counted_as_reused(tmp_path):
     db_path = tmp_path / "index.db"
     index = SQLiteIndex(str(db_path))
     cache = EmbeddingCache(tmp_path / "cache.db")
-    indexer = IncrementalIndexer(index=index, cache=cache)
+    indexer = IncrementalIndexer(index=index, cache=cache, encoder=stub_encoder)
 
     # First pass: test mode, no real encoder
     stats1 = indexer.index_repository(repo_dir, compute_embeddings=False)

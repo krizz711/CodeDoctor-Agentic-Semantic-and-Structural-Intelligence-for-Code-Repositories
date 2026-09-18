@@ -1,5 +1,18 @@
-mteb>=2.0.0
-sentence-transformers>=3.0.0
+# Evaluation dependencies.
+#
+# mteb is pinned exactly: it decides the result-JSON schema, the retrieval
+# evaluator, and the AppsRetrieval dataset revision, so an unpinned upgrade can
+# silently change the submitted artifact. 2.21.0 is the version every number in
+# README.md and docs/RETRIEVAL-PIPELINE.md was measured with.
+mteb==2.21.0
+
+# sentence-transformers >=5 is required for the tokenizer_kwargs pass-through
+# that carries add_eos_token into the loader. Without it the EOS is dropped and
+# last-token pooling reads an arbitrary interior token.
+sentence-transformers>=5.0,<7
+transformers>=4.57
+torch>=2.2
+datasets>=3.0
 faiss-cpu>=1.8.0
-torch>=2.0.0
-datasets>=2.18.0
+pyyaml>=6.0
+numpy>=1.24

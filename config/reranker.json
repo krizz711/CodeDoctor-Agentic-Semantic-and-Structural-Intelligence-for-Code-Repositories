@@ -1,0 +1,61 @@
+{
+  "feature_names": [
+    "dense",
+    "dense_margin",
+    "family_compat",
+    "defined_name_hit",
+    "ident_idf_overlap",
+    "number_idf_overlap",
+    "string_idf_overlap",
+    "length_prior",
+    "hub_penalty"
+  ],
+  "weights": [
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "candidate_depth": 50,
+  "family_compat": {
+    "competitive_stdin|stdin_script": 1.0,
+    "competitive_stdin|class_solution": -1.0,
+    "competitive_stdin|function_library": -0.5,
+    "leetcode_method|class_solution": 1.0,
+    "leetcode_method|stdin_script": -1.0,
+    "leetcode_method|function_library": 0.0,
+    "kata_function|function_library": 1.0,
+    "kata_function|stdin_script": -1.0,
+    "kata_function|class_solution": -0.5
+  },
+  "length_prior_slope": 0.0,
+  "length_prior_intercept": 0.0,
+  "hubness_top_k": 10,
+  "provenance": {
+    "fitted_on": "CoIR-Retrieval/apps train split",
+    "embedding_model_tag": "f2llm17b",
+    "family_filter": "competitive_stdin",
+    "split_seed": 20260919,
+    "train_queries_total": 5000,
+    "tune_queries": 854,
+    "dev_queries": 853,
+    "candidate_depth": 50,
+    "dev_dense_ndcg_at_10": 0.8965893493222349,
+    "dev_reranked_ndcg_at_10": 0.901387912220211,
+    "dev_bootstrap": {
+      "mean_delta": 0.004798562897976123,
+      "ci_low": -0.0008887002015016448,
+      "ci_high": 0.01087218478150106,
+      "p_value": 0.103,
+      "significant": false
+    },
+    "shipped_tuned_weights": false,
+    "fitted_at": "2026-09-18T19:51:59Z",
+    "elapsed_seconds": 22.3
+  }
+}
