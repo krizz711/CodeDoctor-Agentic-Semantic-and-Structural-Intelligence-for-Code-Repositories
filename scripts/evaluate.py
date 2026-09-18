@@ -29,9 +29,17 @@ def main() -> None:
         rows.append((ranked_ids, set(item["relevant_ids"])))
         predictions.append({"query": item["query"], "results": ranked_ids})
 
-    payload = {"metrics": evaluate_queries(rows), "predictions": predictions}
+    metrics = evaluate_queries(rows)
+    payload = {
+        "metrics": metrics,
+        "scores": {"test": [{
+            "ndcg_at_10": metrics["ndcg_at_10"],
+            "mrr_at_10": metrics["mrr"],
+        }]},
+        "predictions": predictions,
+    }
     args.output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    print(json.dumps(payload["metrics"], indent=2))
+    print(json.dumps(metrics, indent=2))
 
 
 if __name__ == "__main__":

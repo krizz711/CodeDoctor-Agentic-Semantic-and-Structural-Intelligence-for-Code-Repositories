@@ -1,5 +1,6 @@
 import json
 from scripts.validate_submission import validate
+from scripts.evaluate import main as evaluate_main
 
 
 def test_validate_mteb_task_result_shape(tmp_path):
@@ -46,3 +47,17 @@ def test_validate_rejects_flat_wrong_keys(tmp_path):
     errors = validate(path)
     assert len(errors) > 0
     assert any("Missing or invalid 'scores'" in e for e in errors)
+
+
+def test_local_evaluation_output_is_validator_compatible(tmp_path, monkeypatch):
+    output = tmp_path / "sample_results.json"
+    monkeypatch.setattr("sys.argv", [
+        "evaluate.py",
+        "scripts/sample_eval.jsonl",
+        "--output",
+        str(output),
+    ])
+
+    evaluate_main()
+
+    assert validate(output) == []
