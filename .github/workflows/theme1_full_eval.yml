@@ -1,0 +1,33 @@
+name: Temporary Theme 1 Full Evaluation
+
+on:
+  push:
+
+jobs:
+  theme1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Full repository tests
+        run: pytest -q
+      - name: Compile check
+        run: python -m compileall -q app scripts tests
+      - name: Build Python/C++ extension
+        run: python setup.py build_ext --inplace
+      - name: Benchmark and defensive checks
+        run: python benchmark.py
+      - name: P0 official AppsRetrieval run on CPU
+        run: python mteb_eval.py
+      - name: Hybrid execution-reranker smoke evaluation
+        run: python -m app.hybrid_eval
