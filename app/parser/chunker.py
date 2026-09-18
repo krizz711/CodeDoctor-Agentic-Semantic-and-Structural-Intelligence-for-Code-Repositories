@@ -1,11 +1,28 @@
 from __future__ import annotations
 
-import logging
-import os
-import re
 from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Optional
+import tree_sitter
+from tree_sitter import Language, Node, Parser
+import tree_sitter_javascript
+import tree_sitter_python
 
-logger = logging.getLogger(__name__)
+try:
+    import tree_sitter_typescript
+    _HAS_TS = True
+except ImportError:
+    _HAS_TS = False
+
+# Initialize languages and parsers
+JS_LANG = Language(tree_sitter_javascript.language())
+PY_LANG = Language(tree_sitter_python.language())
+if _HAS_TS:
+    TS_LANG = Language(tree_sitter_typescript.language_typescript())
+    TSX_LANG = Language(tree_sitter_typescript.language_tsx())
+else:
+    TS_LANG = JS_LANG
+    TSX_LANG = JS_LANG
 
 
 @dataclass
@@ -17,339 +34,394 @@ class Chunk:
     end_byte: int
     start_line: int
     end_line: int
-    parent: str | None = None
+    parent: Optional[str] = None
     content: str = ""
     signature: str = ""
 
     @property
     def chunk_id(self) -> str:
-        return f"{self.file_path}:{self.start_byte}:{self.end_byte}"
+        return f"{self.file_path}:{self.type}:{self.name}:{self.start_byte}:{self.end_byte}"
 
 
-CONTROL_FLOW_KEYWORDS = {
-    "if",
-    "else",
-    "while",
-    "for",
-    "switch",
-    "catch",
-    "do",
-    "return",
-    "throw",
-    "new",
-    "typeof",
-    "instanceof",
-    "void",
-    "delete",
-    "in",
-    "of",
-    "try",
-    "finally",
-}
+def _get_parser_and_lang(file_path: str) -> tuple[Parser, Language]:
+    ext = Path(file_path).suffix.lower()
+    if ext == ".py":
+        return Parser(PY_LANG), PY_LANG
+    elif ext == ".ts":
+        return Parser(TS_LANG), TS_LANG
+    elif ext == ".tsx":
+        return Parser(TSX_LANG), TSX_LANG
+    else:
+        return Parser(JS_LANG), JS_LANG
 
 
-def _extract_function_signature(match: re.Match[str]) -> str:
-    snippet = match.group(0)
-    if "=" in snippet:
-        return snippet.strip().split("=")[0].strip()[:200]
-    return snippet.strip()[:200]
+def _compute_line(raw_bytes: bytes, byte_offset: int) -> int:
+    return raw_bytes[:byte_offset].count(b"\n") + 1
 
 
-def _fallback_chunk_source(source: str, file_path: str) -> list[Chunk]:
-    """Regex-based fallback chunker for when tree-sitter is unavailable."""
-    chunks: list[Chunk] = []
-    pattern = re.compile(
-        r"(?:export\s+)?(?:async\s+)?function\s+([A-Za-z0-9_]+)\s*\([^)]*\)\s*\{",
-        re.MULTILINE,
-    )
-    class_pattern = re.compile(
-        r"(?:export\s+)?class\s+([A-Za-z0-9_]+)\s*\{",
-        re.MULTILINE,
-    )
-
-    for match in pattern.finditer(source):
-        name = match.group(1)
-        start = match.start()
-        brace_start = source.find("{", match.start())
-        depth = 0
-        end = None
-        for i in range(brace_start, len(source)):
-            if source[i] == "{":
-                depth += 1
-            elif source[i] == "}":
-                depth -= 1
-                if depth == 0:
-                    end = i + 1
-                    break
-        if end is None:
-            continue
-        content = source[start:end]
-        line_start = source.count("\n", 0, start) + 1
-        line_end = source.count("\n", 0, end) + 1
-        chunks.append(
-            Chunk(
-                file_path=file_path,
-                type="FUNCTION",
-                name=name,
-                start_byte=start,
-                end_byte=end,
-                start_line=line_start,
-                end_line=line_end,
-                content=content,
-                signature=_extract_function_signature(match),
-            )
-        )
-
-    for match in class_pattern.finditer(source):
-        name = match.group(1)
-        start = match.start()
-        brace_start = source.find("{", match.start())
-        depth = 0
-        end = None
-        for i in range(brace_start, len(source)):
-            if source[i] == "{":
-                depth += 1
-            elif source[i] == "}":
-                depth -= 1
-                if depth == 0:
-                    end = i + 1
-                    break
-        if end is None:
-            continue
-        if any(chunk.name == name and chunk.start_byte == start for chunk in chunks):
-            continue
-        content = source[start:end]
-        line_start = source.count("\n", 0, start) + 1
-        line_end = source.count("\n", 0, end) + 1
-        chunks.append(
-            Chunk(
-                file_path=file_path,
-                type="CLASS",
-                name=name,
-                start_byte=start,
-                end_byte=end,
-                start_line=line_start,
-                end_line=line_end,
-                content=content,
-                signature=f"class {name}",
-            )
-        )
-
-    for method_match in re.finditer(r"(?:async\s+)?([A-Za-z0-9_]+)\s*\([^)]*\)\s*\{", source, re.MULTILINE):
-        name = method_match.group(1)
-        if name in CONTROL_FLOW_KEYWORDS:
-            continue
-        if name in {chunk.name for chunk in chunks if chunk.type == "FUNCTION"}:
-            continue
-        start = method_match.start()
-        brace_start = source.find("{", start)
-        depth = 0
-        end = None
-        for i in range(brace_start, len(source)):
-            if source[i] == "{":
-                depth += 1
-            elif source[i] == "}":
-                depth -= 1
-                if depth == 0:
-                    end = i + 1
-                    break
-        if end is None:
-            continue
-        if any(chunk.start_byte == start for chunk in chunks):
-            continue
-        content = source[start:end]
-        line_start = source.count("\n", 0, start) + 1
-        line_end = source.count("\n", 0, end) + 1
-        chunks.append(
-            Chunk(
-                file_path=file_path,
-                type="METHOD",
-                name=name,
-                start_byte=start,
-                end_byte=end,
-                start_line=line_start,
-                end_line=line_end,
-                content=content,
-                signature=f"{name}()",
-            )
-        )
-
-    if not chunks:
-        chunks.append(
-            Chunk(
-                file_path=file_path,
-                type="FILE_SUMMARY",
-                name="file",
-                start_byte=0,
-                end_byte=len(source),
-                start_line=1,
-                end_line=max(1, source.count("\n") + 1),
-                content=source,
-                signature="file",
-            )
-        )
-
-    return sorted(chunks, key=lambda chunk: (chunk.start_byte, chunk.end_byte))
+def _node_text(raw_bytes: bytes, node: Node) -> str:
+    return raw_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
 
 
-def _treesitter_chunk_source(source: str, file_path: str) -> list[Chunk]:
-    """Tree-sitter AST-based chunker for precise code extraction."""
-    import tree_sitter
+def _extract_js_signature(raw_bytes: bytes, node: Node) -> str:
+    """Extract declaration header up to the opening brace or arrow."""
+    text = _node_text(raw_bytes, node).strip()
+    brace_idx = text.find("{")
+    if brace_idx != -1:
+        sig = text[:brace_idx].strip()
+        if sig:
+            return sig
+    arrow_idx = text.find("=>")
+    if arrow_idx != -1:
+        sig = text[:arrow_idx + 2].strip()
+        if sig:
+            return sig
+    newline_idx = text.find("\n")
+    if newline_idx != -1:
+        return text[:newline_idx].strip()
+    return text[:200]
 
-    from app.parser.languages import LANGUAGE_REGISTRY
 
-    _, ext = os.path.splitext(file_path)
-    if ext not in LANGUAGE_REGISTRY:
+def _extract_py_signature(raw_bytes: bytes, node: Node) -> str:
+    """Extract def/class header line."""
+    text = _node_text(raw_bytes, node).strip()
+    colon_idx = text.find(":")
+    if colon_idx != -1:
+        return text[:colon_idx + 1].strip()
+    newline_idx = text.find("\n")
+    if newline_idx != -1:
+        return text[:newline_idx].strip()
+    return text[:200]
+
+
+def _split_oversized_function(
+    raw_bytes: bytes,
+    file_path: str,
+    node: Node,
+    name: str,
+    parent: Optional[str],
+    signature: str,
+    chunk_type: str = "FUNCTION",
+    max_lines: int = 80,
+    max_bytes: int = 2500,
+) -> list[Chunk]:
+    """Split an oversized function at top-level statement boundaries."""
+    node_bytes_len = node.end_byte - node.start_byte
+    line_count = _compute_line(raw_bytes, node.end_byte) - _compute_line(raw_bytes, node.start_byte) + 1
+
+    if line_count <= max_lines and node_bytes_len <= max_bytes:
         return []
 
-    lang, queries = LANGUAGE_REGISTRY[ext]
-    parser = tree_sitter.Parser(lang)
-    tree = parser.parse(bytes(source, "utf8"))
-    root_node = tree.root_node
+    # Find the body block
+    body_node = None
+    for child in node.children:
+        if child.type in ("statement_block", "block", "class_body"):
+            body_node = child
+            break
 
-    chunks: list[Chunk] = []
-    seen_ranges: set[tuple[int, int]] = set()
-    seen_names_at_line: set[tuple[str, int]] = set()  # (name, start_line) for dedup
+    if not body_node or not body_node.children:
+        return []
 
-    def _find_parent_class(node) -> str | None:
-        """Walk up the tree to find an enclosing class name."""
-        curr = node.parent
-        while curr:
-            if curr.type in ("class_declaration", "class_definition"):
-                for child in curr.children:
-                    if child.type == "identifier":
-                        return source[child.start_byte : child.end_byte]
-            curr = curr.parent
-        return None
+    # Collect meaningful statement children (skip braces/colons)
+    statements = [
+        child for child in body_node.children
+        if child.type not in ("{", "}", ":", ";") and (child.end_byte > child.start_byte)
+    ]
 
-    for chunk_type, query_str in queries.items():
-        query = tree_sitter.Query(lang, query_str)
-        cursor = tree_sitter.QueryCursor(query)
-        matches = list(cursor.matches(root_node))
+    if len(statements) < 2:
+        return []
 
-        for _pattern_idx, capture_dict in matches:
-            # capture_dict is {capture_name: [Node, ...]}
-            target_node = None
-            name_str = ""
+    pieces: list[Chunk] = []
+    current_start: Optional[int] = None
+    current_end: Optional[int] = None
+    accumulated_lines = 0
 
-            # Get the target node (the full definition)
-            for key in ("full", "definition"):
-                nodes = capture_dict.get(key, [])
-                if nodes:
-                    target_node = nodes[0]
-                    break
-
-            if target_node is None:
-                continue
-
-            # Get the name
-            name_nodes = capture_dict.get("name", [])
-            if name_nodes:
-                n = name_nodes[0]
-                name_str = source[n.start_byte : n.end_byte]
-            elif chunk_type == "DECORATED":
-                # For decorated definitions, dig into children for the function name
-                for child in target_node.children:
-                    if child.type in ("function_definition", "class_definition"):
-                        for gc in child.children:
-                            if gc.type == "identifier":
-                                name_str = source[gc.start_byte : gc.end_byte]
-                                break
-                        break
-
-            if not name_str:
-                name_str = "unknown"
-
-            start_line = target_node.start_point[0] + 1
-            name_key = (name_str, start_line)
-            if name_key in seen_names_at_line:
-                continue
-            seen_names_at_line.add(name_key)
-
-            node_range = (target_node.start_byte, target_node.end_byte)
-            if node_range in seen_ranges:
-                continue
-            seen_ranges.add(node_range)
-
-            start_byte = target_node.start_byte
-            end_byte = target_node.end_byte
-            end_line = target_node.end_point[0] + 1
-            content = source[start_byte:end_byte]
-            sig_line = content.split("\n")[0][:200]
-
-            # Determine chunk type
-            final_type = "FUNCTION"
-            if chunk_type == "CLASS":
-                final_type = "CLASS"
-            elif chunk_type == "METHOD":
-                final_type = "METHOD"
-            elif chunk_type == "DECORATED":
-                # Check if it's a decorated class or function
-                for child in target_node.children:
-                    if child.type == "class_definition":
-                        final_type = "CLASS"
-                        break
-                else:
-                    parent_class = _find_parent_class(target_node)
-                    final_type = "METHOD" if parent_class else "FUNCTION"
-            else:
-                parent_class = _find_parent_class(target_node)
-                if parent_class:
-                    final_type = "METHOD"
-
-            parent_name = _find_parent_class(target_node) if final_type != "CLASS" else None
-
-            chunks.append(
+    def flush_piece():
+        nonlocal current_start, current_end, accumulated_lines
+        if current_start is not None and current_end is not None and current_end > current_start:
+            content = raw_bytes[current_start:current_end].decode("utf-8", errors="replace")
+            s_line = _compute_line(raw_bytes, current_start)
+            e_line = _compute_line(raw_bytes, current_end)
+            part_idx = len(pieces) + 1
+            pieces.append(
                 Chunk(
                     file_path=file_path,
-                    type=final_type,
-                    name=name_str,
-                    start_byte=start_byte,
-                    end_byte=end_byte,
-                    start_line=start_line,
-                    end_line=end_line,
-                    parent=parent_name,
+                    type=chunk_type,
+                    name=f"{name}_part{part_idx}",
+                    start_byte=current_start,
+                    end_byte=current_end,
+                    start_line=s_line,
+                    end_line=e_line,
+                    parent=name,
                     content=content,
-                    signature=sig_line,
+                    signature=signature,
                 )
             )
+        current_start = None
+        current_end = None
+        accumulated_lines = 0
 
+    for stmt in statements:
+        s_line = _compute_line(raw_bytes, stmt.start_byte)
+        e_line = _compute_line(raw_bytes, stmt.end_byte)
+        stmt_lines = e_line - s_line + 1
+
+        if current_start is None:
+            current_start = stmt.start_byte
+            current_end = stmt.end_byte
+            accumulated_lines = stmt_lines
+        else:
+            if accumulated_lines + stmt_lines > 40 or (stmt.end_byte - current_start) > 1500:
+                flush_piece()
+                current_start = stmt.start_byte
+                current_end = stmt.end_byte
+                accumulated_lines = stmt_lines
+            else:
+                current_end = stmt.end_byte
+                accumulated_lines += stmt_lines
+
+    flush_piece()
+    return pieces
+
+
+def _chunk_javascript(raw_bytes: bytes, file_path: str, root_node: Node) -> List[Chunk]:
+    chunks: List[Chunk] = []
+    seen_spans: set[tuple[int, int]] = set()
+
+    def add_chunk(
+        node: Node,
+        chunk_type: str,
+        name: str,
+        parent: Optional[str] = None,
+        signature: str = "",
+        allow_split: bool = True,
+    ):
+        span = (node.start_byte, node.end_byte)
+        if span in seen_spans or node.end_byte <= node.start_byte:
+            return
+        seen_spans.add(span)
+
+        content = raw_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+        start_line = _compute_line(raw_bytes, node.start_byte)
+        end_line = _compute_line(raw_bytes, node.end_byte)
+
+        if not signature:
+            signature = _extract_js_signature(raw_bytes, node)
+
+        # Check if oversized
+        if allow_split:
+            parts = _split_oversized_function(
+                raw_bytes, file_path, node, name, parent, signature, chunk_type=chunk_type
+            )
+            if parts:
+                chunks.extend(parts)
+                return
+
+        chunks.append(
+            Chunk(
+                file_path=file_path,
+                type=chunk_type,
+                name=name,
+                start_byte=node.start_byte,
+                end_byte=node.end_byte,
+                start_line=start_line,
+                end_line=end_line,
+                parent=parent,
+                content=content,
+                signature=signature,
+            )
+        )
+
+    def visit(node: Node, current_class: Optional[str] = None, parent_name: Optional[str] = None):
+        ntype = node.type
+
+        if ntype == "export_statement":
+            # Unwrap exported declaration if present, or let children be visited
+            for child in node.children:
+                if child.type in (
+                    "function_declaration", "generator_function_declaration",
+                    "class_declaration", "lexical_declaration", "variable_declaration"
+                ):
+                    visit(child, current_class=current_class, parent_name=parent_name)
+                    return
+            # If export default expression
+            for child in node.children:
+                if child.type in ("arrow_function", "function_expression"):
+                    add_chunk(node, "FUNCTION", "default_export", parent=parent_name)
+                    return
+
+        elif ntype in ("function_declaration", "generator_function_declaration"):
+            name_node = node.child_by_field_name("name")
+            name = _node_text(raw_bytes, name_node) if name_node else "anonymous"
+            sig = _extract_js_signature(raw_bytes, node)
+            add_chunk(node, "FUNCTION", name, parent=current_class or parent_name, signature=sig)
+            return
+
+        elif ntype in ("lexical_declaration", "variable_declaration"):
+            for child in node.children:
+                if child.type == "variable_declarator":
+                    name_node = child.child_by_field_name("name")
+                    value_node = child.child_by_field_name("value")
+                    if name_node and value_node and value_node.type in ("arrow_function", "function_expression"):
+                        name = _node_text(raw_bytes, name_node)
+                        sig = _extract_js_signature(raw_bytes, node)
+                        add_chunk(node, "FUNCTION", name, parent=current_class or parent_name, signature=sig)
+                        return
+                    elif name_node and value_node and value_node.type == "object":
+                        # Object with possible methods
+                        obj_name = _node_text(raw_bytes, name_node)
+                        for prop in value_node.children:
+                            if prop.type == "method_definition":
+                                m_name_node = prop.child_by_field_name("name")
+                                m_name = _node_text(raw_bytes, m_name_node) if m_name_node else "method"
+                                sig = _extract_js_signature(raw_bytes, prop)
+                                add_chunk(prop, "METHOD", m_name, parent=obj_name, signature=sig)
+                            elif prop.type == "pair":
+                                key_node = prop.child_by_field_name("key")
+                                val_node = prop.child_by_field_name("value")
+                                if key_node and val_node and val_node.type in ("arrow_function", "function_expression"):
+                                    m_name = _node_text(raw_bytes, key_node)
+                                    sig = _extract_js_signature(raw_bytes, prop)
+                                    add_chunk(prop, "METHOD", m_name, parent=obj_name, signature=sig)
+                        return
+
+        elif ntype == "class_declaration":
+            name_node = node.child_by_field_name("name")
+            class_name = _node_text(raw_bytes, name_node) if name_node else "AnonymousClass"
+            sig = f"class {class_name}"
+            add_chunk(node, "CLASS", class_name, parent=parent_name, signature=sig, allow_split=False)
+            # Visit methods and fields inside class body
+            body_node = node.child_by_field_name("body")
+            if body_node:
+                for member in body_node.children:
+                    if member.type == "method_definition":
+                        m_name_node = member.child_by_field_name("name")
+                        m_name = _node_text(raw_bytes, m_name_node) if m_name_node else "method"
+                        sig = _extract_js_signature(raw_bytes, member)
+                        add_chunk(member, "METHOD", m_name, parent=class_name, signature=sig)
+                    elif member.type == "field_definition":
+                        prop_name_node = member.child_by_field_name("property")
+                        val_node = member.child_by_field_name("value")
+                        if prop_name_node and val_node and val_node.type in ("arrow_function", "function_expression"):
+                            f_name = _node_text(raw_bytes, prop_name_node)
+                            sig = _extract_js_signature(raw_bytes, member)
+                            add_chunk(member, "CLASS_FIELD", f_name, parent=class_name, signature=sig)
+            return
+
+        for child in node.children:
+            visit(child, current_class=current_class, parent_name=parent_name)
+
+    visit(root_node)
     return chunks
 
 
-def chunk_source(source: str, file_path: str) -> list[Chunk]:
-    """Parse source code into semantically meaningful chunks.
+def _chunk_python(raw_bytes: bytes, file_path: str, root_node: Node) -> List[Chunk]:
+    chunks: List[Chunk] = []
+    seen_spans: set[tuple[int, int]] = set()
 
-    Uses tree-sitter AST parsing when available, with a regex fallback.
-    Returns a sorted list of Chunk objects with exact byte and line ranges.
-    """
-    # Try tree-sitter first
-    try:
-        from app.parser.languages import LANGUAGE_REGISTRY
+    def add_chunk(
+        node: Node,
+        chunk_type: str,
+        name: str,
+        parent: Optional[str] = None,
+        signature: str = "",
+        allow_split: bool = True,
+    ):
+        span = (node.start_byte, node.end_byte)
+        if span in seen_spans or node.end_byte <= node.start_byte:
+            return
+        seen_spans.add(span)
 
-        if LANGUAGE_REGISTRY:
-            chunks = _treesitter_chunk_source(source, file_path)
-            if chunks:
-                return sorted(chunks, key=lambda c: (c.start_byte, c.end_byte))
-    except Exception as e:
-        logger.debug("Tree-sitter chunking failed, using fallback: %s", e)
+        content = raw_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+        start_line = _compute_line(raw_bytes, node.start_byte)
+        end_line = _compute_line(raw_bytes, node.end_byte)
 
-    # Fall back to regex
-    chunks = _fallback_chunk_source(source, file_path)
-    if chunks:
-        return chunks
+        if not signature:
+            signature = _extract_py_signature(raw_bytes, node)
 
-    # Ultimate fallback: whole file as one chunk
-    return [
-        Chunk(
-            file_path=file_path,
-            type="FILE_SUMMARY",
-            name="file",
-            start_byte=0,
-            end_byte=len(source),
-            start_line=1,
-            end_line=max(1, source.count("\n") + 1),
-            content=source,
-            signature="file",
+        if allow_split:
+            parts = _split_oversized_function(
+                raw_bytes, file_path, node, name, parent, signature, chunk_type=chunk_type
+            )
+            if parts:
+                chunks.extend(parts)
+                return
+
+        chunks.append(
+            Chunk(
+                file_path=file_path,
+                type=chunk_type,
+                name=name,
+                start_byte=node.start_byte,
+                end_byte=node.end_byte,
+                start_line=start_line,
+                end_line=end_line,
+                parent=parent,
+                content=content,
+                signature=signature,
+            )
         )
-    ]
+
+    def visit(node: Node, current_class: Optional[str] = None):
+        ntype = node.type
+
+        if ntype == "function_definition":
+            name_node = node.child_by_field_name("name")
+            name = _node_text(raw_bytes, name_node) if name_node else "function"
+            sig = _extract_py_signature(raw_bytes, node)
+            c_type = "METHOD" if current_class else "FUNCTION"
+            add_chunk(node, c_type, name, parent=current_class, signature=sig)
+            # Do not recurse into nested defs as separate chunks unless desired
+            return
+
+        elif ntype == "class_definition":
+            name_node = node.child_by_field_name("name")
+            class_name = _node_text(raw_bytes, name_node) if name_node else "Class"
+            sig = f"class {class_name}"
+            add_chunk(node, "CLASS", class_name, parent=None, signature=sig, allow_split=False)
+            body_node = node.child_by_field_name("body")
+            if body_node:
+                for child in body_node.children:
+                    visit(child, current_class=class_name)
+            return
+
+        for child in node.children:
+            visit(child, current_class=current_class)
+
+    visit(root_node)
+    return chunks
+
+
+def chunk_source(source: str, file_path: str) -> List[Chunk]:
+    """
+    Unified AST chunker using Tree-Sitter for JavaScript/TypeScript and Python.
+    Guarantees 100.0% span fidelity: source_bytes[chunk.start_byte:chunk.end_byte] == chunk.content.encode('utf-8').
+    Always produces a FILE_SUMMARY chunk for every file.
+    """
+    raw_bytes = source.encode("utf-8")
+    parser, lang = _get_parser_and_lang(file_path)
+    tree = parser.parse(raw_bytes)
+    root = tree.root_node
+
+    ext = Path(file_path).suffix.lower()
+    if ext == ".py":
+        ast_chunks = _chunk_python(raw_bytes, file_path, root)
+    else:
+        ast_chunks = _chunk_javascript(raw_bytes, file_path, root)
+
+    # Always generate a FILE_SUMMARY chunk for every file
+    file_summary_chunk = Chunk(
+        file_path=file_path,
+        type="FILE_SUMMARY",
+        name="file_summary",
+        start_byte=0,
+        end_byte=len(raw_bytes),
+        start_line=1,
+        end_line=max(1, _compute_line(raw_bytes, len(raw_bytes))),
+        parent=None,
+        content=source,
+        signature="file_summary",
+    )
+
+    all_chunks = [file_summary_chunk] + ast_chunks
+    return sorted(all_chunks, key=lambda c: (c.start_byte, c.end_byte))

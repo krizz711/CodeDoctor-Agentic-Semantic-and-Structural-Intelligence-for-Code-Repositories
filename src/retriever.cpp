@@ -47,12 +47,6 @@ std::vector<SearchResult> Retriever::search(const std::string& query) const {
             item.score = 1.0;
             addUnique(std::move(item));
         }
-        if (term == "authentication" || term == "authenticate") {
-            for (auto item : indexer_.keywordSearch("auth")) {
-                item.score = 0.9;
-                addUnique(std::move(item));
-            }
-        }
     }
 
     std::sort(results.begin(), results.end(), [](const SearchResult& left, const SearchResult& right) {

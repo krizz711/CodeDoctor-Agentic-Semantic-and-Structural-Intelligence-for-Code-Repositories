@@ -1,0 +1,22 @@
+# CodeDoctor Frozen Configuration (I2 Checkpoint)
+# Pinned for official MTEB benchmark submission and production retrieval
+
+encoder:
+  production_model: "codefuse-ai/F2LLM-v2-0.6B"
+  similarity_metric: "cosine"
+  device: "cpu"
+  max_seq_length: 512
+  query_max_seq_length: 1024
+  document_max_seq_length: 512
+  query_prefix: "Instruct: Given a coding task, retrieve relevant code snippet\nQuery: "
+  document_prefix: ""
+  normalize_embeddings: true
+
+fusion:
+  rrf_k: 60
+  weights:
+    exact: 1.0
+    bm25: 1.0
+    dense: 1.0
+  max_candidates: 50
+  final_limit: 10

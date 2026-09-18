@@ -1,0 +1,10 @@
+# GPU Evaluation Dependencies (Google Colab T4 / CUDA 12.x)
+torch>=2.2.0
+sentence-transformers>=3.0.0
+accelerate>=0.28.0
+mteb>=2.0.0
+datasets>=2.18.0
+faiss-cpu>=1.8.0
+pyyaml>=6.0
+numpy>=1.24.0
+scipy>=1.11.0

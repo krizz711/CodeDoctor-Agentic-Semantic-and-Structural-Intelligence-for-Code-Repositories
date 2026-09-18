@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import hashlib
 import json
-from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+import re
+import subprocess
+from typing import Any, Iterable, Mapping, Optional, Sequence
 
+from app.indexing.sqlite_index import SQLiteIndex
+from app.parser.chunker import chunk_source
 from app.retrieval.hybrid import Document, HybridRetriever, RankedDocument
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
 
 
 @dataclass(frozen=True)
@@ -19,34 +20,251 @@ class VersionedDocument:
     content_hash: str
 
     @classmethod
-    def create(cls, commit: str, document: Document) -> VersionedDocument:
+    def create(cls, commit: str, document: Document) -> "VersionedDocument":
         digest = hashlib.sha256(document.content.encode("utf-8")).hexdigest()
         return cls(commit, document, digest)
 
 
+@dataclass
+class CommitMetadata:
+    sha: str
+    parents: list[str]
+    message: str
+    author: str
+    timestamp: int
+    files_changed: list[str]
+
+
+@dataclass
+class DiffHunk:
+    commit: str
+    file_path: str
+    header: str
+    content: str
+    score: float = 0.0
+
+
+class GitVersionManager:
+    """Helper to read actual git history and diffs via git plumbing."""
+
+    @staticmethod
+    def run_git(repo_path: Path, args: list[str]) -> str:
+        res = subprocess.run(
+            ["git", "-C", str(repo_path)] + args,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return res.stdout.strip()
+
+    @classmethod
+    def resolve_sha(cls, repo_path: Path, ref: str = "HEAD") -> str:
+        return cls.run_git(repo_path, ["rev-parse", ref])
+
+    @classmethod
+    def list_tree(cls, repo_path: Path, commit: str) -> list[str]:
+        output = cls.run_git(repo_path, ["ls-tree", "-r", "--name-only", commit])
+        return [line.strip() for line in output.splitlines() if line.strip()]
+
+    @classmethod
+    def cat_file(cls, repo_path: Path, commit: str, rel_path: str) -> str:
+        return cls.run_git(repo_path, ["show", f"{commit}:{rel_path}"])
+
+    @classmethod
+    def get_commit_info(cls, repo_path: Path, commit: str) -> CommitMetadata:
+        fmt = "%H%x00%P%x00%an%x00%at%x00%s"
+        out = cls.run_git(repo_path, ["show", "-s", f"--format={fmt}", commit])
+        parts = out.split("\x00")
+        sha = parts[0]
+        parents = parts[1].split() if parts[1] else []
+        author = parts[2]
+        timestamp = int(parts[3]) if parts[3].isdigit() else 0
+        message = parts[4]
+
+        # Changed files
+        files_out = cls.run_git(repo_path, ["diff-tree", "--no-commit-id", "--name-only", "-r", commit])
+        files_changed = [f.strip() for f in files_out.splitlines() if f.strip()]
+
+        return CommitMetadata(
+            sha=sha,
+            parents=parents,
+            message=message,
+            author=author,
+            timestamp=timestamp,
+            files_changed=files_changed,
+        )
+
+    @classmethod
+    def get_diff_hunks(cls, repo_path: Path, commit: str, file_path: Optional[str] = None) -> list[DiffHunk]:
+        args = ["show", "--unified=3", commit]
+        if file_path:
+            args.extend(["--", file_path])
+        diff_text = cls.run_git(repo_path, args)
+
+        hunks: list[DiffHunk] = []
+        current_file = file_path or ""
+        current_header = ""
+        current_lines: list[str] = []
+
+        for line in diff_text.splitlines():
+            if line.startswith("+++ b/"):
+                current_file = line[6:]
+            elif line.startswith("@@"):
+                if current_lines:
+                    hunks.append(
+                        DiffHunk(
+                            commit=commit,
+                            file_path=current_file,
+                            header=current_header,
+                            content="\n".join(current_lines),
+                        )
+                    )
+                    current_lines = []
+                current_header = line
+            elif current_header:
+                current_lines.append(line)
+
+        if current_lines:
+            hunks.append(
+                DiffHunk(
+                    commit=commit,
+                    file_path=current_file,
+                    header=current_header,
+                    content="\n".join(current_lines),
+                )
+            )
+        return hunks
+
+
 class VersionedIndex:
+    """
+    Real git-backed or snapshot-backed versioned index.
+    Strict membership decides eligibility:
+    A query pinned at commit K sees that commit's chunks and nothing else.
+    Unknown commits fail explicitly (never silently falls back to HEAD).
+    """
+
     def __init__(self) -> None:
         self._snapshots: dict[str, list[VersionedDocument]] = {}
-        self._retriever_cache: dict[str, HybridRetriever] = {}
+        self._commit_metadata: dict[str, CommitMetadata] = {}
 
     def add_snapshot(self, commit: str, documents: Iterable[Document]) -> None:
-        self._snapshots[commit] = [VersionedDocument.create(commit, document) for document in documents]
-        self._retriever_cache.pop(commit, None)  # invalidate cache on update
+        self._snapshots[commit] = [VersionedDocument.create(commit, doc) for doc in documents]
+
+    def index_git_commit(self, repo_path: str | Path, commit: str) -> None:
+        repo = Path(repo_path).resolve()
+        sha = GitVersionManager.resolve_sha(repo, commit)
+        meta = GitVersionManager.get_commit_info(repo, sha)
+        self._commit_metadata[sha] = meta
+
+        files = GitVersionManager.list_tree(repo, sha)
+        docs: list[Document] = []
+        for rel in files:
+            ext = Path(rel).suffix.lower()
+            if ext not in {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".py"}:
+                continue
+            try:
+                source = GitVersionManager.cat_file(repo, sha, rel)
+            except Exception:
+                continue
+
+            chunks = chunk_source(source, rel)
+            for chunk in chunks:
+                docs.append(
+                    Document(
+                        document_id=chunk.chunk_id,
+                        file_path=chunk.file_path,
+                        content=chunk.content,
+                        name=chunk.name,
+                        type=chunk.type,
+                        start_line=chunk.start_line,
+                        end_line=chunk.end_line,
+                        start_byte=chunk.start_byte,
+                        end_byte=chunk.end_byte,
+                        signature=chunk.signature,
+                    )
+                )
+
+        self.add_snapshot(sha, docs)
+        # Also index under short ref if different
+        if commit != sha:
+            self._snapshots[commit] = self._snapshots[sha]
 
     def commits(self) -> list[str]:
-        return sorted(self._snapshots)
+        return sorted(self._snapshots.keys())
 
     def retrieve(self, query: str, commit: str, limit: int = 10) -> list[RankedDocument]:
+        """
+        Retrieves results strictly from the specified commit snapshot.
+        Raises KeyError if the snapshot is not indexed.
+        """
         if commit not in self._snapshots:
             raise KeyError(f"Snapshot {commit} is not indexed")
-        if commit not in self._retriever_cache:
-            documents = [item.document for item in self._snapshots[commit]]
-            self._retriever_cache[commit] = HybridRetriever(documents)
-        return self._retriever_cache[commit].search(query, limit=limit)
+
+        docs = [item.document for item in self._snapshots[commit]]
+        if not docs:
+            return []
+        retriever = HybridRetriever(docs)
+        return retriever.search(query, limit=limit)
 
     def verify_no_cross_commit_leakage(self, results: Sequence[RankedDocument], commit: str) -> bool:
-        allowed = {item.document.document_id for item in self._snapshots.get(commit, [])}
-        return all(result.document.document_id in allowed for result in results)
+        if commit not in self._snapshots:
+            return False
+        allowed_ids = {item.document.document_id for item in self._snapshots[commit]}
+        return all(r.document.document_id in allowed_ids for r in results)
+
+    def find_when_changed(
+        self,
+        query: str,
+        repo_path: Optional[str | Path] = None,
+        file_path: Optional[str] = None,
+        limit: int = 5,
+    ) -> list[dict[str, Any]]:
+        """
+        Answers 'when did X change' queries.
+        Ranks commits by matching query tokens against commit messages and diff hunks.
+        """
+        results: list[dict[str, Any]] = []
+        tokens = set(re.findall(r"[a-zA-Z0-9_]+", query.lower()))
+
+        for commit_sha in self.commits():
+            meta = self._commit_metadata.get(commit_sha)
+            score = 0.0
+            matching_hunks: list[str] = []
+
+            if meta:
+                # BM25-style lexical matching over commit message
+                msg_tokens = set(re.findall(r"[a-zA-Z0-9_]+", meta.message.lower()))
+                common = tokens.intersection(msg_tokens)
+                if common:
+                    score += len(common) * 2.0
+
+            # Inspect diff hunks if git repo provided
+            if repo_path:
+                try:
+                    hunks = GitVersionManager.get_diff_hunks(Path(repo_path), commit_sha, file_path)
+                    for hunk in hunks:
+                        hunk_tokens = set(re.findall(r"[a-zA-Z0-9_]+", hunk.content.lower()))
+                        hunk_common = tokens.intersection(hunk_tokens)
+                        if hunk_common:
+                            score += len(hunk_common) * 1.5
+                            matching_hunks.append(hunk.header + "\n" + hunk.content[:200])
+                except Exception:
+                    pass
+
+            if score > 0 or not tokens:
+                results.append(
+                    {
+                        "commit": commit_sha,
+                        "message": meta.message if meta else "",
+                        "author": meta.author if meta else "",
+                        "score": score,
+                        "hunks": matching_hunks[:3],
+                    }
+                )
+
+        results.sort(key=lambda x: x["score"], reverse=True)
+        return results[:limit]
 
     def save(self, path: str | Path) -> None:
         payload = {
@@ -59,6 +277,9 @@ class VersionedIndex:
                     "type": item.document.type,
                     "start_line": item.document.start_line,
                     "end_line": item.document.end_line,
+                    "start_byte": item.document.start_byte,
+                    "end_byte": item.document.end_byte,
+                    "signature": item.document.signature,
                     "content_hash": item.content_hash,
                 }
                 for item in documents
@@ -68,19 +289,22 @@ class VersionedIndex:
         Path(path).write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     @classmethod
-    def load(cls, path: str | Path) -> VersionedIndex:
+    def load(cls, path: str | Path) -> "VersionedIndex":
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
         index = cls()
         for commit, rows in payload.items():
             documents = [
                 Document(
-                    row["document_id"],
-                    row["file_path"],
-                    row["content"],
-                    row.get("name", ""),
-                    row.get("type", ""),
-                    row.get("start_line", 1),
-                    row.get("end_line", 1),
+                    document_id=row["document_id"],
+                    file_path=row["file_path"],
+                    content=row["content"],
+                    name=row.get("name", ""),
+                    type=row.get("type", ""),
+                    start_line=row.get("start_line", 1),
+                    end_line=row.get("end_line", 1),
+                    start_byte=row.get("start_byte", 0),
+                    end_byte=row.get("end_byte", len(row["content"])),
+                    signature=row.get("signature", ""),
                 )
                 for row in rows
             ]

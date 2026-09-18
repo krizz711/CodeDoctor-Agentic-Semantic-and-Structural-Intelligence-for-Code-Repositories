@@ -10,3 +10,5 @@ python scripts/evaluate_mteb.py --output appsretrieval_results.json
 ```
 
 The official evaluator downloads the Apps dataset and model at runtime. It is kept separate from the default CPU-only development dependencies.
+
+The model catalog is independent of the evaluator. Use `python scripts/list_models.py` to inspect all aliases and `--configured-only` to see providers available from the current environment.

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 
 def validate(path: Path) -> list[str]:
@@ -15,23 +16,35 @@ def validate(path: Path) -> list[str]:
     if not isinstance(payload, dict):
         return ["Submission result must be a JSON object"]
 
-    metrics = payload.get("metrics")
-    if metrics is not None:
-        for name in ("mrr", "ndcg_at_10"):
-            value = metrics.get(name) if isinstance(metrics, dict) else None
-            if not isinstance(value, (int, float)) or not 0 <= value <= 1:
-                errors.append(f"metrics.{name} must be a number between 0 and 1")
+    # Official MTEB TaskResult format {"scores": {"test": [{"ndcg_at_10": ..., "mrr_at_10": ...}]}}
+    scores = payload.get("scores")
+    if not isinstance(scores, dict) or not scores:
+        return ["Missing or invalid 'scores' object in MTEB results"]
 
-    task_results = payload.get("task_results")
-    if task_results is not None and not isinstance(task_results, list):
-        errors.append("task_results must be a list when present")
+    found_valid_split = False
+    for split_name, split_metrics in scores.items():
+        items = split_metrics if isinstance(split_metrics, list) else [split_metrics]
+        for sub in items:
+            if isinstance(sub, dict) and ("ndcg_at_10" in sub or "mrr_at_10" in sub):
+                found_valid_split = True
+                for key in ("ndcg_at_10", "mrr_at_10"):
+                    if key not in sub:
+                        errors.append(f"Missing required metric '{key}' in split '{split_name}'")
+                        continue
+                    val = sub[key]
+                    if not isinstance(val, (int, float)):
+                        errors.append(f"scores.{split_name}.{key} must be a number (got {type(val).__name__})")
+                    elif val <= 0.0:
+                        errors.append(
+                            f"scores.{split_name}.{key} must be strictly positive (> 0.0), got {val} "
+                            "(poisoned / unranked artifact)"
+                        )
+                    elif val > 1.0:
+                        errors.append(f"scores.{split_name}.{key} must be <= 1.0, got {val}")
 
-    predictions = payload.get("predictions")
-    if predictions is not None and not isinstance(predictions, list):
-        errors.append("predictions must be a list when present")
+    if not found_valid_split:
+        errors.append("No evaluation split in 'scores' contains valid 'ndcg_at_10' and 'mrr_at_10' metrics")
 
-    if not metrics and not task_results:
-        errors.append("Expected local metrics or MTEB task_results")
     return errors
 
 

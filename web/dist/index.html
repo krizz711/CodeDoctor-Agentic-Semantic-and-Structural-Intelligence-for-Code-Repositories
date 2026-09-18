@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeDoctor — Grounded Code Intelligence</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            vscode: {
+              bg: '#1e1e1e',
+              sidebar: '#252526',
+              active: '#37373d',
+              border: '#3c3c3c',
+              accent: '#007acc',
+              text: '#cccccc',
+              muted: '#858585',
+              yellow: '#dcdcaa',
+              green: '#4ec9b0',
+              blue: '#569cd6',
+              orange: '#ce9178',
+              badge: '#2d2d2d'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <!-- Google Fonts: JetBrains Mono & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #1e1e1e;
+      color: #cccccc;
+    }
+    code, pre, .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #1e1e1e;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #3c3c3c;
+      border-radius: 3px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #555555;
+    }
+    .span-highlight {
+      background-color: rgba(255, 215, 0, 0.15);
+      border-left: 3px solid #e5c07b;
+    }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden bg-vscode-bg text-vscode-text select-none">
+
+  <!-- Top Navigation / Search Bar -->
+  <header class="h-12 bg-vscode-sidebar border-b border-vscode-border px-4 flex items-center justify-between shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-2">
+        <svg class="w-5 h-5 text-vscode-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        </svg>
+        <span class="font-semibold tracking-tight text-white">CodeDoctor</span>
+        <span class="text-xs px-2 py-0.5 rounded bg-vscode-badge text-vscode-muted font-mono" id="repo-badge">repository</span>
+      </div>
+      <div class="h-4 w-[1px] bg-vscode-border mx-1"></div>
+      <div class="flex items-center space-x-2 text-xs text-vscode-muted font-mono">
+        <span class="flex items-center space-x-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+          </svg>
+          <span id="header-branch">main</span>
+        </span>
+        <span>•</span>
+        <span id="header-commit">HEAD</span>
+      </div>
+    </div>
+
+    <!-- Central Search Input -->
+    <div class="flex-1 max-w-2xl mx-6">
+      <div class="relative flex items-center">
+        <input
+          id="search-input"
+          type="text"
+          placeholder="Search repository: natural language, symbol, or question... (e.g. 'Where is authentication handled?')"
+          class="w-full bg-vscode-bg border border-vscode-border rounded px-3 py-1.5 pl-9 text-xs text-white placeholder-vscode-muted focus:outline-none focus:border-vscode-accent font-mono transition-colors"
+          onkeydown="if(event.key === 'Enter') handleSearch()"
+        />
+        <svg class="w-4 h-4 text-vscode-muted absolute left-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <button
+          onclick="handleSearch()"
+          class="absolute right-1.5 px-2.5 py-0.5 bg-vscode-accent hover:bg-blue-600 text-white rounded text-xs font-medium transition-colors"
+        >
+          Search
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Controls: Commit Selector & Index Trigger -->
+    <div class="flex items-center space-x-3 text-xs">
+      <select
+        id="commit-selector"
+        onchange="handleCommitChange(this.value)"
+        class="bg-vscode-bg border border-vscode-border text-vscode-text rounded px-2 py-1 text-xs focus:outline-none focus:border-vscode-accent font-mono"
+      >
+        <option value="">Current Workspace (HEAD)</option>
+      </select>
+      <button
+        onclick="triggerReindex()"
+        class="flex items-center space-x-1.5 px-2.5 py-1 bg-vscode-badge hover:bg-vscode-active border border-vscode-border rounded text-white transition-colors"
+        title="Trigger Incremental Re-Index"
+      >
+        <svg id="sync-icon" class="w-3.5 h-3.5 text-vscode-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        <span>Re-index</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Error Banner (Shown when backend is down or errors occur) -->
+  <div id="error-banner" class="hidden bg-red-900/60 border-b border-red-700 px-4 py-2 text-xs text-red-200 flex items-center justify-between">
+    <div class="flex items-center space-x-2">
+      <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span id="error-message">Backend connection failed.</span>
+    </div>
+    <button onclick="dismissError()" class="text-red-300 hover:text-white font-bold">&times;</button>
+  </div>
+
+  <!-- Historical Commit Notice Banner -->
+  <div id="historical-banner" class="hidden bg-amber-950/70 border-b border-amber-700 px-4 py-1.5 text-xs text-amber-200 flex items-center justify-between">
+    <div class="flex items-center space-x-2">
+      <span class="font-semibold uppercase tracking-wider text-[10px] bg-amber-700/80 text-white px-1.5 py-0.5 rounded">Historical Version</span>
+      <span>Retrieval is strictly isolated to commit <span id="banner-commit-sha" class="font-mono font-bold"></span>. Cross-commit leakage is zero.</span>
+    </div>
+    <button onclick="resetToHead()" class="text-amber-300 hover:underline">Return to HEAD</button>
+  </div>
+
+  <!-- Main 3-Column Layout -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- Column 1: Explorer & Index Counters -->
+    <aside class="w-64 bg-vscode-sidebar border-r border-vscode-border flex flex-col shrink-0">
+      <!-- Section Tabs -->
+      <div class="h-9 px-3 border-b border-vscode-border flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-vscode-muted">
+        <span>Explorer</span>
+        <span class="text-[10px] lowercase" id="file-count">0 files</span>
+      </div>
+
+      <!-- File Tree -->
+      <div class="flex-1 overflow-y-auto custom-scrollbar p-2" id="file-tree">
+        <div class="text-xs text-vscode-muted p-2">Loading repository files...</div>
+      </div>
+
+      <!-- Index Status Panel (Phase 3 Counters) -->
+      <div class="border-t border-vscode-border bg-vscode-bg/50 p-3 text-xs">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-semibold uppercase tracking-wider text-[10px] text-vscode-muted">Index Status</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-500" id="status-indicator"></span>
+        </div>
+        <div class="space-y-1.5 font-mono text-[11px]">
+          <div class="flex justify-between">
+            <span class="text-vscode-muted">Total Chunks:</span>
+            <span class="text-white" id="stat-chunks">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-vscode-muted">Cached Embeds:</span>
+            <span class="text-white" id="stat-embeds">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-vscode-muted">Reused:</span>
+            <span class="text-emerald-400" id="stat-reused">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-vscode-muted">Re-embedded:</span>
+            <span class="text-amber-400" id="stat-reembedded">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-vscode-muted">Re-index Latency:</span>
+            <span class="text-vscode-yellow" id="stat-elapsed">-</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Column 2: Search Results & Evidence Bundles -->
+    <section class="w-96 border-r border-vscode-border flex flex-col bg-vscode-bg shrink-0">
+      <!-- Results Header -->
+      <div class="h-9 px-3 border-b border-vscode-border flex items-center justify-between text-xs text-vscode-muted">
+        <span class="font-semibold uppercase tracking-wider text-[10px]" id="results-count-title">Evidence Results</span>
+        <span class="font-mono text-[11px]" id="results-time"></span>
+      </div>
+
+      <!-- Evidence Facet Tabs -->
+      <div class="px-3 py-1.5 border-b border-vscode-border bg-vscode-sidebar/50 flex space-x-2 text-[11px] overflow-x-auto custom-scrollbar" id="facet-tabs">
+        <button onclick="filterFacet('all')" class="px-2 py-0.5 rounded bg-vscode-accent text-white font-medium" data-facet="all">All</button>
+      </div>
+
+      <!-- Results List -->
+      <div class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2" id="results-list">
+        <div class="text-center text-xs text-vscode-muted py-8">
+          Type a query above to retrieve code evidence.
+        </div>
+      </div>
+    </section>
+
+    <!-- Column 3: Code Viewer & Structural Intelligence -->
+    <main class="flex-1 flex flex-col overflow-hidden bg-vscode-bg">
+      <!-- Code Viewer Tab Header -->
+      <div class="h-9 bg-vscode-sidebar border-b border-vscode-border px-3 flex items-center justify-between text-xs">
+        <div class="flex items-center space-x-2 font-mono">
+          <svg class="w-4 h-4 text-vscode-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span class="text-white" id="code-filepath">No file selected</span>
+          <span class="text-vscode-muted" id="code-span-info"></span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-[11px] px-2 py-0.5 rounded bg-vscode-badge text-vscode-muted font-mono" id="code-lang">text</span>
+        </div>
+      </div>
+
+      <!-- Code & Structural Split View -->
+      <div class="flex-1 flex overflow-hidden">
+        <!-- Monaco / Code Lines View -->
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-4 font-mono text-xs leading-relaxed select-text" id="code-viewer-container">
+          <div class="text-vscode-muted text-center py-16 font-sans">
+            Select a file from the explorer or click a search result to inspect code and cited spans.
+          </div>
+        </div>
+
+        <!-- Structural Inspector Panel -->
+        <aside class="w-80 border-l border-vscode-border bg-vscode-sidebar/30 flex flex-col overflow-hidden">
+          <div class="h-9 px-3 border-b border-vscode-border flex items-center justify-between text-xs text-vscode-muted">
+            <span class="font-semibold uppercase tracking-wider text-[10px]">Structural Relationships</span>
+            <span class="text-[10px]" id="structural-symbol">-</span>
+          </div>
+
+          <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3" id="structural-content">
+            <div class="text-xs text-vscode-muted text-center py-6">
+              Select a symbol or search result to view AST call sites, imports, and honesty badges.
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Client Script -->
+  <script>
+    const API_BASE = '';
+    let currentRepoInfo = null;
+    let currentSearchResults = [];
+    let activeFacet = 'all';
+    let selectedResultIndex = null;
+    let selectedFileContent = '';
+
+    async function fetchApi(endpoint, options = {}) {
+      try {
+        const res = await fetch(API_BASE + endpoint, options);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(errData.detail || `HTTP ${res.status}`);
+        }
+        return await res.json();
+      } catch (err) {
+        showError(err.message);
+        throw err;
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('error-message').textContent = msg;
+      document.getElementById('error-banner').classList.remove('hidden');
+    }
+
+    function dismissError() {
+      document.getElementById('error-banner').classList.add('hidden');
+    }
+
+    async function initApp() {
+      try {
+        await loadRepoInfo();
+        await loadIndexStatus();
+        await loadGitHistory();
+      } catch (e) {
+        console.error('Init failed:', e);
+      }
+    }
+
+    async function loadRepoInfo() {
+      const info = await fetchApi('/api/repo/info');
+      currentRepoInfo = info;
+      document.getElementById('repo-badge').textContent = info.name;
+      document.getElementById('header-branch').textContent = info.branch;
+      document.getElementById('header-commit').textContent = info.head_commit;
+      document.getElementById('file-count').textContent = `${info.files_count} files`;
+
+      // Populate file tree
+      const treeContainer = document.getElementById('file-tree');
+      treeContainer.innerHTML = '';
+      info.file_tree.forEach(file => {
+        const div = document.createElement('div');
+        div.className = 'px-2 py-1 hover:bg-vscode-active rounded cursor-pointer text-xs font-mono truncate text-vscode-text flex items-center space-x-2';
+        div.innerHTML = `
+          <svg class="w-3.5 h-3.5 text-vscode-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+          <span class="truncate">${file}</span>
+        `;
+        div.onclick = () => loadFile(file);
+        treeContainer.appendChild(div);
+      });
+    }
+
+    async function loadIndexStatus() {
+      const stats = await fetchApi('/api/index/status');
+      document.getElementById('stat-chunks').textContent = stats.total_indexed_chunks || stats.chunks_total || 0;
+      document.getElementById('stat-embeds').textContent = stats.cached_embeddings || stats.embeddings_total || 0;
+      document.getElementById('stat-reused').textContent = stats.reused || 0;
+      document.getElementById('stat-reembedded').textContent = stats.re_embedded || 0;
+      document.getElementById('stat-elapsed').textContent = `${stats.elapsed_seconds || 0}s`;
+    }
+
+    async function loadGitHistory() {
+      try {
+        const hist = await fetchApi('/api/git/history?limit=10');
+        const selector = document.getElementById('commit-selector');
+        selector.innerHTML = '<option value="">Current Workspace (HEAD)</option>';
+        hist.commits.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.sha;
+          opt.textContent = `${c.short_sha} — ${c.message.slice(0, 30)}`;
+          selector.appendChild(opt);
+        });
+      } catch (e) {
+        console.warn('Git history unavail:', e);
+      }
+    }
+
+    async function triggerReindex() {
+      const icon = document.getElementById('sync-icon');
+      icon.classList.add('animate-spin');
+      try {
+        await fetchApi('/api/index/reindex?force_rebuild=false', { method: 'POST' });
+        await loadIndexStatus();
+      } finally {
+        icon.classList.remove('animate-spin');
+      }
+    }
+
+    function handleCommitChange(sha) {
+      const banner = document.getElementById('historical-banner');
+      if (sha) {
+        banner.classList.remove('hidden');
+        document.getElementById('banner-commit-sha').textContent = sha.slice(0, 8);
+      } else {
+        banner.classList.add('hidden');
+      }
+      handleSearch();
+    }
+
+    function resetToHead() {
+      document.getElementById('commit-selector').value = '';
+      document.getElementById('historical-banner').classList.add('hidden');
+      handleSearch();
+    }
+
+    async function handleSearch() {
+      const query = document.getElementById('search-input').value.trim();
+      if (!query) return;
+
+      const commitSha = document.getElementById('commit-selector').value || null;
+      const t0 = performance.now();
+
+      const data = await fetchApi('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, commit: commitSha, limit: 15 })
+      });
+
+      const t1 = performance.now();
+      document.getElementById('results-time').textContent = `${Math.round(t1 - t0)}ms`;
+      currentSearchResults = data.results || [];
+      renderSearchResults(data);
+    }
+
+    function renderSearchResults(data) {
+      const listContainer = document.getElementById('results-list');
+      const results = data.results || [];
+      document.getElementById('results-count-title').textContent = `Evidence (${results.length})`;
+
+      // Render Facet Tabs
+      const facetContainer = document.getElementById('facet-tabs');
+      facetContainer.innerHTML = '';
+      const bundles = data.evidence_bundles || {};
+      const facets = ['all', ...Object.keys(bundles)];
+
+      facets.forEach(facet => {
+        const btn = document.createElement('button');
+        const count = facet === 'all' ? results.length : (bundles[facet]?.length || 0);
+        btn.className = `px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+          activeFacet === facet ? 'bg-vscode-accent text-white' : 'bg-vscode-active text-vscode-muted hover:text-white'
+        }`;
+        btn.textContent = `${facet.replace('_', ' ')} (${count})`;
+        btn.onclick = () => filterFacet(facet);
+        facetContainer.appendChild(btn);
+      });
+
+      listContainer.innerHTML = '';
+      if (results.length === 0) {
+        listContainer.innerHTML = '<div class="text-center text-xs text-vscode-muted py-8">No results found.</div>';
+        return;
+      }
+
+      results.forEach((res, index) => {
+        const div = document.createElement('div');
+        div.className = `p-2.5 rounded border border-vscode-border hover:border-vscode-accent cursor-pointer transition-colors ${
+          selectedResultIndex === index ? 'bg-vscode-active border-vscode-accent' : 'bg-vscode-sidebar/50'
+        }`;
+        div.onclick = () => selectResult(index);
+
+        const sources = (res.sources || []).map(s => {
+          let col = 'bg-blue-900/60 text-blue-300';
+          if (s === 'exact') col = 'bg-emerald-900/60 text-emerald-300';
+          if (s === 'bm25') col = 'bg-amber-900/60 text-amber-300';
+          return `<span class="text-[9px] px-1.5 py-0.5 rounded font-mono ${col}">${s}</span>`;
+        }).join(' ');
+
+        div.innerHTML = `
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-mono text-xs font-semibold text-white truncate">${res.name || res.file_path}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-vscode-badge text-vscode-green font-mono uppercase">${res.type || 'CHUNK'}</span>
+          </div>
+          <div class="text-[11px] font-mono text-vscode-muted truncate mb-1.5">${res.file_path}:${res.start_line}-${res.end_line}</div>
+          <div class="flex items-center justify-between text-[10px]">
+            <div class="flex space-x-1">${sources}</div>
+            <span class="text-vscode-yellow font-mono">score: ${res.score}</span>
+          </div>
+        `;
+        listContainer.appendChild(div);
+      });
+
+      if (results.length > 0) {
+        selectResult(0);
+      }
+    }
+
+    function filterFacet(facet) {
+      activeFacet = facet;
+      handleSearch();
+    }
+
+    async function selectResult(index) {
+      selectedResultIndex = index;
+      const res = currentSearchResults[index];
+      if (!res) return;
+
+      await loadFile(res.file_path, res.start_byte, res.end_byte, res.start_line, res.end_line);
+      await loadStructuralInfo(res.name || res.file_path);
+    }
+
+    async function loadFile(filePath, highlightStart = null, highlightEnd = null, startLine = 1, endLine = 1) {
+      const data = await fetchApi(`/api/repo/file?path=${encodeURIComponent(filePath)}`);
+      selectedFileContent = data.content;
+
+      document.getElementById('code-filepath').textContent = filePath;
+      document.getElementById('code-lang').textContent = filePath.endsWith('.py') ? 'python' : 'javascript';
+      document.getElementById('code-span-info').textContent = highlightStart !== null ? `(L${startLine}-L${endLine})` : '';
+
+      const container = document.getElementById('code-viewer-container');
+      const lines = data.content.split('\n');
+
+      let html = '<div class="space-y-0.5">';
+      lines.forEach((lineText, idx) => {
+        const lineNum = idx + 1;
+        const isHighlight = highlightStart !== null && (lineNum >= startLine && lineNum <= endLine);
+        const escaped = lineText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        html += `
+          <div class="flex items-start ${isHighlight ? 'span-highlight' : 'hover:bg-vscode-active/40'} px-2 py-0.5 rounded">
+            <span class="w-10 shrink-0 text-vscode-muted text-[10px] select-none text-right pr-3">${lineNum}</span>
+            <span class="flex-1 whitespace-pre text-vscode-text">${escaped || '&nbsp;'}</span>
+          </div>
+        `;
+      });
+      html += '</div>';
+      container.innerHTML = html;
+
+      // Scroll to highlighted line
+      if (highlightStart !== null) {
+        const targetElem = container.querySelector('.span-highlight');
+        if (targetElem) {
+          targetElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
+
+    async function loadStructuralInfo(symbol) {
+      document.getElementById('structural-symbol').textContent = symbol;
+      const container = document.getElementById('structural-content');
+
+      try {
+        const data = await fetchApi(`/api/structural/callers?symbol=${encodeURIComponent(symbol)}`);
+        const callers = data.callers || [];
+
+        if (callers.length === 0) {
+          container.innerHTML = `
+            <div class="p-3 bg-vscode-sidebar rounded border border-vscode-border text-xs">
+              <div class="text-vscode-muted">No explicit AST callers found for <span class="font-mono text-white">${symbol}</span>.</div>
+            </div>
+          `;
+          return;
+        }
+
+        let html = '<div class="space-y-2">';
+        callers.forEach(c => {
+          const isVerified = c.status === 'VERIFIED';
+          const badgeClass = isVerified ? 'bg-emerald-900/60 text-emerald-300 border-emerald-700' : 'bg-amber-900/60 text-amber-300 border-amber-700';
+          const icon = isVerified ? '✓ Verified' : '△ Candidate';
+
+          html += `
+            <div class="p-2.5 bg-vscode-sidebar rounded border border-vscode-border text-xs space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="font-mono font-semibold text-white truncate">${c.caller_symbol}</span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded border font-medium ${badgeClass}">${icon} (${Math.round(c.confidence * 100)}%)</span>
+              </div>
+              <div class="font-mono text-[10px] text-vscode-muted truncate">${c.file_path}:L${c.line}</div>
+              <div class="text-[10px] text-vscode-muted flex items-center justify-between pt-1">
+                <span>Span: [${c.span[0]}:${c.span[1]}]</span>
+                <button onclick="loadFile('${c.file_path}', ${c.span[0]}, ${c.span[1]}, ${c.line}, ${c.line})" class="text-vscode-accent hover:underline text-[10px]">Jump to Call</button>
+              </div>
+            </div>
+          `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+      } catch (e) {
+        container.innerHTML = `<div class="text-xs text-red-400 p-2">Failed to load structural info: ${e.message}</div>`;
+      }
+    }
+
+    // Startup
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
