@@ -62,14 +62,23 @@ std::string SymbolIndexer::normalizeIdentifier(const std::string& value) {
 
 void SymbolIndexer::indexFile(const std::string& file_path, const std::string& source, const std::string& commit_hash) {
     (void)commit_hash;
-    // This minimal implementation stores chunks and symbol names in memory.
-    // The full repository build is intentionally CPU-light and framework-free for this MVP.
+    // Replace rather than append to avoid duplicate chunks on re-index
+    chunks_.erase(
+        std::remove_if(chunks_.begin(), chunks_.end(),
+                       [&file_path](const Chunk& c) { return c.file_path == file_path; }),
+        chunks_.end());
+    symbols_.erase(
+        std::remove_if(symbols_.begin(), symbols_.end(),
+                       [&file_path](const SymbolRecord& s) { return s.file_path == file_path; }),
+        symbols_.end());
+
     auto chunked = Chunker::chunkSource(source, file_path);
     chunks_.insert(chunks_.end(), chunked.begin(), chunked.end());
 
     for (const auto& chunk : chunked) {
         SymbolRecord symbol;
-        symbol.chunk_id = chunk.file_path + ":" + std::to_string(chunk.start_byte) + ":" + std::to_string(chunk.end_byte);
+        symbol.chunk_id = chunk.file_path + ":" + chunk.type + ":" + chunk.name + ":" +
+                          std::to_string(chunk.start_byte) + ":" + std::to_string(chunk.end_byte);
         symbol.name = chunk.name;
         symbol.normalized_name = normalizeIdentifier(chunk.name);
         symbol.type = chunk.type;

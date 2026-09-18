@@ -1,0 +1,17 @@
+encoder:
+  device: cpu
+  document_prefix: ''
+  normalize_embeddings: true
+  production_model: some-other-model-nobody-approved
+  query_prefix: 'Instruct: Given a coding task, retrieve relevant code snippet
+
+    Query: '
+  similarity_metric: cosine
+fusion:
+  final_limit: 10
+  max_candidates: 50
+  rrf_k: 60
+  weights:
+    bm25: 1.0
+    dense: 1.0
+    exact: 1.0

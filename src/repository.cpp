@@ -39,45 +39,16 @@ std::string RepositoryIndexer::relativePath(const std::string& root, const std::
 
 void RepositoryIndexer::extractEdges(const std::string& file_path, const std::string& source, CodeGraph& graph) {
     const std::regex function_re(R"((?:function\s+|class\s+|(?:async\s+)?)([A-Za-z_][A-Za-z0-9_]*)\s*\([^)]*\)\s*\{)");
-    struct FunctionDef {
-        std::string name;
-        std::size_t position;
-        int line;
-    };
-    std::vector<FunctionDef> defs;
-    std::set<std::string> unique_defs;
-
+    std::vector<std::string> definitions;
     for (std::sregex_iterator it(source.begin(), source.end(), function_re), end; it != end; ++it) {
-        std::size_t pos = it->position(0);
-        int line = 1 + static_cast<int>(std::count(source.begin(), source.begin() + pos, '\n'));
-        defs.push_back({(*it)[1].str(), pos, line});
-        unique_defs.insert((*it)[1].str());
+        definitions.push_back((*it)[1].str());
     }
-
-    for (const auto& definition : unique_defs) {
+    for (const auto& definition : definitions) {
         const std::regex call_re("\\b" + definition + "\\s*\\(");
         for (std::sregex_iterator it(source.begin(), source.end(), call_re), end; it != end; ++it) {
             const auto position = static_cast<std::size_t>((*it).position(0));
-            const int line = 1 + static_cast<int>(std::count(source.begin(), source.begin() + position, '\n'));
-
-            bool is_def_site = false;
-            for (const auto& d : defs) {
-                if (d.name == definition && d.line == line) {
-                    is_def_site = true;
-                    break;
-                }
-            }
-            if (is_def_site) continue;
-
-            std::string caller = file_path;
-            for (auto rit = defs.rbegin(); rit != defs.rend(); ++rit) {
-                if (rit->position < position) {
-                    caller = rit->name;
-                    break;
-                }
-            }
-
-            graph.addEdge(caller, definition, "CALLS", file_path, line, 0.55);
+            const int line = 1 + static_cast<int>(std::count(source.begin(), source.begin() + static_cast<std::ptrdiff_t>(position), '\n'));
+            graph.addEdge(file_path, definition, "CALLS", file_path, line, 0.55);
         }
     }
 }

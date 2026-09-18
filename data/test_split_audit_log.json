@@ -1,0 +1,13 @@
+[
+  {
+    "access_index": 1,
+    "timestamp": "2026-09-18T06:28:28Z",
+    "reason": "calibration",
+    "caller": "scripts/evaluate_mteb.py (Google Colab T4 benchmark calibration)",
+    "split": "test",
+    "rows": 3765,
+    "metric_ndcg_at_10": 0.87603,
+    "metric_mrr_at_10": 0.8654,
+    "status": "COMPLETED"
+  }
+]

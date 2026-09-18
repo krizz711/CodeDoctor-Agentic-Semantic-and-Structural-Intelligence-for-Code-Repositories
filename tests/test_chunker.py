@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from app.parser.chunker import Chunk, chunk_source
+
 
 SOURCE = """
 export function loginUser(email, password) {
@@ -22,7 +25,7 @@ def test_chunk_source_returns_exact_spans():
 
     for chunk in chunks:
         assert isinstance(chunk, Chunk)
-        assert chunk.content == SOURCE[chunk.start_byte : chunk.end_byte]
+        assert chunk.content == SOURCE[chunk.start_byte:chunk.end_byte]
 
 
 def test_chunk_source_extracts_function_and_class_names():
