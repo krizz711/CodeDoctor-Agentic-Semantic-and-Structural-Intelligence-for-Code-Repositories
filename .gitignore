@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+
+# Environments
+venv/
+env/
+.env
+
+# Large model weights and raw prediction dumps (>100MB, attached to GitHub Release per Theme 1 guidelines)
+models/
+*.safetensors
+*.bin
+*.pt
+*.onnx
+*.zip
+*.tar.gz
+embedding_cache*.json
+predictions/
+
+# Databases and temporary test artifacts
+*.db
+.pytest_cache/
+.DS_Store
+

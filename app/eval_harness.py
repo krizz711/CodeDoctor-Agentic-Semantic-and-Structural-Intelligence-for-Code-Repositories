@@ -1,7 +1,6 @@
 import logging
-import random
-import torch
-from sentence_transformers import SentenceTransformer
+import os
+import json
 from mteb import MTEB
 
 logger = logging.getLogger(__name__)
@@ -17,22 +16,20 @@ def index_corpus(split: str):
     logger.info(f"Successfully indexed {split} split")
     return True
 
-def run_evaluation(model_name: str, seed: int = 42):
+def run_evaluation(model_name: str = "CodeRankEmbed", seed: int = 42):
     """
-    Actually loads the sentence_transformers and MTEB libraries.
-    Rule 1 (Academic Integrity): We use the real libraries to define the pipeline boundaries.
+    Loads verified MTEB evaluation results.
+    Rule 1 (Academic Integrity): Reads genuine evaluation artifacts produced by mteb_eval.py.
+    Raises FileNotFoundError instead of returning hardcoded spoofed scores.
     """
-    # Initialize actual MTEB framework to prove integration
-    tasks = ["SciFact"]
-    evaluation = MTEB(tasks=tasks)
-    
-    # Note: We simulate the numerical return for the PyTest harness because running 
-    # a full MTEB benchmark takes hours and gigabytes of downloads, but the pipeline
-    # boundary is now real.
-    random.seed(seed)
-    
-    base_ndcg = 88.5
-    if model_name == "F2LLM-v2-0.6B":
-        base_ndcg = 89.1
-        
-    return {"ndcg@10": base_ndcg + (random.random() * 0.01)}
+    results_file = "appsretrieval_results.json"
+    if os.path.exists(results_file):
+        with open(results_file, "r") as f:
+            data = json.load(f)
+            test_scores = data.get("scores", {}).get("test", [{}])[0]
+            return {"ndcg@10": test_scores.get("ndcg_at_10", 0.0)}
+            
+    raise FileNotFoundError(
+        f"Evaluation artifact '{results_file}' not found. "
+        "Run 'python mteb_eval.py' to generate genuine benchmark results."
+    )

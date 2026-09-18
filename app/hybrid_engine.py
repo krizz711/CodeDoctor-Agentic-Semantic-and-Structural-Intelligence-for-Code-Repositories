@@ -6,29 +6,14 @@ logger = logging.getLogger(__name__)
 class CppEngineError(Exception):
     pass
 
+import codedoctor_cpp
+
 def _cpp_hybrid_search_binding(query: str, dense_results: list, lexical_results: list):
     """
-    Simulates the actual C++ Pybind11 backend (Reciprocal Rank Fusion).
-    In reality, this would be a compiled .so file (`import codedoctor_cpp`).
-    
-    [COUNCIL NOTE: This Python simulation of the Pybind11 C++ backend is explicitly 
-    documented and permitted for development speed, provided the Python boundaries 
-    are rigorously defended.]
+    Calls the actual C++ Pybind11 backend (Reciprocal Rank Fusion).
     """
-    # Simulate processing time for T14 constraints
-    time.sleep(0.01)
-    
-    # Reciprocal rank fusion logic
-    fusion_scores = {}
-    for rank, item in enumerate(dense_results):
-        chunk_id = item.get("chunk_id", item.get("id"))
-        fusion_scores[chunk_id] = fusion_scores.get(chunk_id, 0) + (1.0 / (rank + 60))
-    for rank, item in enumerate(lexical_results):
-        chunk_id = item.get("chunk_id", item.get("id"))
-        fusion_scores[chunk_id] = fusion_scores.get(chunk_id, 0) + (1.0 / (rank + 60))
-        
-    sorted_results = sorted(fusion_scores.items(), key=lambda x: x[1], reverse=True)
-    return [{"chunk_id": k, "score": v} for k, v in sorted_results]
+    # Call the compiled C++ extension
+    return codedoctor_cpp.hybrid_search(query, dense_results, lexical_results)
 
 def hybrid_search(query: str, dense_results: list, lexical_results: list):
     """
