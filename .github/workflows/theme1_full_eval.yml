@@ -1,0 +1,40 @@
+name: Temporary Theme 1 Full Evaluation
+
+on:
+  push:
+
+jobs:
+  theme1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-eval.txt
+      - name: T0-T2 and full repository tests
+        run: pytest -q
+      - name: Compile check
+        run: python -m compileall -q app scripts tests
+      - name: Native build and C++ tests
+        run: |
+          make -B
+          make -B test
+      - name: Local retrieval artifact check
+        run: |
+          python scripts/evaluate.py scripts/sample_eval.jsonl --output build/sample_results.json
+          python scripts/validate_submission.py build/sample_results.json
+      - name: T7 span fidelity
+        run: python scripts/verify_span_fidelity.py test_repos/commander
+      - name: T6 ablation matrix on development split
+        run: python scripts/run_ablation.py --device cpu --max-queries 40 --max-corpus 1200
+      - name: P0 official AppsRetrieval run on CPU
+        run: python scripts/evaluate_mteb.py --device cpu --batch-size 32 --output build/appsretrieval_results_fresh.json
