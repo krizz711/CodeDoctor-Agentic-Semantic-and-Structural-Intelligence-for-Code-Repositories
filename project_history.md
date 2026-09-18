@@ -106,6 +106,11 @@
 - **Demo & E2E Validation:** Re-verified `demo.py` showcasing the genuine benchmark floor `0.4703` alongside ultra-low CPU latency (`0.788 ms` total pipeline, `0.488 ms` AST lookup, `0.010 ms` C++ fusion). Unit test suite re-verified: 13/13 passing 100% green.
 - **Compliance Audit Status:** Updated `guideline_compliance_audit.md` to confirm all 4 previously flagged items (P0 evaluation, response CSV generation, evolutionary cross-commit search, and real-time CPU profiling) are 100% verified and resolved.
 
+### 16. Codebase Architecture & File Guide Documentation
+- **Action:** Enriched `README.md` with an exhaustive ASCII tree and module-by-module breakdown describing every file in the repository (core retrieval engine in `app/`, native C++ layer in `src/`, model configs in `coderank-apps-tuned/`, training scripts in `scripts/`, test modules in `tests/`, and generated submission artifacts).
+- **Motivation:** Provides evaluators and maintainers with clear structural transparency into the roles, responsibilities, and defensive mechanisms across each component.
+
+
 
 
 

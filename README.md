@@ -28,6 +28,51 @@ The benchmark ran strictly on CPU with multi-threading (`8 threads`) and evaluat
 | **NDCG@1** | 0.01753 | **0.35086** (35.09%) | **+20.0x leap** |
 | **MAP@10** | 0.02690 | **0.42840** (42.84%) | **+15.9x leap** |
 
+## Codebase Architecture & File Guide
+
+Below is a detailed breakdown of all files and modules in the CodeDoctor codebase:
+
+```text
+├── app/                          # Core CodeDoctor retrieval engine modules
+│   ├── chunker.py                # Tree-sitter AST parser (exact byte spans, SHA-256 semantic hashing, ASTParseError)
+│   ├── db.py                     # SQLite database connection factory and schema migration runner
+│   ├── eval_harness.py           # Evaluation harness interface, leakage firewall, and verified artifact loader
+│   ├── evolution.py              # Incremental indexing, zero-leakage commit queries, and evolutionary cross-commit search
+│   ├── execution_reranker.py     # Sandbox runner verifying candidate code against test input/output specifications
+│   ├── hybrid_engine.py          # Python boundary wrapper defending against C++ null-pointer segfaults
+│   ├── hybrid_eval.py            # Diagnostic script evaluating dense search fused with execution verification
+│   ├── indexer.py                # SQLite chunk indexer with automatic transaction rollback on parse defects
+│   ├── main.py                   # Stitched end-to-end pipeline with dynamic commit resolution and CPU latency profiling
+│   └── schemas.py                # Pydantic data schemas (SearchResult, SearchResponse, FileCreate, ChunkCreate)
+├── coderank-apps-tuned/          # Fine-tuned NomicBERT checkpoint (137M parameters, ~500MB RAM footprint on CPU)
+│   ├── 1_Pooling/config.json     # Sentence-transformers mean pooling configuration
+│   ├── config.json               # Model hyperparameters and architecture definitions
+│   ├── configuration_hf_nomic_bert.py # Hugging Face configuration definition for NomicBERT
+│   ├── modeling_hf_nomic_bert.py # Patched NomicBERT model code (fixed for transformers v5.17.0 compatibility)
+│   ├── tokenizer.json            # Fast BPE tokenizer vocabulary and merge rules
+│   └── tokenizer_config.json     # Tokenizer settings and special token mappings
+├── src/                          # Native C++ performance layer
+│   └── hybrid.cpp                # Native C++ Reciprocal Rank Fusion (RRF) algorithm bound via Pybind11
+├── scripts/                      # Training and verification utilities
+│   ├── colab_train.py            # Reproducible Google Colab GPU training script (train split only, zero test leakage)
+│   └── train_coderank.py         # Local training script and leakage firewall verification utility
+├── tests/                        # Comprehensive automated test suite (13/13 passing 100% green)
+│   ├── test_module1.py           # T0 (Execution), T1 (Reproducibility), T2 (Leakage Firewall), T4 (Sanity Floor)
+│   ├── test_module2.py           # T7 (Tree-sitter Byte Span Fidelity), T10 (No Silent Fallback / ASTParseError)
+│   ├── test_module3.py           # T14 (Latency < 3s), Defensive Pybind11 Memory Boundary, Hybrid RRF Superiority
+│   ├── test_module4.py           # T8 (Incremental Equals Rebuild Hash Parity), T9 (Zero Cross-Commit Leakage)
+│   └── test_module5.py           # T12 (Multi-Repo Generalisation), T13 (End-to-End Pipeline Stability)
+├── benchmark.py                  # Architectural edge tests (Token Boundary, Whitespace Invalidation, SWE-bench Query Noise)
+├── demo.py                       # Interactive CLI live demo matching Theme 1 Page 1 query with real CPU latency profiling
+├── mteb_eval.py                  # Official MTEB benchmark runner on CPU with atomic caching and submission export
+├── setup.py                      # C++ Pybind11 build configuration for codedoctor_cpp
+├── project_history.md            # Mandatory Architectural Decision Record (ADR) detailing Sections 1 through 15
+├── appsretrieval_results.json    # Generated official MTEB benchmark result artifact (NDCG@10 = 0.47032)
+├── submission_predictions.csv    # Generated ranked query responses (376,502 rows) for official judge evaluation
+├── submission_metrics.csv        # Generated summary table of all benchmark metrics
+└── theme1_guidelines.pdf         # Official Samsung PRISM Hackathon Theme 1 specification document
+```
+
 ## Generalisation & Validation Metrics
 | Metric | Status | Result |
 |---|---|---|
