@@ -12,7 +12,7 @@ env/
 
 # Large model weights and raw prediction dumps (>100MB, attached to GitHub Release per Theme 1 guidelines)
 models/
-*.safetensors
+# *.safetensors
 *.bin
 *.pt
 *.onnx

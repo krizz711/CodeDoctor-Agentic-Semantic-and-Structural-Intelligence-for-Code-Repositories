@@ -110,6 +110,10 @@
 - **Action:** Enriched `README.md` with an exhaustive ASCII tree and module-by-module breakdown describing every file in the repository (core retrieval engine in `app/`, native C++ layer in `src/`, model configs in `coderank-apps-tuned/`, training scripts in `scripts/`, test modules in `tests/`, and generated submission artifacts).
 - **Motivation:** Provides evaluators and maintainers with clear structural transparency into the roles, responsibilities, and defensive mechanisms across each component.
 
+### 17. Git LFS Configuration for Model Weights
+- **Action:** Removed `*.safetensors` from `.gitignore`, installed Git LFS (`git lfs install`), tracked the model weights (`git lfs track "coderank-apps-tuned/*.safetensors"`), and pushed `coderank-apps-tuned/model.safetensors` to the remote repository.
+- **Motivation:** The `model.safetensors` file (~546 MB) was originally ignored to comply with GitHub's strict 100MB file limit. To ensure the evaluation script uses the actual fine-tuned embeddings instead of a fallback base model, Git LFS was configured. This guarantees evaluators have direct access to the exact model weights trained for CodeDoctor, ensuring full transparency and an unbiased evaluation of the retrieval architecture.
+
 
 
 
