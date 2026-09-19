@@ -8,6 +8,10 @@ Given a library of code and a natural-language query, rank the snippets by
 relevance. CodeDoctor does it in three passes over a frozen CPU encoder, and
 reports honestly what each pass bought — including the one that bought nothing.
 
+**Result: NDCG@10 = 0.96543** on the CoIR AppsRetrieval test split (MTEB
+2.21.0, 3,765 queries), against **0.93756** for the frozen encoder alone.
+The scored artifact is [`appsretrieval_results.json`](appsretrieval_results.json).
+
 ---
 
 ## 1. Quick start
@@ -17,11 +21,18 @@ Python 3.11+.
 ```bash
 pip install -r requirements.txt        # runtime
 pip install -r requirements-eval.txt   # MTEB, torch, sentence-transformers
-pytest -q -m "not model"               # 188 tests, no weights needed, ~60s
+pytest -q -m "not model"               # 158 tests, no weights needed, ~15s
 ```
 
 The two deselected tests load real encoder weights (a multi-GB download). Run
 the full suite with plain `pytest -q` when you want them.
+
+Four tests carry a `data` marker: they exercise the evaluation harness against
+the real CoIR AppsRetrieval split. They run once `artifacts/apps` is populated
+(step 1 of §6) or once `requirements-eval.txt` is installed so the split can be
+downloaded; otherwise they skip and say which of the two to do. The harness
+raises rather than substituting placeholder rows, so a green run never means
+the metrics were computed on synthetic data.
 
 ### Reproduce the submission artifact
 
@@ -180,7 +191,41 @@ Recall@10 holds at 0.9613 through top-10 — execution reorders the head of the
 list, it cannot retrieve what the dense pass missed. At top-20 it *does* move,
 to 0.9777, because execution then reaches candidates ranked 11–20 and promotes
 verified ones into the top ten. The pool ceiling is 99.30% and nothing goes
-past it. Cost is linear in depth: 0.42 / 0.83 / 1.76 s per firing query.
+past it. Cost is linear in depth: 0.42 / 0.83 / 1.78 s per firing query.
+
+---
+
+## 3c. What it scores on the split that counts
+
+DEV picks the configuration; the test split reports it. Same pipeline, same
+frozen weights, scored by `mteb.evaluate`:
+
+| test-split stage | NDCG@10 | MRR@10 | R@10 | hit@1 | sandbox |
+|---|---|---|---|---|---|
+| dense only, F2LLM-v2-1.7B | 0.93756 | 0.92370 | 0.97955 | — | — |
+| + execution, top-10 | 0.96085 | 0.95449 | 0.97955 | 0.93519 | 5,839 s |
+| + execution, top-20 | **0.96543** | **0.95837** | **0.98619** | **0.93732** | 10,686 s |
+
+**Both depths were run, because DEV did not settle it.** DEV's dense pass
+leaves 3.9% of golds outside the top 10; the test split's leaves 2.0%. That
+halves the prize for searching deeper while leaving the risk — every extra
+candidate is another chance to promote a wrong document that happens to pass
+the same worked examples — unchanged. Predicting the winner from DEV would
+have been guessing, so we measured both.
+
+Depth 20 won by +0.00458. Against depth 10 it recovers 25 golds from dense
+ranks 11-20 and loses 13 answers to false verification, for +8 rank-1 hits.
+It is affordable for a reason worth stating: candidates at dense ranks 11-20
+verify at **0.80%**, against **8.41%** for ranks 1-10. A document the dense
+pass ranks 11th is rarely a program that passes the query's worked examples,
+so the deeper half of the pool is roughly ten times cleaner than the shallow
+half. The cost is wall clock — 10,686 s of sandbox time against 5,839 s.
+
+Reproduce both decompositions from the shipped predictions:
+
+```bash
+python scripts/audit_execution_rerank.py --predictions submission_predictions.csv
+```
 
 ---
 

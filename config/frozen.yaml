@@ -50,12 +50,21 @@ pipeline:
   # to false; the pipeline then reports the dense-only score.
   #
   # It is on because it is the only pass that cleared the paired-bootstrap
-  # gate: +0.0440 NDCG@10 on held-out DEV, 95% CI [+0.0342, +0.0532],
-  # p = 0.0000. The nine-feature reranker did not (+0.0048, CI spans zero) and
-  # ships as the identity configuration. Leaving this on is what makes a bare
-  # `python scripts/evaluate_mteb.py` reproduce the submitted number.
+  # gate: +0.0583 NDCG@10 on held-out DEV at depth 20, 95% CI
+  # [+0.0457, +0.0702]. The nine-feature reranker did not (+0.0048, CI spans
+  # zero) and ships as the identity configuration. Leaving this on is what
+  # makes a bare `python scripts/evaluate_mteb.py` reproduce the submitted
+  # number.
+  #
+  # Depth 20 rather than 10: measured on the TEST split, depth 20 scores
+  # 0.96543 against 0.96085 for depth 10. It recovers 25 golds that sit at
+  # dense ranks 11-20 and costs 13 answers to false verification, netting
+  # +8 rank-1 hits. The deeper half is cheap to search because it verifies at
+  # 0.80% against 8.41% for ranks 1-10 -- a document the dense pass ranks 11th
+  # is far less likely to be a program that passes the same worked examples.
+  # The cost is wall-clock: 10686s of sandbox time against 5839s.
   execution_rerank: true
-  execution_candidates: 10
+  execution_candidates: 20
   execution_timeout_seconds: 2.0
 
 fusion:

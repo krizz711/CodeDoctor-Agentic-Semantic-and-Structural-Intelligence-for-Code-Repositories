@@ -9,6 +9,7 @@ def test_firewall_blocks_test_access_by_default():
         harness.get_test_split()
 
 
+@pytest.mark.data
 def test_test_split_touched_exactly_twice_end_to_end():
     """Plan T2: Firewall authorizes only designated runs and enforces audit count."""
     harness = DevelopmentHarness(firewall_enabled=False)
@@ -22,6 +23,7 @@ def test_test_split_touched_exactly_twice_end_to_end():
         harness.get_test_split(authorize_reason="just checking")
 
 
+@pytest.mark.data
 def test_train_split_loads_real_coir_apps_data():
     """Plan Remediation §3.6: Verify train split contains real APPS queries, not template strings."""
     harness = DevelopmentHarness(firewall_enabled=True)
@@ -37,6 +39,7 @@ def test_train_split_loads_real_coir_apps_data():
     assert len(first_item["query"]) > 10, "Query string is unexpectedly short"
 
 
+@pytest.mark.data
 def test_persistent_audit_log_budget_exhaustion(tmp_path):
     """Section 0: Persistent audit log enforces maximum of 2 test split accesses lifetime."""
     log_file = tmp_path / "test_split_audit_log.json"

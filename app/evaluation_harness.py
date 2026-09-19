@@ -14,6 +14,19 @@ class LeakageFirewallViolation(RuntimeError):
     pass
 
 
+class AppsDataUnavailable(RuntimeError):
+    """Raised when neither the local APPS cache nor the HuggingFace copy loads.
+
+    This is deliberately fatal.  An earlier version of this module answered the
+    same situation with a hundred rows of ``python function {i}`` placeholder
+    text, which meant every consumer -- ``dev_eval.py``, ``run_ablation.py``,
+    ``measure_recall_ceiling.py`` -- silently reported metrics computed on
+    synthetic data that looked entirely plausible.  A missing dataset is a
+    setup problem and must read as one.
+    """
+    pass
+
+
 @dataclass
 class EvaluationMetrics:
     ndcg_at_10: float
@@ -98,60 +111,121 @@ def paired_bootstrap_test(
     }
 
 
+#: Frozen texts and qrels written by ``scripts/encode_apps.py``.
+APPS_CACHE_DIR = Path(__file__).resolve().parent.parent / "artifacts" / "apps"
+
 _APPS_DATASET_CACHE: tuple[list[dict], list[dict], dict[str, str]] | None = None
 
 
+def _rows_from_local_cache(
+    split: str, texts: dict[str, str], corpus: dict[str, str]
+) -> list[dict]:
+    qrels = json.loads((APPS_CACHE_DIR / f"qrels_{split}.json").read_text(encoding="utf-8"))
+    rows = []
+    for query_id, relevant in qrels.items():
+        for doc_id, relevance in relevant.items():
+            if relevance > 0:
+                rows.append({
+                    "query_id": query_id,
+                    "query": texts.get(query_id, ""),
+                    "gold_id": doc_id,
+                    "gold_doc": corpus.get(doc_id, ""),
+                })
+    return rows
+
+
+def _read_texts(path: Path) -> dict[str, str]:
+    out = {}
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            if line.strip():
+                record = json.loads(line)
+                out[record["id"]] = record["text"]
+    return out
+
+
+def _load_from_local_cache() -> tuple[list[dict], list[dict], dict[str, str]] | None:
+    """The frozen copy written by ``scripts/encode_apps.py``.
+
+    Same bytes the encoders and the MTEB run see, so the harness cannot drift
+    from the rest of the pipeline.  Returns ``None`` when the cache is absent.
+    """
+    required = [
+        APPS_CACHE_DIR / name
+        for name in (
+            "texts_corpus.jsonl",
+            "texts_queries_train.jsonl",
+            "texts_queries_test.jsonl",
+            "qrels_train.json",
+            "qrels_test.json",
+        )
+    ]
+    if not all(path.exists() for path in required):
+        return None
+
+    corpus = _read_texts(APPS_CACHE_DIR / "texts_corpus.jsonl")
+    train = _rows_from_local_cache(
+        "train", _read_texts(APPS_CACHE_DIR / "texts_queries_train.jsonl"), corpus
+    )
+    test = _rows_from_local_cache(
+        "test", _read_texts(APPS_CACHE_DIR / "texts_queries_test.jsonl"), corpus
+    )
+    return train, test, corpus
+
+
+def _load_from_huggingface() -> tuple[list[dict], list[dict], dict[str, str]]:
+    from datasets import load_dataset
+
+    qrels = load_dataset("CoIR-Retrieval/apps", "default")
+    queries_ds = load_dataset("CoIR-Retrieval/apps", "queries", split="queries")
+    corpus_ds = load_dataset("CoIR-Retrieval/apps", "corpus", split="corpus")
+
+    query_lookup = {row["_id"]: row["text"] for row in queries_ds}
+    corpus_lookup = {row["_id"]: row["text"] for row in corpus_ds}
+
+    def rows(split: str) -> list[dict]:
+        return [
+            {
+                "query_id": r["query-id"],
+                "query": query_lookup.get(r["query-id"], ""),
+                "gold_id": r["corpus-id"],
+                "gold_doc": corpus_lookup.get(r["corpus-id"], ""),
+            }
+            for r in qrels[split]
+        ]
+
+    return rows("train"), rows("test"), corpus_lookup
+
+
 def _load_apps_data() -> tuple[list[dict], list[dict], dict[str, str]]:
+    """Real CoIR AppsRetrieval rows: local cache first, then HuggingFace.
+
+    Raises :class:`AppsDataUnavailable` if neither source works.  It never
+    substitutes placeholder rows -- see that exception's docstring.
+    """
     global _APPS_DATASET_CACHE
     if _APPS_DATASET_CACHE is not None:
         return _APPS_DATASET_CACHE
 
-    try:
-        from datasets import load_dataset
-
-        qrels = load_dataset("CoIR-Retrieval/apps", "default")
-        queries_ds = load_dataset("CoIR-Retrieval/apps", "queries", split="queries")
-        corpus_ds = load_dataset("CoIR-Retrieval/apps", "corpus", split="corpus")
-
-        query_lookup = {row["_id"]: row["text"] for row in queries_ds}
-        corpus_lookup = {row["_id"]: row["text"] for row in corpus_ds}
-
-        train_rows = []
-        for r in qrels["train"]:
-            qid = r["query-id"]
-            cid = r["corpus-id"]
-            train_rows.append({
-                "query_id": qid,
-                "query": query_lookup.get(qid, ""),
-                "gold_id": cid,
-                "gold_doc": corpus_lookup.get(cid, ""),
-            })
-
-        test_rows = []
-        for r in qrels["test"]:
-            qid = r["query-id"]
-            cid = r["corpus-id"]
-            test_rows.append({
-                "query_id": qid,
-                "query": query_lookup.get(qid, ""),
-                "gold_id": cid,
-                "gold_doc": corpus_lookup.get(cid, ""),
-            })
-
-        _APPS_DATASET_CACHE = (train_rows, test_rows, corpus_lookup)
+    cached = _load_from_local_cache()
+    if cached is not None:
+        _APPS_DATASET_CACHE = cached
         return _APPS_DATASET_CACHE
-    except Exception:
-        # Fallback to deterministic synthetic set if Hugging Face data unavailable
-        synth_train = [
-            {"query_id": f"q_{i}", "query": f"python function {i}", "gold_id": f"doc_{i}", "gold_doc": f"def doc_{i}(): pass"}
-            for i in range(100)
-        ]
-        synth_test = [
-            {"query_id": f"test_q_{i}", "query": f"test query {i}", "gold_id": f"test_doc_{i}", "gold_doc": f"def test_doc_{i}(): pass"}
-            for i in range(50)
-        ]
-        synth_corpus = {r["gold_id"]: r["gold_doc"] for r in synth_train + synth_test}
-        return (synth_train, synth_test, synth_corpus)
+
+    try:
+        _APPS_DATASET_CACHE = _load_from_huggingface()
+    except Exception as exc:
+        raise AppsDataUnavailable(
+            "Could not load the CoIR AppsRetrieval split "
+            f"({type(exc).__name__}: {exc}).\n"
+            "Either populate the local cache with\n"
+            "    python scripts/encode_apps.py --tier accuracy --device auto "
+            "--tag f2llm17b\n"
+            f"which writes texts and qrels to {APPS_CACHE_DIR}, or install the\n"
+            "evaluation extras so the HuggingFace copy can be downloaded:\n"
+            "    pip install -r requirements-eval.txt"
+        ) from exc
+    return _APPS_DATASET_CACHE
 
 
 AUDIT_LOG_PATH = Path(__file__).resolve().parent.parent / "data" / "test_split_audit_log.json"

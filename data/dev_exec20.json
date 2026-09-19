@@ -33,7 +33,7 @@
   },
   "execution_fired": 783,
   "execution_verified": 745,
-  "execution_seconds": 1377.535362958908,
+  "execution_seconds": 1395.147957086563,
   "final": {
     "ndcg_at_10": 0.9548611947743606,
     "mrr_at_10": 0.9473003777517259,

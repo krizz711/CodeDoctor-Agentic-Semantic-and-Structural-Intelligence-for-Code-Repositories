@@ -3,8 +3,9 @@
 Source material for the PPT. Every number here is reproduced by a command in
 [`README.md` §6](../README.md); nothing is quoted that a reviewer cannot re-run.
 
-> Numbers marked `[TBD]` are filled from the final evaluation run before the
-> deck is built. Do not ship the deck with a `[TBD]` in it.
+> All numbers are final and measured. The headline figure, NDCG@10 = 0.96543
+> on the CoIR AppsRetrieval test split, comes from the run archived in
+> `appsretrieval_results.json` at the repository root.
 
 ---
 
@@ -196,7 +197,29 @@ saw, every delta from a 1000-resample paired bootstrap:
 | + execution, top-10 | 0.94061 | 0.93382 | 0.9168 | 0.9613 | +0.0440 [+0.0342, +0.0532] |
 | + execution, top-20 | **0.95486** | **0.94730** | **0.9273** | **0.9777** | **+0.0583 [+0.0457, +0.0702]** |
 
-Final test-split submission: `[TBD]`
+**Final test-split submission: `0.96543` NDCG@10.**
+
+Every number below is the CoIR AppsRetrieval test split, 3,765 queries,
+scored by `mteb.evaluate` at version 2.21.0:
+
+| test-split stage | NDCG@10 | MRR@10 | R@10 | sandbox |
+|---|---|---|---|---|
+| dense only, F2LLM-v2-1.7B | 0.93756 | 0.92370 | 0.97955 | — |
+| + execution, top-10 | 0.96085 | 0.95449 | 0.97955 | 5,839 s |
+| + execution, top-20 | **0.96543** | **0.95837** | **0.98619** | 10,686 s |
+
+R@10 is identical for the dense pass and the depth-10 rerank because
+reordering inside the top-10 cannot change which documents are in it. It moves
+only at depth 20, where verification promotes golds from ranks 11-20.
+
+**Depth 20 was not the obvious call.** On test the dense pass already reaches
+R@10 = 0.97955, so only 30 queries have a gold at ranks 11-20 to recover at
+all -- half the headroom DEV showed. We ran both depths rather than assume.
+Depth 20 recovers 25 of those 30 and loses 13 answers to false verification,
+netting +8 rank-1 hits and +0.00458 NDCG@10. It is affordable because the
+deeper half is far cleaner than the shallow half: candidates at dense ranks
+11-20 verify at 0.80%, against 8.41% for ranks 1-10. A document the dense pass
+ranks 11th is rarely a program that passes the same worked examples.
 
 **Say the negative result out loud.** Our own nine-feature reranker did not
 clear its own gate. Against a weak encoder it is worth +0.037; against

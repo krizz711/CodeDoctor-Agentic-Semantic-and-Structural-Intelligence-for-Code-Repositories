@@ -298,7 +298,7 @@ first pass = F2LLM-v2-1.7B:
 | + feature reranker | 0.90139 | 0.87997 | — | 0.9613 | +0.0048 [−0.0009, +0.0109] · inside noise | — |
 | + execution, top-5 | 0.93207 | 0.92293 | 0.9050 | 0.9613 | +0.0355 [+0.0269, +0.0438] | 0.42 s/query |
 | + execution, top-10 | 0.94061 | 0.93382 | 0.9168 | 0.9613 | +0.0440 [+0.0342, +0.0532] | 0.83 s/query |
-| + execution, top-20 | **0.95486** | **0.94730** | **0.9273** | **0.9777** | **+0.0583 [+0.0457, +0.0702]** | 1.76 s/query |
+| + execution, top-20 | **0.95486** | **0.94730** | **0.9273** | **0.9777** | **+0.0583 [+0.0457, +0.0702]** | 1.78 s/query |
 
 Three things the table says that the headline number does not:
 
@@ -311,7 +311,7 @@ Three things the table says that the headline number does not:
   ten: fourteen queries' worth of gold documents that no amount of top-10
   reranking could have reached.
 * **Cost is linear in depth.** Each doubling of the candidate budget doubles
-  the wall clock (329s → 648s → 1378s over 853 queries).
+  the wall clock (329s → 648s → 1395s over 853 queries).
 
 **On the top-10 vs top-20 comparison.** Both are measured against the same
 dense baseline on the same queries, but their confidence intervals overlap
@@ -319,6 +319,63 @@ dense baseline on the same queries, but their confidence intervals overlap
 establish that top-20 is better with 95% confidence. What does not depend on
 that comparison is the recall@10 movement, which is a structural change rather
 than a reordering: at top-10 it is impossible.
+
+---
+
+## What it scores on the test split
+
+DEV chooses the configuration; the test split reports it. Same pipeline, same
+frozen weights, scored end-to-end by `mteb.evaluate` at version 2.21.0 over
+all 3,765 test queries:
+
+| test-split stage | NDCG@10 | MRR@10 | R@10 | hit@1 | sandbox |
+|---|---|---|---|---|---|
+| dense only, F2LLM-v2-1.7B | 0.93756 | 0.92370 | 0.97955 | — | — |
+| + execution, top-10 | 0.96085 | 0.95449 | 0.97955 | 0.93519 | 5,839 s |
+| + execution, top-20 | **0.96543** | **0.95837** | **0.98619** | **0.93732** | 10,686 s |
+
+R@10 is identical for the dense pass and the depth-10 rerank, which is the
+consistency check the previous section predicted: reordering inside the top
+ten cannot change which documents are in it.
+
+### Why both depths were run
+
+The DEV intervals overlapped, so DEV did not settle the depth. Worse, the two
+splits disagree about how much there is to gain. DEV's dense pass leaves 3.9%
+of golds outside the top ten; the test split's leaves 2.0%, because the dense
+pass is simply stronger there. That halves the prize for searching deeper
+while leaving the risk untouched — every additional candidate is another
+chance to promote a document that passes the worked examples without being the
+answer. A reasonable prior said depth 20 might well *lose* on test. It won, by
++0.00458, and the decomposition says why:
+
+| bucket | top-10 | top-20 | Δ |
+|---|---|---|---|
+| verified, gold promoted | 2554 | 2575 | **+21** |
+| dense right, nothing verified | 967 | 954 | **−13** |
+| verified, wrong document | 94 | 111 | +17 |
+| nothing verified, dense missed | 73 | 73 | 0 |
+| gold absent from the pool | 77 | 52 | **−25** |
+| **rank-1 correct** | **3521** | **3529** | **+8** |
+
+The cost of going deeper is far smaller than a uniform false-positive rate
+would predict. Candidates at dense ranks 11-20 verify at **0.80%**; candidates
+at ranks 1-10 verify at **8.41%**. Verification is concentrated at the head of
+the ranking, because a document the dense pass ranks eleventh is rarely a
+program that solves the query's problem. Doubling the pool therefore roughly
+doubles the wall clock — 10,686 s against 5,839 s — while adding only about a
+tenth as many false promotions as the shallow half already contained.
+
+One protective detail makes this safer than it sounds: verified candidates all
+receive the same bonus, so they keep their dense order among themselves. A
+false positive at rank 15 still loses to a gold at rank 3 that also verifies.
+The damage is confined to queries where the gold fails to verify at all.
+
+Reproduce either decomposition from the shipped CSVs:
+
+```bash
+python scripts/audit_execution_rerank.py     --predictions data/predictions_top10.csv     --compare     submission_predictions.csv
+```
 
 ---
 

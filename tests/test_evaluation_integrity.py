@@ -8,6 +8,7 @@ from app.evaluation_harness import (
 )
 
 
+@pytest.mark.data
 def test_plan_t2_leakage_firewall():
     harness = DevelopmentHarness(firewall_enabled=True)
 
