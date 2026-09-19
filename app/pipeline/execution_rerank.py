@@ -102,6 +102,20 @@ class ExecutionConfig:
     #: Candidates are never demoted on failure: a crash may be an environment
     #: difference, not a wrong answer. Evidence promotes, absence proves nothing.
     failure_penalty: float = 0.0
+    #: Stop executing a query's candidates once one has verified.
+    #:
+    #: Every verified candidate in a row receives the same bonus, so verified
+    #: candidates keep their dense order among themselves and the FIRST one to
+    #: verify is the one that ends up ranked first.  Executing past it cannot
+    #: change which document wins, only how many others are lifted above the
+    #: unverified remainder.  Off by default because it changes the ranks below
+    #: the winner, which is a measurable difference and has to clear the gate.
+    stop_after_first_match: bool = False
+    #: Refuse to execute a candidate scoring more than this far below the best
+    #: candidate in its row.  ``None`` executes the whole top-N.
+    #:
+    #: Candidates arrive in descending score order, so this is a prefix cut.
+    max_dense_gap: float | None = None
     provenance: dict[str, object] = field(default_factory=dict)
 
 
@@ -258,11 +272,24 @@ def apply_execution_rerank(
         return list(candidate_scores), audit
 
     scores = list(candidate_scores)
+    audit["candidates_skipped_by_gate"] = 0
+    audit["stopped_early"] = False
+
+    best = scores[0] if scores else 0.0
     for index in range(min(config.max_candidates, len(candidate_texts))):
+        if config.max_dense_gap is not None and best - scores[index] > config.max_dense_gap:
+            # Descending order, so everything after this is further away too.
+            audit["candidates_skipped_by_gate"] = (
+                min(config.max_candidates, len(candidate_texts)) - index
+            )
+            break
         audit["candidates_executed"] = int(audit["candidates_executed"]) + 1
         if verify_candidate(candidate_texts[index], examples, config):
             scores[index] += config.verified_bonus
             audit["candidates_verified"] = int(audit["candidates_verified"]) + 1
+            if config.stop_after_first_match:
+                audit["stopped_early"] = True
+                break
         else:
             scores[index] += config.failure_penalty
     return scores, audit

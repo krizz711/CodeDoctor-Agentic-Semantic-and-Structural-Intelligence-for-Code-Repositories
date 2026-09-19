@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from app.pipeline.execution_rerank import (
@@ -166,3 +168,120 @@ class TestGate:
         assert config.failure_penalty == 0.0
         scores, _ = apply_execution_rerank(CODEFORCES, ["print(0)"], [0.9], config)
         assert scores == [pytest.approx(0.9)]
+
+
+#: Reproduces the CODEFORCES worked example (sum each of two lists).
+SOLVER = (
+    "n = int(input())\n"
+    "for _ in range(n):\n"
+    "    input()\n"
+    "    print(sum(map(int, input().split())))"
+)
+
+
+class TestEarlyExit:
+    """Stopping at the first verified candidate cannot change the winner.
+
+    Every verified candidate receives the same bonus, so verified candidates
+    keep their dense order among themselves and the first to verify is the one
+    that ends up on top.  These tests pin that property, because it is the
+    entire justification for not executing the rest.
+    """
+
+    config = ExecutionConfig(enabled=True, timeout_seconds=5.0, verified_bonus=10.0)
+
+    def test_off_by_default(self):
+        assert ExecutionConfig().stop_after_first_match is False
+
+    def test_stops_executing_after_the_first_match(self):
+        config = replace(self.config, stop_after_first_match=True)
+        # The solver is first, so nothing after it should run.
+        candidates = [SOLVER, "print(0)", "print(0)", "print(0)"]
+        _, audit = apply_execution_rerank(
+            CODEFORCES, candidates, [0.9, 0.8, 0.7, 0.6], config
+        )
+        assert audit["candidates_executed"] == 1
+        assert audit["candidates_verified"] == 1
+        assert audit["stopped_early"] is True
+
+    def test_runs_everything_when_nothing_verifies(self):
+        config = replace(self.config, stop_after_first_match=True)
+        candidates = ["print(0)", "print(1)", "print(2)"]
+        _, audit = apply_execution_rerank(
+            CODEFORCES, candidates, [0.9, 0.8, 0.7], config
+        )
+        assert audit["candidates_executed"] == 3
+        assert audit["stopped_early"] is False
+
+    def test_the_winner_is_identical_either_way(self):
+        """The property the optimisation rests on."""
+        candidates = ["print(0)", SOLVER, "print(0)", SOLVER]
+        scores = [0.9, 0.8, 0.7, 0.6]
+        full, _ = apply_execution_rerank(CODEFORCES, candidates, scores, self.config)
+        early, _ = apply_execution_rerank(
+            CODEFORCES, candidates, scores, replace(self.config, stop_after_first_match=True)
+        )
+        assert full.index(max(full)) == early.index(max(early)) == 1
+
+    def test_early_exit_lifts_fewer_documents(self):
+        """Why it is not a pure no-op: it promotes one, not many."""
+        candidates = ["print(0)", SOLVER, SOLVER, "print(0)"]
+        scores = [0.9, 0.8, 0.7, 0.6]
+        full, _ = apply_execution_rerank(CODEFORCES, candidates, scores, self.config)
+        early, _ = apply_execution_rerank(
+            CODEFORCES, candidates, scores, replace(self.config, stop_after_first_match=True)
+        )
+        assert sum(s > 1.0 for s in full) == 2
+        assert sum(s > 1.0 for s in early) == 1
+
+
+class TestDenseGate:
+    """Refusing to execute candidates far below the top of the pool."""
+
+    config = ExecutionConfig(enabled=True, timeout_seconds=5.0, verified_bonus=10.0)
+
+    def test_off_by_default(self):
+        assert ExecutionConfig().max_dense_gap is None
+
+    def test_candidates_beyond_the_gap_are_not_executed(self):
+        config = replace(self.config, max_dense_gap=0.10)
+        candidates = ["print(0)"] * 4
+        _, audit = apply_execution_rerank(
+            CODEFORCES, candidates, [0.90, 0.85, 0.60, 0.55], config
+        )
+        assert audit["candidates_executed"] == 2
+        assert audit["candidates_skipped_by_gate"] == 2
+
+    def test_the_top_candidate_is_never_gated_out(self):
+        config = replace(self.config, max_dense_gap=0.0)
+        _, audit = apply_execution_rerank(
+            CODEFORCES, ["print(0)", "print(0)"], [0.9, 0.5], config
+        )
+        assert audit["candidates_executed"] == 1
+
+    def test_a_wide_gap_executes_everything(self):
+        config = replace(self.config, max_dense_gap=10.0)
+        candidates = ["print(0)"] * 3
+        _, audit = apply_execution_rerank(CODEFORCES, candidates, [0.9, 0.5, 0.1], config)
+        assert audit["candidates_executed"] == 3
+        assert audit["candidates_skipped_by_gate"] == 0
+
+    def test_gate_blocks_a_distant_false_positive(self):
+        """A lookalike far down the pool no longer gets the chance to verify."""
+        candidates = ["print(0)", SOLVER]
+        scores = [0.90, 0.40]
+        ungated, _ = apply_execution_rerank(CODEFORCES, candidates, scores, self.config)
+        gated, _ = apply_execution_rerank(
+            CODEFORCES, candidates, scores, replace(self.config, max_dense_gap=0.10)
+        )
+        assert ungated[1] > ungated[0], "without the gate the distant candidate wins"
+        assert gated == [pytest.approx(0.90), pytest.approx(0.40)]
+
+    def test_gate_and_early_exit_compose(self):
+        config = replace(self.config, max_dense_gap=0.10, stop_after_first_match=True)
+        candidates = [SOLVER, "print(0)", SOLVER]
+        _, audit = apply_execution_rerank(
+            CODEFORCES, candidates, [0.90, 0.85, 0.40], config
+        )
+        assert audit["candidates_executed"] == 1
+        assert audit["stopped_early"] is True

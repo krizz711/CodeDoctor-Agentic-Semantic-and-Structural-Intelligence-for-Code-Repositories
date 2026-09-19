@@ -106,6 +106,17 @@ def main() -> int:
     parser.add_argument("--depth", type=int, default=None, help="override pool depth")
     parser.add_argument("--execution", action="store_true", help="enable the execution reranker")
     parser.add_argument("--execution-candidates", type=int, default=5)
+    parser.add_argument(
+        "--execution-early-exit",
+        action="store_true",
+        help="stop executing a query's candidates at the first verified one",
+    )
+    parser.add_argument(
+        "--execution-max-dense-gap",
+        type=float,
+        default=None,
+        help="skip candidates scoring more than this far below the row's best",
+    )
     parser.add_argument("--limit", type=int, default=0, help="evaluate only the first N queries")
     parser.add_argument("--weights", type=Path, default=None)
     parser.add_argument("--report", type=Path, default=None)
@@ -252,10 +263,20 @@ def main() -> int:
             enabled=True,
             max_candidates=args.execution_candidates,
             verified_bonus=float(np.abs(stage_scores).max()) + 1.0,
+            stop_after_first_match=args.execution_early_exit,
+            max_dense_gap=args.execution_max_dense_gap,
         )
+        knobs = []
+        if exec_config.stop_after_first_match:
+            knobs.append("early-exit")
+        if exec_config.max_dense_gap is not None:
+            knobs.append(f"dense-gate {exec_config.max_dense_gap:g}")
+        print(f"  execution depth {exec_config.max_candidates}"
+              + (f"   [{', '.join(knobs)}]" if knobs else "   [control]"))
+
         t0 = time.time()
         exec_scores = stage_scores.copy()
-        fired = verified = 0
+        fired = verified = executed = skipped = stopped = 0
         for row in range(len(query_ids)):
             if not parse_worked_examples(query_texts[row], limit=exec_config.max_examples):
                 continue
@@ -269,15 +290,30 @@ def main() -> int:
             )
             exec_scores[row][: exec_config.max_candidates] = adjusted
             verified += int(audit["candidates_verified"])
+            executed += int(audit["candidates_executed"])
+            skipped += int(audit.get("candidates_skipped_by_gate", 0))
+            stopped += 1 if audit.get("stopped_early") else 0
             if fired % 200 == 0:
                 print(f"    executed {fired} queries ({time.time() - t0:.0f}s elapsed)")
         elapsed = time.time() - t0
         exec_ranks = rank_from_pool_scores(exec_scores, gold_columns, depth + 1)
+        budget = fired * exec_config.max_candidates
         print(
             f"  (execution fired on {fired}/{len(query_ids)} queries "
             f"({fired / len(query_ids) * 100:.1f}%), {verified} candidates verified, "
             f"{elapsed:.0f}s total, {elapsed / max(1, fired):.2f}s per firing query)"
         )
+        print(
+            f"  (ran {executed:,} of a possible {budget:,} candidate executions "
+            f"= {executed / max(1, budget):.1%}; {skipped:,} gated out, "
+            f"{stopped:,} queries stopped early)"
+        )
+        results["execution_candidates_run"] = executed
+        results["execution_candidates_budget"] = budget
+        results["execution_gated_out"] = skipped
+        results["execution_stopped_early"] = stopped
+        results["execution_early_exit"] = exec_config.stop_after_first_match
+        results["execution_max_dense_gap"] = exec_config.max_dense_gap
         exec_ndcg = report("3. + execution verification", exec_ranks)
         boot = paired_bootstrap(stage_ndcg, exec_ndcg)
         print(f"  {'':28s} vs previous stage: {boot.describe()}")
@@ -311,6 +347,14 @@ def main() -> int:
         print(f"Logged test-split access to {AUDIT_LOG_PATH}")
 
     if args.report:
+        # Per-query scores, so two runs of this script can be compared to each
+        # other with a paired bootstrap.  The aggregate numbers alone cannot
+        # support that: pairing needs the same query in both vectors.
+        results["query_ids"] = list(query_ids)
+        results["per_query_ndcg"] = {
+            "dense": [round(float(v), 6) for v in dense_ndcg],
+            "final": [round(float(v), 6) for v in stage_ndcg],
+        }
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps(results, indent=2, default=str), encoding="utf-8")
         print(f"Wrote {args.report}")
