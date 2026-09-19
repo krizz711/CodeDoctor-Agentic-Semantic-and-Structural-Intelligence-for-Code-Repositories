@@ -56,6 +56,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--seed", type=int, default=20260919)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument(
+        "--numeric-tolerance",
+        type=float,
+        default=None,
+        help="compare numeric output within this relative tolerance",
+    )
     parser.add_argument("--out", type=Path, default=REPO_ROOT / "data" / "arms" / "instrumented.npz")
     args = parser.parse_args(argv)
 
@@ -100,7 +106,11 @@ def main(argv: list[str] | None = None) -> int:
         if hit.size:
             gold_columns[row] = int(hit[0])
 
-    config = ExecutionConfig(enabled=True, max_candidates=top_n)
+    config = ExecutionConfig(
+        enabled=True, max_candidates=top_n, numeric_tolerance=args.numeric_tolerance
+    )
+    if args.numeric_tolerance is not None:
+        print(f"numeric tolerance {args.numeric_tolerance:g}")
     verified = np.full((n, top_n), NOT_EXECUTED, dtype=np.int8)
     fired = np.zeros(n, dtype=bool)
 

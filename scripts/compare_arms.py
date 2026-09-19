@@ -45,6 +45,12 @@ def describe(arm: dict) -> str:
     gap = arm.get("execution_max_dense_gap")
     if gap is not None:
         bits.append(f"gate {gap:g}")
+    promo = arm.get("execution_max_promotion_gap")
+    if promo is not None:
+        bits.append(f"promo-gate {promo:g}")
+    tol = arm.get("execution_numeric_tolerance")
+    if tol is not None:
+        bits.append(f"numeric {tol:g}")
     return ", ".join(bits) if len(bits) > 1 else bits[0] + " (control)"
 
 
