@@ -188,6 +188,18 @@ fusion (+0.0038, p = 0.164, and double the inference cost) and pseudo-relevance
 feedback (neutral at best, significantly negative at α ≥ 0.4). The full grid is
 in `data/first_pass_variants.json`.
 
+**And one prediction of ours that the gate caught.** Stopping execution at the
+first verified candidate provably cannot change which document ranks first —
+R@1 came back bit-identical at 0.9273 — so we expected it to be free. It is
+not: when the *gold* would have verified later in the list, early exit never
+reaches it and the gold is left below the documents that did verify. R@10 falls
+0.9777 → 0.9754, −0.00216 overall with a CI excluding zero, rejected. A dense
+gate at 0.20 fared better, running 39% of the candidate budget for a quality
+difference inside the noise band. Both ship default-off; neither touched the
+submitted configuration. Full table and method in
+[`docs/RETRIEVAL-PIPELINE.md`](docs/RETRIEVAL-PIPELINE.md), arm data in
+`data/arms/`.
+
 Recall@10 holds at 0.9613 through top-10 — execution reorders the head of the
 list, it cannot retrieve what the dense pass missed. At top-20 it *does* move,
 to 0.9777, because execution then reaches candidates ranked 11–20 and promotes

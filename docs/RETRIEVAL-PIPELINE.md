@@ -331,6 +331,58 @@ establish that top-20 is better with 95% confidence. What does not depend on
 that comparison is the recall@10 movement, which is a structural change rather
 than a reordering: at top-10 it is impossible.
 
+### Two cost knobs, measured: one works, one does not
+
+Execution is the expensive pass — 10,686 s of sandbox time on the submitted
+run. Two ways to spend less of it were implemented behind default-off flags
+and measured on held-out DEV at depth 20, each paired against the same control
+by `scripts/compare_arms.py`:
+
+| arm | NDCG@10 | Δ vs control (95% CI) | p | candidates run | wall clock |
+|---|---|---|---|---|---|
+| control, depth 20 | 0.95486 | — | — | 15,660 | 984 s |
+| + early exit | 0.95270 | −0.00216 [−0.00447, −0.00040] · **rejected** | 0.041 | 4,662 (29.8%) | 301 s |
+| + dense gate 0.20 | **0.95603** | +0.00117 [−0.00129, +0.00336] · neutral | 0.309 | 6,123 (39.1%) | 355 s |
+| + dense gate 0.10 | 0.93942 | −0.01544 [−0.02387, −0.00757] · **rejected** | 0.000 | 2,282 (14.6%) | 127 s |
+| + both (0.20) | 0.95371 | −0.00115 [−0.00427, +0.00186] · neutral | 0.465 | 2,509 (16.0%) | 153 s |
+
+**Early exit was our prediction, and it was wrong.** The argument for it is
+sound as far as it goes: every verified candidate in a row receives the same
+bonus, so verified candidates keep their dense order and the first one to
+verify is the one that ends up ranked first. Stopping there cannot change the
+winner — and it does not. R@1 is bit-identical to the control, 0.9273 either
+way, which is exactly what the argument predicts.
+
+What the argument missed is what happens *below* rank 1. When the gold itself
+would have verified at a later position, early exit never reaches it, so the
+gold stays in the unverified block instead of being lifted into the verified
+one. R@10 falls from 0.9777 to 0.9754 and NDCG follows. The saving is real —
+70% fewer executions — but it is not free, and the interval excludes zero, so
+the same gate that rejected the feature reranker rejects this.
+
+**The dense gate works, and it is a cost lever rather than a quality one.**
+Refusing to execute candidates more than 0.20 cosine below the best candidate
+in their row runs 39% of the candidate budget for a quality difference that
+does not clear the gate in either direction. Its point estimate is the best of
+any arm and its R@1 is the highest measured, 0.9308 against the control's
+0.9273 — three queries where a distant lookalike no longer gets the chance to
+verify — but +0.00117 with a CI spanning zero is not a result, and is not
+claimed as one.
+
+The threshold was sized before it was tested, by `scripts/measure_dense_gap.py`:
+on DEV the gold is the top candidate for over half of queries, and the gap
+from the top to the gold is within 0.20 for 836 of 837 in-pool golds. The
+0.10 arm is in the table because that measurement predicted it would start
+discarding golds — it keeps only 96.65% of them — and it did, by −0.0154. A
+sizing measurement that predicts a failure and is then confirmed is worth more
+than one that only confirms the choice already made.
+
+**Nothing here changed the submitted configuration.** Both flags default off,
+`config/frozen.yaml` is untouched, and 0.96543 remains the control. The gate
+is the candidate for the interactive service path, where 2.8× less sandbox
+time at indistinguishable quality is the trade that matters; the submission
+has no latency budget to protect.
+
 ---
 
 ## What it scores on the test split
