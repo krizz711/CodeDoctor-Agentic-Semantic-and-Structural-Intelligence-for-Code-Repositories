@@ -275,9 +275,21 @@ without improving retrieval.
   [`tests/test_config_freeze.py`](tests/test_config_freeze.py) proves the
   insulation by mutating the live file and asserting the evaluation path is
   unaffected.
-- **Leakage firewall.** `DevelopmentHarness.get_test_split` raises unless the
-  firewall is lowered with an accepted reason, and every access is appended to
-  `data/test_split_audit_log.json` against a two-access lifetime budget.
+- **Leakage firewall, and what it actually covered.**
+  `DevelopmentHarness.get_test_split` raises unless the firewall is lowered
+  with an accepted reason, and enforces a two-access lifetime budget against
+  `data/test_split_audit_log.json`. That is true, and until 2026-09-19 it was
+  also misleading: the runs that produced every reported test-split number
+  went through `scripts/evaluate_mteb.py`, which never called the harness and
+  never logged. The control was real and did not cover the path that mattered.
+  The log claimed one access; six had happened.
+  `scripts/evaluate_mteb.py` now records every test-split evaluation, and
+  `scripts/backfill_test_split_audit.py` reconstructed the missing history
+  from the run artifacts — each reconstructed row is marked `BACKFILLED` with
+  the file it came from, because an audit log that quietly acquires plausible
+  entries is worth less than one that admits a gap. On this path the firewall
+  **discloses rather than refuses**: a budget that silently blocked a
+  submission run would be a worse failure than one that reports honestly.
 - **Nothing ships inside the noise band.** Every component is gated on a
   1000-resample paired bootstrap on held-out DEV. If the 95% interval includes
   zero, `scripts/tune_reranker.py` ships the identity configuration and says so.

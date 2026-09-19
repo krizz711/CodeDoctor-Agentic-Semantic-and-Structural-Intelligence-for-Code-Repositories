@@ -83,7 +83,7 @@ from app.pipeline.encoder import PrePostPipelineEncoder
 from app.pipeline.execution_rerank import ExecutionConfig
 from app.pipeline.reranker import RerankerConfig
 from app.retrieval.encode import CodeEncoder
-from scripts.evaluate_mteb import build_mteb_encoder, get_tier_model
+from scripts.evaluate_mteb import build_mteb_encoder, get_pipeline_config, get_tier_model
 
 import mteb
 
@@ -110,8 +110,17 @@ log("max_seq_length :", encoder.max_seq_length, "add_eos_token:", encoder.add_eo
 config = RerankerConfig() if not RERANK else RerankerConfig.load()
 log("reranker:", config.describe())
 
-execution_config = ExecutionConfig(enabled=EXECUTION, max_candidates=EXECUTION_CANDIDATES)
+# Read the comparison rule from the frozen config rather than hardcoding it
+# here, so this kernel and a local `python scripts/evaluate_mteb.py` cannot
+# disagree about how a candidate's output is judged.
+_pipeline_defaults = get_pipeline_config()
+execution_config = ExecutionConfig(
+    enabled=EXECUTION,
+    max_candidates=EXECUTION_CANDIDATES,
+    numeric_tolerance=_pipeline_defaults["execution_numeric_tolerance"],
+)
 log("execution pass:", "ENABLED top-%d" % EXECUTION_CANDIDATES if EXECUTION else "off")
+log("numeric tolerance:", execution_config.numeric_tolerance)
 
 pipeline = PrePostPipelineEncoder(encoder, config, execution_config=execution_config)
 hub_path = __import__("pathlib").Path(WORK) / "artifacts" / "hubness.npz"

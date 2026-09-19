@@ -59,6 +59,10 @@ def get_default_model(config_path: Path | None = None) -> str:
     return data.get("encoder", {}).get("production_model", "codefuse-ai/F2LLM-v2-1.7B")
 
 
+#: CoIR AppsRetrieval test split, fixed by the dataset revision this pins.
+APPS_TEST_QUERIES = 3765
+
+
 def get_pipeline_config(config_path: Path | None = None) -> dict:
     """The ``pipeline`` block of the frozen config, with safe fallbacks."""
     data = _read_config(config_path or get_default_config_path())
@@ -67,6 +71,11 @@ def get_pipeline_config(config_path: Path | None = None) -> dict:
         "execution_rerank": bool(block.get("execution_rerank", False)),
         "execution_candidates": int(block.get("execution_candidates", 10)),
         "execution_timeout_seconds": float(block.get("execution_timeout_seconds", 2.0)),
+        "execution_numeric_tolerance": (
+            None
+            if block.get("execution_numeric_tolerance") in (None, "", False)
+            else float(block["execution_numeric_tolerance"])
+        ),
     }
 
 
@@ -189,6 +198,7 @@ def main() -> None:
         ),
         max_candidates=args.execution_candidates or pipeline_defaults["execution_candidates"],
         timeout_seconds=args.execution_timeout or pipeline_defaults["execution_timeout_seconds"],
+        numeric_tolerance=pipeline_defaults["execution_numeric_tolerance"],
     )
     if execution_config.enabled:
         print(f"Execution pass  : ON (top {execution_config.max_candidates}, "
@@ -225,6 +235,36 @@ def main() -> None:
     scores = payload.get("scores", {}).get("test", [{}])[0]
     print(f"\nNDCG@10 = {scores.get('ndcg_at_10')}   MRR@10 = {scores.get('mrr_at_10')}")
     print(f"Wrote {args.output}")
+
+    # This is a test-split evaluation, so it belongs in the same audit log as
+    # every other one.  Until 2026-09-19 it was not recorded: the log only ever
+    # saw DevelopmentHarness.get_test_split, while the runs that produced the
+    # submitted numbers all came through here.  The control existed and did not
+    # cover the path that mattered.
+    #
+    # Recorded, never refused.  A budget that silently blocks the submission
+    # run would be worse than one that reports honestly, and the firewall's job
+    # on this path is disclosure rather than prevention.
+    try:
+        from app.evaluation_harness import record_persistent_audit
+
+        record_persistent_audit(
+            reason="final_run",
+            row_count=APPS_TEST_QUERIES,
+            caller="scripts/evaluate_mteb.py",
+            extra={
+                "metric_ndcg_at_10": scores.get("ndcg_at_10"),
+                "metric_mrr_at_10": scores.get("mrr_at_10"),
+                "model": model_name,
+                "execution_rerank": execution_config.enabled,
+                "execution_candidates": execution_config.max_candidates,
+                "execution_numeric_tolerance": execution_config.numeric_tolerance,
+                "enforced": False,
+            },
+        )
+        print("Logged test-split access to data/test_split_audit_log.json")
+    except Exception as error:  # pragma: no cover - never fail a run over logging
+        print(f"WARNING: could not record the test-split access: {error}")
 
     if args.predictions:
         from scripts.export_submission_csv import export_from_predictions

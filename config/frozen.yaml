@@ -66,6 +66,20 @@ pipeline:
   execution_rerank: true
   execution_candidates: 20
   execution_timeout_seconds: 2.0
+  # Compare numeric output as numbers, not as text.
+  #
+  # Execution counted a solution printing 1.0000000000000002 as wrong against
+  # a sample showing 1.000000000. Comparing token by token, numerically where
+  # both sides parse as numbers, is worth +0.00468 NDCG@10 on held-out DEV,
+  # 95% CI [+0.00117, +0.00891], p = 0.017 on 2000 resamples -- the only
+  # change in the gating series whose interval excluded zero.
+  #
+  # It is a relaxation, so it can admit false verifications as well as recover
+  # real ones. An instrumented run measured the split rather than assuming it:
+  # +29 golds against +2 false verifications, so precision RISES (0.7960 ->
+  # 0.8015) while gold verification recall goes 0.7731 -> 0.8110. A wrong
+  # program rarely prints something numerically equal to the right answer.
+  execution_numeric_tolerance: 1.0e-6
 
 fusion:
   rrf_k: 60
