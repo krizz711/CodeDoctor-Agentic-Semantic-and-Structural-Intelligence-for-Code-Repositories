@@ -1,0 +1,21 @@
+build/
+*.db
+build/*.db
+*.dll
+*.exe
+*.index
+*.codedoctor
+*.graph
+__pycache__/
+.pytest_cache/
+
+
+# Reproducible evaluation artifacts: texts and qrels come straight from
+# CoIR-Retrieval/apps, embeddings from scripts/encode_apps.py. Regenerating is
+# one command; committing hundreds of MB of float16 is not.
+artifacts/
+.venv/
+.venv-1/
+.ruff_cache/
+.hypothesis/
+predictions/

@@ -1,0 +1,8 @@
+# Optional GPU extras for the offline encode. The pipeline itself is CPU-only;
+# this exists because encoding 17,530 texts once is faster on a GPU.
+#
+# Note on dtype: Turing GPUs (T4) have no native bfloat16 and torch emulates it,
+# which makes the encode roughly an order of magnitude slower. CodeEncoder picks
+# float16 below compute capability 8.0 and bfloat16 at or above it.
+-r requirements-eval.txt
+accelerate>=0.28.0

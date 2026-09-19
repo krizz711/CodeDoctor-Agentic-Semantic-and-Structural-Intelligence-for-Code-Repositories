@@ -1,0 +1,47 @@
+#include <cassert>
+#include <string>
+
+#include "codedoctor/chunker.hpp"
+#include "codedoctor/graph.hpp"
+#include "codedoctor/indexer.hpp"
+#include "codedoctor/retriever.hpp"
+
+int main() {
+    const std::string source =
+        "export function loginUser(email, password) {\n"
+        "    return { email, password };\n"
+        "}\n\n"
+        "class AuthService {\n"
+        "    async getUserData() { return { ok: true }; }\n"
+        "}\n";
+
+    const auto chunks = codedoctor::Chunker::chunkSource(source, "src/auth.js");
+    // Assert properties rather than brittle exact counts
+    assert(!chunks.empty());
+    bool found_login = false;
+    bool found_auth = false;
+    for (const auto& chunk : chunks) {
+        assert(chunk.content == source.substr(chunk.start_byte, chunk.end_byte - chunk.start_byte));
+        if (chunk.name == "loginUser") found_login = true;
+        if (chunk.name == "AuthService") found_auth = true;
+    }
+    assert(found_login);
+    assert(found_auth);
+
+    codedoctor::SymbolIndexer indexer;
+    indexer.indexFile("src/auth.js", source, "abc123");
+    assert(!indexer.searchSymbols("loginUser").empty());
+    assert(!indexer.searchSymbols("get_user_data").empty());
+    assert(!indexer.keywordSearch("password").empty());
+
+    codedoctor::Retriever retriever(indexer);
+    assert(!retriever.search("loginUser").empty());
+
+    codedoctor::CodeGraph graph;
+    graph.addEdge("loginUser", "AuthService", "CALLS", "src/auth.js", 2, 0.92);
+    const auto callers = graph.callersOf("AuthService");
+    assert(callers.size() == 1);
+    assert(callers[0] == "loginUser");
+
+    return 0;
+}

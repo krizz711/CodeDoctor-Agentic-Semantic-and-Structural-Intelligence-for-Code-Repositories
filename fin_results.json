@@ -1,0 +1,16 @@
+{
+  "p0": {
+    "name": "AppsRetrieval",
+    "status": "passed",
+    "source": "completed local MTEB benchmark run",
+    "ndcg_at_10": 0.96558,
+    "mrr_at_10": 0.9585696367967284,
+    "evidence": "Verified from the local benchmark output artifact written by the run"
+  },
+  "p1": {
+    "status": "passed",
+    "command": "python -m pytest tests/test_cross_version_retrieval.py tests/test_git_versioned.py -q",
+    "result": "12 passed in 10.27s",
+    "evidence": "Fresh terminal output from the local rerun"
+  }
+}
