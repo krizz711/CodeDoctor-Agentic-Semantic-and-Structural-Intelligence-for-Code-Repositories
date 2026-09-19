@@ -374,7 +374,7 @@ The damage is confined to queries where the gold fails to verify at all.
 Reproduce either decomposition from the shipped CSVs:
 
 ```bash
-python scripts/audit_execution_rerank.py     --predictions data/predictions_top10.csv     --compare     submission_predictions.csv
+python scripts/audit_execution_rerank.py --predictions data/predictions_top10.csv --compare submission_predictions.csv
 ```
 
 ---

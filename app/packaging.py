@@ -35,6 +35,15 @@ PAYLOAD_PATHS: tuple[str, ...] = (
     "scripts/encode_apps.py",
     "scripts/tune_reranker.py",
     "scripts/dev_eval.py",
+    # Both hosted notebooks call these after the run.  They were missing until
+    # 2026-09-19, which meant the Colab notebook's validation cell died with
+    # "can't open file scripts/validate_submission.py" -- the run was fine, the
+    # check on it never executed.
+    "scripts/validate_submission.py",
+    "scripts/audit_execution_rerank.py",
+    # Gold labels for the post-run decomposition.  87 KB, and it keeps the
+    # audit runnable in a hosted notebook that has no artifacts/ directory.
+    "data/qrels_test.json",
 )
 
 

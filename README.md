@@ -21,7 +21,7 @@ Python 3.11+.
 ```bash
 pip install -r requirements.txt        # runtime
 pip install -r requirements-eval.txt   # MTEB, torch, sentence-transformers
-pytest -q -m "not model"               # 158 tests, no weights needed, ~15s
+pytest -q -m "not model"               # 173 tests, no weights needed, ~20s
 ```
 
 The two deselected tests load real encoder weights (a multi-GB download). Run
@@ -292,10 +292,32 @@ python scripts/validate_submission.py appsretrieval_results.json
 1.7B encoder. On one T4 it is 24 minutes. On a 6-core laptop CPU it is roughly
 four hours, because a single document encode costs ~1.6 s there. Everything
 after step 1 runs on the cached vectors in seconds.
-`scripts/build_eval_kernel.py` packages the whole thing into a self-contained
-Kaggle GPU kernel — the pipeline is embedded as a tarball built from the
-working tree, so the kernel can never run code that has drifted from this
-repository.
+### Run it on a hosted GPU instead
+
+Three generators package the pipeline for a hosted runner. All three embed the
+source as a tarball built from the working tree by one shared packer
+(`app/packaging.py`), so none of them can run code that has drifted from this
+repository, and none of them is a hand-maintained copy:
+
+| generator | target | purpose |
+|---|---|---|
+| `scripts/build_eval_kernel.py` | Kaggle script kernel | headless; this produced the submitted run |
+| `scripts/make_kaggle_notebook.py` | Kaggle notebook | the reproduction walkthrough, written to be read |
+| `scripts/make_notebook.py` | Colab notebook | same pipeline, Colab conventions |
+
+```bash
+python scripts/make_kaggle_notebook.py --out build/notebook --hubness artifacts/apps/hubness_f2llm17b.npz
+```
+
+```bash
+kaggle kernels push -p build/notebook
+```
+
+The Kaggle notebook reproduces the submitted 0.96543 end to end — it prints the
+frozen recipe off the live encoder object rather than quoting it, runs
+`mteb.evaluate`, re-validates the emitted JSON, and finishes with the per-query
+decomposition from `scripts/audit_execution_rerank.py`. Budget about 25 minutes
+to encode and three hours in the execution sandbox at depth 20.
 
 ---
 
