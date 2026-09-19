@@ -215,7 +215,7 @@ function footer(s, n, dark) {
   });
 
   card(s, M, 3.35, 5.3, 1.85, { fill: INK_SOFT });
-  s.addText("0.96543", {
+  s.addText("0.96558", {
     x: M + 0.35, y: 3.5, w: 4.6, h: 0.95,
     fontFace: SANS, fontSize: 54, bold: true, color: VERIFIED,
     isTextBox: true, margin: 0,
@@ -248,7 +248,7 @@ function footer(s, n, dark) {
     lineSpacingMultiple: 1.15, isTextBox: true, margin: 0,
   });
   s.addNotes(
-    "Headline: 0.96543 NDCG@10 on the CoIR AppsRetrieval test split, against " +
+    "Headline: 0.96558 NDCG@10 on the CoIR AppsRetrieval test split, against " +
     "0.93756 for the frozen encoder alone. The encoder reproduces its published " +
     "score, so everything above that line is this project's contribution."
   );
@@ -621,23 +621,24 @@ function footer(s, n, dark) {
     [hdrDark("test-split stage"), hdrDark("NDCG@10"), hdrDark("MRR@10"), hdrDark("R@10"), hdrDark("sandbox")],
     ["dense only, F2LLM-v2-1.7B", "0.93756", "0.92370", "0.97955", "—"],
     ["+ execution, top-10", "0.96085", "0.95449", "0.97955", "5,839 s"],
+    ["+ top-20, exact compare", "0.96543", "0.95837", "0.98619", "10,686 s"],
     [
-      { text: "+ execution, top-20", options: { bold: true, color: "FFFFFF" } },
-      { text: "0.96543", options: { bold: true, color: "5FD9C2" } },
-      { text: "0.95837", options: { bold: true, color: "FFFFFF" } },
+      { text: "+ numeric compare (shipped)", options: { bold: true, color: "FFFFFF" } },
+      { text: "0.96558", options: { bold: true, color: "5FD9C2" } },
+      { text: "0.95857", options: { bold: true, color: "FFFFFF" } },
       { text: "0.98619", options: { bold: true, color: "FFFFFF" } },
-      { text: "10,686 s", options: {} },
+      { text: "11,920 s", options: {} },
     ],
-  ], M, 4.28, 8.55, { dark: true, colW: [3.0, 1.45, 1.45, 1.35, 1.3], rowH: 0.32, size: 11 });
+  ], M, 4.28, 8.55, { dark: true, colW: [3.0, 1.45, 1.45, 1.35, 1.3], rowH: 0.30, size: 10.5 });
 
   card(s, M + 8.85, 3.92, CW - 8.85, 1.94, { fill: INK_SOFT });
   body(s, "Say the negative result out loud", M + 9.1, 4.1, 3.3, 0.3, { size: 12.5, bold: true, color: "E79D86" });
   body(s, "Our own nine-feature reranker did not clear its own gate. Against a weak encoder it is worth +0.037; against F2LLM-v2-1.7B, +0.0048 with a CI spanning zero. The tuner shipped the identity config and recorded why. Fusion (+0.0038, p = 0.164) and PRF were rejected the same way.",
     M + 9.1, 4.42, CW - 9.35, 1.35, { size: 10.5, color: "C3CEE2" });
 
-  body(s, "Depth 20 was not the obvious call.", M, 6.02, 3.2, 0.3, { size: 12.5, bold: true, color: "FFFFFF" });
-  body(s, "On test the dense pass already reaches R@10 = 0.97955, so only 30 queries have a gold at ranks 11–20 to recover — half the headroom DEV showed. We ran both depths rather than predict. Depth 20 recovers 25 of those 30, loses 13 to false verification, nets +8 rank-1 hits. It is affordable because candidates at ranks 11–20 verify at 0.80% against 8.41% for ranks 1–10.",
-    M, 6.3, CW, 0.62, { size: 11, color: "A9B7D0" });
+  body(s, "The last step is not claimed as a gain.", M, 6.02, 4.2, 0.3, { size: 12.5, bold: true, color: "FFFFFF" });
+  body(s, "Numeric comparison is +0.00015 over exact — 95% CI [−0.00046, +0.00081], p = 0.630, four queries better and three worse. It ships as the higher measured value under a more correct rule, not because the score moved. On held-out DEV the same change was +0.00468 with an interval excluding zero; it did not transfer, because after execution the test split has almost no headroom left. Depth 20 over depth 10 was the real step: 25 golds recovered from ranks 11–20 against 13 lost to false verification, +8 rank-1 hits.",
+    M, 6.3, CW, 0.62, { size: 10.5, color: "A9B7D0" });
   footer(s, 10, true);
   s.addNotes("The rejected reranker is on this slide deliberately. A gate that never rejects anything is not a gate.");
 }

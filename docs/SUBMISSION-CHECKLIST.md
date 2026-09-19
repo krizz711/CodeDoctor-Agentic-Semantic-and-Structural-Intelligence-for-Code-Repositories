@@ -5,7 +5,7 @@ is a GitHub release, which is a manual step on purpose.
 
 | deliverable | state |
 |---|---|
-| MTEB results JSON from the test split | **done** — [`appsretrieval_results.json`](../appsretrieval_results.json), NDCG@10 = 0.96543 |
+| MTEB results JSON from the test split | **done** — [`appsretrieval_results.json`](../appsretrieval_results.json), NDCG@10 = 0.96558 |
 | Deck | **done** — [`CodeDoctor-PRISM-Theme01.pptx`](CodeDoctor-PRISM-Theme01.pptx), 13 slides |
 | Repository with runnable instructions | **done** — [`README.md`](../README.md) §1 and §6 |
 | Attached to a GitHub release, tagged | **outstanding** — steps below |
@@ -63,8 +63,8 @@ Once it is public, paste the link into the deck's closing slide and into
 - The headline number appears in six places and they must agree:
   `appsretrieval_results.json`, `submission_metrics.csv`, `README.md`,
   `docs/SUBMISSION-DECK.md`, `docs/RETRIEVAL-PIPELINE.md` and the built
-  `.pptx`. All six currently read **0.96543** — verified, not assumed:
+  `.pptx`. All six currently read **0.96558** — verified, not assumed:
 
   ```bash
-  grep -rl 0.96543 appsretrieval_results.json submission_metrics.csv README.md docs/
+  grep -rl 0.96558 appsretrieval_results.json submission_metrics.csv README.md docs/
   ```

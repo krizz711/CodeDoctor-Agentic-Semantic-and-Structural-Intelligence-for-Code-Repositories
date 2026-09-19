@@ -3,7 +3,7 @@
 Source material for the PPT. Every number here is reproduced by a command in
 [`README.md` §6](../README.md); nothing is quoted that a reviewer cannot re-run.
 
-> All numbers are final and measured. The headline figure, NDCG@10 = 0.96543
+> All numbers are final and measured. The headline figure, NDCG@10 = 0.96558
 > on the CoIR AppsRetrieval test split, comes from the run archived in
 > `appsretrieval_results.json` at the repository root.
 
@@ -207,7 +207,7 @@ saw, every delta from a 1000-resample paired bootstrap:
 | + execution, top-10 | 0.94061 | 0.93382 | 0.9168 | 0.9613 | +0.0440 [+0.0342, +0.0532] |
 | + execution, top-20 | **0.95486** | **0.94730** | **0.9273** | **0.9777** | **+0.0583 [+0.0457, +0.0702]** |
 
-**Final test-split submission: `0.96543` NDCG@10.**
+**Final test-split submission: `0.96558` NDCG@10.**
 
 Every number below is the CoIR AppsRetrieval test split, 3,765 queries,
 scored by `mteb.evaluate` at version 2.21.0:
@@ -216,7 +216,15 @@ scored by `mteb.evaluate` at version 2.21.0:
 |---|---|---|---|---|
 | dense only, F2LLM-v2-1.7B | 0.93756 | 0.92370 | 0.97955 | — |
 | + execution, top-10 | 0.96085 | 0.95449 | 0.97955 | 5,839 s |
-| + execution, top-20 | **0.96543** | **0.95837** | **0.98619** | 10,686 s |
+| + execution, top-20, exact comparison | 0.96543 | 0.95837 | 0.98619 | 10,686 s |
+| + numeric comparison (**shipped**) | **0.96558** | **0.95857** | **0.98619** | 11,920 s |
+
+The last step is **not** claimed as an improvement: paired over the same 3,765
+queries it is +0.00015, 95% CI [−0.00046, +0.00081], p = 0.630. Four queries
+better, three worse. It ships because it is the higher measured value and the
+more correct comparison rule, not because the score moved. On held-out DEV the
+same change was +0.00468 with an interval excluding zero — it did not transfer,
+because after execution the test split has almost no headroom left to recover.
 
 R@10 is identical for the dense pass and the depth-10 rerank because
 reordering inside the top-10 cannot change which documents are in it. It moves

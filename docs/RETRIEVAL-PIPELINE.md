@@ -378,7 +378,7 @@ sizing measurement that predicts a failure and is then confirmed is worth more
 than one that only confirms the choice already made.
 
 **Nothing here changed the submitted configuration.** Both flags default off,
-`config/frozen.yaml` is untouched, and 0.96543 remains the control. The gate
+`config/frozen.yaml` is untouched, and 0.96558 remains the control. The gate
 is the candidate for the interactive service path, where 2.8× less sandbox
 time at indistinguishable quality is the trade that matters; the submission
 has no latency budget to protect.
@@ -563,7 +563,24 @@ all 3,765 test queries:
 |---|---|---|---|---|---|
 | dense only, F2LLM-v2-1.7B | 0.93756 | 0.92370 | 0.97955 | — | — |
 | + execution, top-10 | 0.96085 | 0.95449 | 0.97955 | 0.93519 | 5,839 s |
-| + execution, top-20 | **0.96543** | **0.95837** | **0.98619** | **0.93732** | 10,686 s |
+| + execution, top-20, exact comparison | 0.96543 | 0.95837 | 0.98619 | 0.93732 | 10,686 s |
+| + numeric comparison (**shipped**) | **0.96558** | **0.95857** | **0.98619** | **0.93758** | 11,920 s |
+
+**The last row is the shipped artifact, and it is not an improvement we can
+claim.** Against the exact-comparison run, paired over the same 3,765 queries
+with 2000 resamples: **+0.00015, 95% CI [−0.00046, +0.00081], p = 0.630** —
+inside the noise band. Four queries improved, three worsened, 3,758 unchanged.
+It is shipped because it is the higher measured value and because comparing
+numbers as numbers is the more correct rule, not because the score moved.
+
+**The DEV result did not transfer, and that is worth stating plainly.** On
+held-out DEV the same change was +0.00468 with an interval excluding zero. On
+test it is noise. The reason is headroom: DEV's dense pass leaves R@1 at
+0.8277, test's at 0.8882, and after execution test is already at 0.93732. The
+84 extra verifications the numeric rule buys on test are mostly golds that
+were *already* winning their query, so they change nothing. A relaxation can
+only help where something was being lost, and on the test split very little
+was.
 
 R@10 is identical for the dense pass and the depth-10 rerank, which is the
 consistency check the previous section predicted: reordering inside the top

@@ -79,5 +79,19 @@
     "note": "Kaggle notebook codedoctor-appsretrieval-reproduction: independent reproduction of the submitted run",
     "source_artifact": "artifacts/kaggle/notebook/appsretrieval_results.json",
     "reconstructed_on": "2026-09-19T04:34:19.020660+00:00"
+  },
+  {
+    "access_index": 7,
+    "timestamp": "2026-09-19 10:50:15.786983+00:00",
+    "reason": "final_run",
+    "caller": "Kaggle kernel codedoctor-apps-eval-numeric (mteb.evaluate)",
+    "split": "test",
+    "rows": 3765,
+    "metric_ndcg_at_10": 0.96558,
+    "metric_mrr_at_10": 0.9585696367967284,
+    "status": "COMPLETED",
+    "note": "execution rerank depth 20 with numeric output comparison 1e-6 (SUBMITTED)",
+    "source_artifact": "artifacts/kaggle/numeric/appsretrieval_results.json",
+    "execution_numeric_tolerance": 1e-06
   }
 ]

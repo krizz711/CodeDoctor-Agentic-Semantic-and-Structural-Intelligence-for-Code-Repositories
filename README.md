@@ -9,7 +9,7 @@ Given a library of code and a natural-language query, rank the snippets by
 relevance. CodeDoctor does it in three passes over a frozen CPU encoder, and
 reports honestly what each pass bought — including the one that bought nothing.
 
-**Result: NDCG@10 = 0.96543** on the CoIR AppsRetrieval test split (MTEB
+**Result: NDCG@10 = 0.96558** on the CoIR AppsRetrieval test split (MTEB
 2.21.0, 3,765 queries), against **0.93756** for the frozen encoder alone.
 The scored artifact is [`appsretrieval_results.json`](appsretrieval_results.json).
 
@@ -22,7 +22,7 @@ Python 3.11+.
 ```bash
 pip install -r requirements.txt        # runtime
 pip install -r requirements-eval.txt   # MTEB, torch, sentence-transformers
-pytest -q -m "not model"               # 173 tests, no weights needed, ~20s
+pytest -q -m "not model"               # 199 tests, no weights needed, ~20s
 ```
 
 The two deselected tests load real encoder weights (a multi-GB download). Run
@@ -226,7 +226,15 @@ frozen weights, scored by `mteb.evaluate`:
 |---|---|---|---|---|---|
 | dense only, F2LLM-v2-1.7B | 0.93756 | 0.92370 | 0.97955 | — | — |
 | + execution, top-10 | 0.96085 | 0.95449 | 0.97955 | 0.93519 | 5,839 s |
-| + execution, top-20 | **0.96543** | **0.95837** | **0.98619** | **0.93732** | 10,686 s |
+| + execution, top-20, exact comparison | 0.96543 | 0.95837 | 0.98619 | 0.93732 | 10,686 s |
+| + numeric comparison (**shipped**) | **0.96558** | **0.95857** | **0.98619** | **0.93758** | 11,920 s |
+
+The final step is **not** claimed as a gain: paired over the same 3,765
+queries it is +0.00015, 95% CI [−0.00046, +0.00081], p = 0.630 — four queries
+better, three worse, 3,758 unchanged. It ships as the higher measured value
+under a more correct comparison rule. On held-out DEV the same change was
++0.00468 with an interval excluding zero; it did not transfer, because after
+execution the test split has almost no headroom left.
 
 **Both depths were run, because DEV did not settle it.** DEV's dense pass
 leaves 3.9% of golds outside the top 10; the test split's leaves 2.0%. That
@@ -347,7 +355,7 @@ python scripts/make_kaggle_notebook.py --out build/notebook --hubness artifacts/
 kaggle kernels push -p build/notebook
 ```
 
-The Kaggle notebook reproduces the submitted 0.96543 end to end — it prints the
+The Kaggle notebook reproduces the submitted 0.96558 end to end — it prints the
 frozen recipe off the live encoder object rather than quoting it, runs
 `mteb.evaluate`, re-validates the emitted JSON, and finishes with the per-query
 decomposition from `scripts/audit_execution_rerank.py`. Budget about 25 minutes
