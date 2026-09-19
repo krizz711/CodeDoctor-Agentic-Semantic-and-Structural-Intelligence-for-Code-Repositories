@@ -22,7 +22,7 @@ Python 3.11+.
 ```bash
 pip install -r requirements.txt        # runtime
 pip install -r requirements-eval.txt   # MTEB, torch, sentence-transformers
-pytest -q -m "not model"               # 199 tests, no weights needed, ~20s
+pytest -q -m "not model"               # 201 tests, no weights needed, ~20s
 ```
 
 The two deselected tests load real encoder weights (a multi-GB download). Run

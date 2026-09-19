@@ -68,6 +68,41 @@ def promoting_config(feature: str = "defined_name_hit", weight: float = 5.0) -> 
     return RerankerConfig(weights=tuple(weights), candidate_depth=4)
 
 
+class TestScoringUsesRawQueryText:
+    """The encoder scores the text MTEB gave it, unmodified.
+
+    ``QueryFacts.cleaned_text`` strips boilerplate and is deliberately not
+    used for scoring: it changes 82% of test queries and removes a median 15%
+    of their characters, which needs the same paired-bootstrap gate as any
+    other pass before it can be switched on.  These pin that it stays out of
+    the scoring path, so nobody quietly wires it in as an obvious improvement.
+    """
+
+    def test_encoder_receives_the_query_verbatim(self):
+        seen: list[str] = []
+
+        class RecordingEncoder(StubEncoder):
+            def encode(self, texts, mode="document", **kwargs):
+                items = [texts] if isinstance(texts, str) else list(texts)
+                if mode == "query":
+                    seen.extend(items)
+                return super().encode(texts, mode=mode, **kwargs)
+
+        noisy = [q + "\n-----Note-----\nThis note is retrieval-inert.\n" for q in QUERIES]
+        pipeline = PrePostPipelineEncoder(RecordingEncoder(), promoting_config())
+        pipeline.encode(batches(noisy), prompt_type="query")
+        assert seen == noisy, "the scoring path must not silently clean the query"
+        assert all("-----Note-----" in text for text in seen)
+
+    def test_cleaned_text_is_computed_but_differs_from_what_was_scored(self):
+        from app.pipeline.query_analysis import analyze_query
+
+        text = QUERIES[0] + "\n-----Note-----\nInert.\n"
+        facts = analyze_query(text)
+        assert facts.cleaned_text != text, "cleaning is still available for inspection"
+        assert "-----Note-----" not in facts.cleaned_text
+
+
 class TestMtebContract:
     def test_encode_returns_one_row_per_text(self):
         pipeline = PrePostPipelineEncoder(StubEncoder(), promoting_config())

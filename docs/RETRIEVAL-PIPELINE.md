@@ -551,6 +551,58 @@ decision, not a side effect of a DEV result. If anything the effect there
 should be larger: the test split is 98.4% competitive-stdin with 97.6% example
 coverage, against DEV's 91.8%.
 
+### Two questions a reviewer should ask, measured
+
+**"Retrieve with the small model, rerank with the large one — wouldn't that be
+cheaper?"** It would be lossless, and on this corpus it saves nothing.
+`scripts/measure_cascade.py` takes F2LLM-v2-0.6B's top-K and rescores exactly
+those K with F2LLM-v2-1.7B, on the test split:
+
+| configuration | NDCG@10 | first-pass R@K | Δ vs 1.7B alone (95% CI) |
+|---|---|---|---|
+| 0.6B alone, full corpus | 0.90408 | — | — |
+| 1.7B alone, full corpus | 0.93756 | — | — |
+| 0.6B top-20 → 1.7B rerank | 0.93415 | 0.9793 | −0.00341 [−0.00565, −0.00128] |
+| **0.6B top-50 → 1.7B rerank** | **0.93761** | 0.9910 | **+0.00005 [−0.00068, +0.00080]** |
+| 0.6B top-100 → 1.7B rerank | 0.93758 | 0.9939 | +0.00001 [−0.00066, +0.00071] |
+
+At K = 50 the cascade is statistically indistinguishable from running the
+large model over everything, because the small model's recall@50 is 0.9910 and
+a rerank cannot retrieve what the first pass missed. At K = 20 it loses
+significantly — the ceiling is only 0.9793 there.
+
+So the architecture is sound. What it does not do is save the cost people
+reach for it to save. Reranking with a **bi-encoder** needs the large model's
+*document* vectors, so the corpus has to be encoded with both models and the
+expensive index build still happens. The saving would be real for a
+**cross-encoder**, which scores query-document pairs at query time and needs
+no document index — that is a different component, and an honest piece of
+future work rather than something this table demonstrates.
+
+If a CPU budget is the binding constraint, the lever is the tier, not the
+cascade: 0.6B alone is 0.90408 and encodes in minutes rather than hours.
+
+**"If the encoder trained on this dataset, is 0.9 just leakage?"** A fair
+question — F2LLM-v2's paper does list CoIR-Retrieval datasets among its
+training data, so the family is in-domain for this benchmark. What that does
+*not* explain is a memorised test split, and the split-to-split comparison is
+the check:
+
+| model | train | test | test − train |
+|---|---|---|---|
+| F2LLM-v2-0.6B | 0.90741 | 0.90427 | −0.00314 |
+| F2LLM-v2-1.7B | 0.93285 | 0.93756 | +0.00471 |
+
+Both models score the same on the half they were evaluated on as on the half
+they were not, to within half a point, and the 0.6B is slightly *worse* on
+test. Memorisation of the scored split would show up as test far exceeding
+train. It does not. The high absolute number is domain familiarity, which is a
+property of every public code encoder now and is stated rather than hidden.
+
+The negative control says the same thing from the other side: the identical
+harness scores `all-MiniLM-L6-v2` at **0.05700** on this split. An evaluation
+that inflates would inflate that too.
+
 ---
 
 ## What it scores on the test split

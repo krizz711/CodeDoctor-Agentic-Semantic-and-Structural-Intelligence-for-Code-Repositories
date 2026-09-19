@@ -133,7 +133,14 @@ class QueryFacts:
     numbers: frozenset[str] = field(default_factory=frozenset)
     #: Quoted string literals, e.g. ``"YES"`` / ``"Impossible"``.
     strings: frozenset[str] = field(default_factory=frozenset)
-    #: Statement with boilerplate sections removed (encoder input candidate).
+    #: Statement with boilerplate sections removed.
+    #:
+    #: **Diagnostic only — nothing scores with this.** The encoder receives the
+    #: raw text MTEB hands it, and `tests/test_pipeline_encoder.py` pins that.
+    #: Cleaning changes 82% of test queries and removes a median 15% of their
+    #: characters, which is far too large a change to switch on unmeasured; it
+    #: would need the same paired-bootstrap gate as every other pass. Until
+    #: someone runs that arm this field exists to be inspected, not applied.
     cleaned_text: str = ""
     char_length: int = 0
 
