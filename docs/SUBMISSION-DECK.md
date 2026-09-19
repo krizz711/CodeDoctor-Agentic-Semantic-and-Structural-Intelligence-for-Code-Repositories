@@ -7,6 +7,16 @@ Source material for the PPT. Every number here is reproduced by a command in
 > on the CoIR AppsRetrieval test split, comes from the run archived in
 > `appsretrieval_results.json` at the repository root.
 
+This file is the content; [`deck/build_deck.js`](deck/build_deck.js) is the
+layout. The built deck is
+[`CodeDoctor-PRISM-Theme01.pptx`](CodeDoctor-PRISM-Theme01.pptx), 13 slides.
+Keeping words and layout apart means a measurement can change without anyone
+re-typing a figure into a text box:
+
+```bash
+npm install pptxgenjs && node docs/deck/build_deck.js
+```
+
 ---
 
 ## Slide 1 — Problem
@@ -31,7 +41,7 @@ Not in scope: generating an answer, explaining the results.
                               ▼
                    9-feature linear reranker
                               │
-                              ▼      (optional, off by default)
+                              ▼      (shipped on; --no-execution)
                    execution verification
                               │
                               ▼
@@ -152,7 +162,7 @@ take them.*
 
 ---
 
-## Slide 8 — Execution verification (optional, off by default)
+## Slide 8 — Execution verification (shipped on, `--no-execution` to disable)
 
 Feed a statement's sample input to a candidate; compare stdout.
 

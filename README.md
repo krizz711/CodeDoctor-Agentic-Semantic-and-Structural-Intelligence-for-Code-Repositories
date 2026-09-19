@@ -2,7 +2,8 @@
 
 > Samsung PRISM GenAI Hackathon 2026 · **Theme 01: Agentic Code Intelligence**
 > Approach in depth: [`docs/RETRIEVAL-PIPELINE.md`](docs/RETRIEVAL-PIPELINE.md) ·
-> System record: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+> System record: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ·
+> Deck: [`docs/CodeDoctor-PRISM-Theme01.pptx`](docs/CodeDoctor-PRISM-Theme01.pptx)
 
 Given a library of code and a natural-language query, rank the snippets by
 relevance. CodeDoctor does it in three passes over a frozen CPU encoder, and

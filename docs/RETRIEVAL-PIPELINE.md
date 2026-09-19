@@ -256,7 +256,7 @@ would raise the reported score without improving retrieval.
 
 ---
 
-## Execution verification (optional, off by default)
+## Execution verification (shipped on; `--no-execution` disables it)
 
 `app/pipeline/execution_rerank.py`
 
@@ -274,14 +274,25 @@ Gold solutions reproduce their own sample output 71–82% of the time; of 100
 random non-gold candidates tested against a statement's examples, **0** passed.
 Cost is ~0.08s per candidate.
 
-It is **disabled by default** for two reasons:
+**Two different defaults, deliberately.** The `ExecutionConfig` dataclass
+defaults to `enabled=False`, and
+[`tests/test_execution_rerank.py`](../tests/test_execution_rerank.py) pins that:
+a library that runs untrusted code the moment you construct it is a bad
+library, so a caller who does not ask for this pass never gets it. The shipped
+submission config, `config/frozen.yaml`, sets `execution_rerank: true`,
+because a bare `python scripts/evaluate_mteb.py` has to reproduce the number
+we submitted. `--no-execution` overrides it back off.
+
+The off-by-default dataclass exists for two reasons:
 
 1. It executes code that came from the dataset. Every run is a fresh
    subprocess in a throwaway directory with `-I -S`, a wall-clock timeout, a
    stripped environment, and an address-space cap where the platform supports
    one. It never runs in-process, and every failure mode — syntax error,
    timeout, crash, wrong output — returns `False` rather than raising.
-2. It has to clear the same paired-bootstrap gate as everything else.
+2. It had to clear the same paired-bootstrap gate as everything else before it
+   was allowed into the shipped configuration. It did, by +0.0583 at depth 20;
+   the nine-feature reranker did not, and ships as the identity.
 
 A verified candidate is **promoted**; a failed one is never demoted. A crash
 may be an environment difference rather than a wrong answer, so evidence
