@@ -116,6 +116,16 @@ class ExecutionConfig:
     #:
     #: Candidates arrive in descending score order, so this is a prefix cut.
     max_dense_gap: float | None = None
+    #: Refuse to *promote* a candidate scoring more than this far below the
+    #: best candidate in its row, even when it verified.
+    #:
+    #: Distinct from ``max_dense_gap``, and the difference is the point.  That
+    #: one is a cost lever: the candidate is never run, so nothing is learned
+    #: about it.  This one still runs the candidate and still records the
+    #: verification -- it only withholds the bonus.  A lookalike deep in the
+    #: pool that reproduces the worked examples is therefore counted and
+    #: reportable, but cannot displace the answer.
+    max_promotion_gap: float | None = None
     provenance: dict[str, object] = field(default_factory=dict)
 
 
@@ -273,6 +283,8 @@ def apply_execution_rerank(
 
     scores = list(candidate_scores)
     audit["candidates_skipped_by_gate"] = 0
+    audit["candidates_promoted"] = 0
+    audit["promotions_blocked"] = 0
     audit["stopped_early"] = False
 
     best = scores[0] if scores else 0.0
@@ -285,8 +297,17 @@ def apply_execution_rerank(
             break
         audit["candidates_executed"] = int(audit["candidates_executed"]) + 1
         if verify_candidate(candidate_texts[index], examples, config):
-            scores[index] += config.verified_bonus
             audit["candidates_verified"] = int(audit["candidates_verified"]) + 1
+            if (
+                config.max_promotion_gap is not None
+                and best - scores[index] > config.max_promotion_gap
+            ):
+                # Verified, and deliberately not promoted. Counted either way:
+                # the whole point is to be able to report how often this fires.
+                audit["promotions_blocked"] = int(audit.get("promotions_blocked", 0)) + 1
+                continue
+            scores[index] += config.verified_bonus
+            audit["candidates_promoted"] = int(audit.get("candidates_promoted", 0)) + 1
             if config.stop_after_first_match:
                 audit["stopped_early"] = True
                 break

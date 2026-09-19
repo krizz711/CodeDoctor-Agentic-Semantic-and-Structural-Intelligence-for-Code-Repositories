@@ -117,6 +117,13 @@ def main() -> int:
         default=None,
         help="skip candidates scoring more than this far below the row's best",
     )
+    parser.add_argument(
+        "--execution-max-promotion-gap",
+        type=float,
+        default=None,
+        help="execute every candidate, but refuse to promote one scoring more "
+             "than this far below the row's best",
+    )
     parser.add_argument("--limit", type=int, default=0, help="evaluate only the first N queries")
     parser.add_argument("--weights", type=Path, default=None)
     parser.add_argument("--report", type=Path, default=None)
@@ -265,18 +272,21 @@ def main() -> int:
             verified_bonus=float(np.abs(stage_scores).max()) + 1.0,
             stop_after_first_match=args.execution_early_exit,
             max_dense_gap=args.execution_max_dense_gap,
+            max_promotion_gap=args.execution_max_promotion_gap,
         )
         knobs = []
         if exec_config.stop_after_first_match:
             knobs.append("early-exit")
         if exec_config.max_dense_gap is not None:
             knobs.append(f"dense-gate {exec_config.max_dense_gap:g}")
+        if exec_config.max_promotion_gap is not None:
+            knobs.append(f"promotion-gate {exec_config.max_promotion_gap:g}")
         print(f"  execution depth {exec_config.max_candidates}"
               + (f"   [{', '.join(knobs)}]" if knobs else "   [control]"))
 
         t0 = time.time()
         exec_scores = stage_scores.copy()
-        fired = verified = executed = skipped = stopped = 0
+        fired = verified = executed = skipped = stopped = blocked = 0
         for row in range(len(query_ids)):
             if not parse_worked_examples(query_texts[row], limit=exec_config.max_examples):
                 continue
@@ -293,6 +303,7 @@ def main() -> int:
             executed += int(audit["candidates_executed"])
             skipped += int(audit.get("candidates_skipped_by_gate", 0))
             stopped += 1 if audit.get("stopped_early") else 0
+            blocked += int(audit.get("promotions_blocked", 0))
             if fired % 200 == 0:
                 print(f"    executed {fired} queries ({time.time() - t0:.0f}s elapsed)")
         elapsed = time.time() - t0
@@ -306,7 +317,7 @@ def main() -> int:
         print(
             f"  (ran {executed:,} of a possible {budget:,} candidate executions "
             f"= {executed / max(1, budget):.1%}; {skipped:,} gated out, "
-            f"{stopped:,} queries stopped early)"
+            f"{stopped:,} queries stopped early, {blocked:,} promotions blocked)"
         )
         results["execution_candidates_run"] = executed
         results["execution_candidates_budget"] = budget
@@ -314,6 +325,8 @@ def main() -> int:
         results["execution_stopped_early"] = stopped
         results["execution_early_exit"] = exec_config.stop_after_first_match
         results["execution_max_dense_gap"] = exec_config.max_dense_gap
+        results["execution_max_promotion_gap"] = exec_config.max_promotion_gap
+        results["execution_promotions_blocked"] = blocked
         exec_ndcg = report("3. + execution verification", exec_ranks)
         boot = paired_bootstrap(stage_ndcg, exec_ndcg)
         print(f"  {'':28s} vs previous stage: {boot.describe()}")

@@ -285,3 +285,86 @@ class TestDenseGate:
         )
         assert audit["candidates_executed"] == 1
         assert audit["stopped_early"] is True
+
+
+class TestPromotionGate:
+    """Run the candidate, record the verification, withhold the bonus.
+
+    Distinct from ``max_dense_gap``: that one never runs the distant
+    candidate, so nothing is learned about it.  This one runs it, counts it,
+    and only refuses to let it displace the answer.
+    """
+
+    config = ExecutionConfig(enabled=True, timeout_seconds=5.0, verified_bonus=10.0)
+
+    def test_off_by_default(self):
+        assert ExecutionConfig().max_promotion_gap is None
+
+    def test_default_behaviour_is_byte_identical(self):
+        """Point 8, first clause: the shipped path must not move."""
+        candidates = ["print(0)", SOLVER]
+        scores = [0.90, 0.40]
+        before, audit_before = apply_execution_rerank(
+            CODEFORCES, candidates, scores, self.config
+        )
+        after, audit_after = apply_execution_rerank(
+            CODEFORCES, candidates, scores, replace(self.config, max_promotion_gap=None)
+        )
+        assert before == after
+        assert audit_before["candidates_verified"] == audit_after["candidates_verified"]
+        assert audit_after["promotions_blocked"] == 0
+
+    def test_verified_candidate_outside_the_margin_is_not_promoted(self):
+        config = replace(self.config, max_promotion_gap=0.05)
+        scores, audit = apply_execution_rerank(
+            CODEFORCES, ["print(0)", SOLVER], [0.90, 0.40], config
+        )
+        assert audit["candidates_verified"] == 1, "it still ran and still verified"
+        assert audit["promotions_blocked"] == 1
+        assert audit["candidates_promoted"] == 0
+        assert scores == [pytest.approx(0.90), pytest.approx(0.40)]
+
+    def test_candidate_inside_the_margin_behaves_exactly_as_before(self):
+        candidates = ["print(0)", SOLVER]
+        scores_in = [0.90, 0.88]
+        ungated, _ = apply_execution_rerank(CODEFORCES, candidates, scores_in, self.config)
+        gated, audit = apply_execution_rerank(
+            CODEFORCES, candidates, scores_in, replace(self.config, max_promotion_gap=0.05)
+        )
+        assert gated == ungated
+        assert audit["promotions_blocked"] == 0
+        assert audit["candidates_promoted"] == 1
+
+    def test_it_still_executes_what_it_refuses_to_promote(self):
+        """The difference from max_dense_gap, pinned."""
+        promo = replace(self.config, max_promotion_gap=0.05)
+        exec_gate = replace(self.config, max_dense_gap=0.05)
+        candidates = ["print(0)", SOLVER, SOLVER]
+        scores = [0.90, 0.40, 0.30]
+        _, promo_audit = apply_execution_rerank(CODEFORCES, candidates, scores, promo)
+        _, exec_audit = apply_execution_rerank(CODEFORCES, candidates, scores, exec_gate)
+        assert promo_audit["candidates_executed"] == 3
+        assert promo_audit["candidates_verified"] == 2
+        assert exec_audit["candidates_executed"] == 1
+        assert exec_audit["candidates_verified"] == 0
+
+    def test_the_top_candidate_can_always_be_promoted(self):
+        config = replace(self.config, max_promotion_gap=0.0)
+        scores, audit = apply_execution_rerank(
+            CODEFORCES, [SOLVER, SOLVER], [0.9, 0.5], config
+        )
+        assert audit["candidates_promoted"] == 1
+        assert audit["promotions_blocked"] == 1
+        assert scores[0] > scores[1]
+
+    def test_blocked_promotion_does_not_trigger_early_exit(self):
+        config = replace(
+            self.config, max_promotion_gap=0.05, stop_after_first_match=True
+        )
+        # First verifier is out of margin; the in-margin one must still be reached.
+        candidates = ["print(0)", SOLVER]
+        scores, audit = apply_execution_rerank(
+            CODEFORCES, candidates, [0.90, 0.40], config
+        )
+        assert audit["candidates_executed"] == 2
+        assert audit["stopped_early"] is False
