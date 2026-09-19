@@ -116,9 +116,12 @@ def main(argv: list[str] | None = None) -> int:
             ok = verify_candidate(text, examples, config)
             verified[row, j] = VERIFIED if ok else FAILED
             executed += 1
-        if int(fired.sum()) % 200 == 0 and j == top_n - 1:
-            print(f"  {int(fired.sum())} queries, {executed:,} executions, "
-                  f"{time.time() - t0:.0f}s")
+        done = int(fired.sum())
+        if done % 100 == 0:
+            # flush: this runs for ~20 minutes as a background job, and a
+            # progress line that only appears at exit is not progress.
+            print(f"  {done} queries, {executed:,} executions, "
+                  f"{time.time() - t0:.0f}s", flush=True)
     elapsed = time.time() - t0
 
     args.out.parent.mkdir(parents=True, exist_ok=True)

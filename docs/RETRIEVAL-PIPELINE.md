@@ -383,6 +383,95 @@ is the candidate for the interactive service path, where 2.8× less sandbox
 time at indistinguishable quality is the trade that matters; the submission
 has no latency budget to protect.
 
+### A promotion gate against false verification: rejected, and the reason is structural
+
+False verification looked like the biggest remaining lever. Execution promotes
+152 wrong documents on DEV, and the test-split decomposition put "verified,
+wrong document" at 111 of 236 losses. So: still execute every candidate, still
+record every verification, but refuse to *promote* one scoring more than Δ
+below the best candidate in its row. `ExecutionConfig.max_promotion_gap`,
+default `None`.
+
+Because a promotion gate never changes which candidates run, one instrumented
+pass (`scripts/instrument_execution.py`) supports an exact replay of every
+threshold. `scripts/analyze_promotion_gate.py` refuses to report a threshold
+until replaying the ungated configuration reproduces the control's recorded
+NDCG; it does, to 0.00e+00.
+
+**The thresholds came from the data, and the data rejected the obvious ones.**
+
+| group | n | p50 | p90 | p99 | max |
+|---|---|---|---|---|---|
+| verified & correct | 593 | 0.0000 | 0.0434 | 0.1783 | 0.2205 |
+| verified & **wrong** | 152 | 0.1653 | 0.2953 | 0.3553 | 0.4408 |
+
+There is real separation — correct verifications sit at the top of the pool,
+wrong ones far below — but correct ones extend to 0.2205, so any Δ under about
+0.22 cuts into them. Δ = {0.01, 0.02, 0.05} were discarded on this evidence
+rather than run as guesses.
+
+| arm | NDCG@10 | MRR@10 | R@1 | R@10 | Δ vs ungated (95% CI) | p |
+|---|---|---|---|---|---|---|
+| ungated | 0.95486 | 0.94730 | 0.9273 | 0.9777 | — | — |
+| gate 0.05 | 0.92172 | 0.90925 | 0.8851 | 0.9613 | −0.03314 [−0.04395, −0.02286] | 0.0000 |
+| gate 0.10 | 0.93942 | 0.93097 | 0.9132 | 0.9660 | −0.01544 [−0.02387, −0.00757] | 0.0000 |
+| gate 0.15 | 0.94951 | 0.94262 | 0.9261 | 0.9707 | −0.00535 [−0.01164, −0.00009] | 0.0660 |
+| gate 0.20 | 0.95603 | 0.94890 | 0.9308 | 0.9777 | +0.00117 [−0.00129, +0.00336] | 0.3090 |
+| gate 0.25 | 0.95588 | 0.94867 | 0.9297 | 0.9777 | +0.00102 [+0.00000, +0.00278] | 0.2560 |
+| gate 0.30 | 0.95501 | 0.94750 | 0.9273 | 0.9777 | +0.00015 [+0.00000, +0.00046] | 0.6450 |
+
+**No interval excludes zero on the positive side, so no improvement is
+claimed.** (At 0.15 the percentile CI and the p-value disagree marginally —
+upper bound −0.00009 against p = 0.066. That is the boundary behaviour of two
+different summaries of the same resamples, not a result; the arm is at best
+neutral and more likely slightly negative.)
+
+Promotion gate 0.20 reproduces the *execution* gate 0.20 arm exactly —
+0.95603, R@1 0.9308, R@10 0.9777 — which is what theory demands, since a
+candidate that is never run and a candidate that is run but never promoted
+produce the same scores. Two independently written code paths and a replay
+agreeing to five decimals is the cross-check that makes the rest believable.
+
+#### Why it cannot work, which is the useful part
+
+The gate does exactly what it was asked to. At Δ = 0.20 it removes 58 of 152
+false promotions and costs a single correct one. The score barely moves. The
+counters say why:
+
+| | queries |
+|---|---|
+| false verifications | 152, across 98 queries |
+| ...gold also verified and still wins on dense order — **harmless** | 75 |
+| ...gold never verified, so any wrong one wins — *addressable* | 10 |
+| ...gold verified but a **closer** wrong one wins — unreachable | 13 |
+
+Promoted candidates keep their dense order, and the gold is the top candidate
+for over half of these queries. So a false positive that also verifies usually
+lands *below* the gold and changes nothing. Only 23 of 98 affected queries are
+harmed at all.
+
+Of those 23, thirteen are structurally beyond this gate's reach: the wrong
+document beat the gold precisely because it sits *closer* to the top, and ten
+of the thirteen sit at gap exactly 0.0000 — they are the top dense candidate.
+A gate that removes far candidates cannot touch a near one. The populations
+are close to disjoint, and the gate is aimed at the wrong end of the
+distribution.
+
+That leaves ten addressable queries out of 853, of which a Δ = 0.20 gate
+catches roughly half — consistent with the observed R@1 move of 0.9273 →
+0.9308, about three queries.
+
+**And it points at the real lever.** Of 767 golds sitting in the executed
+top-20, only 593 verified. **174 golds failed to reproduce their own worked
+examples** — a population 7.6× larger than the 23 queries false promotion
+actually costs. Execution's problem on this corpus is not that it promotes the
+wrong document; it is that it fails to recognise the right one. Parsing more
+example formats, relaxing output comparison, or raising the per-candidate
+timeout all attack a target seven times the size of the one this experiment
+was built for.
+
+`config/frozen.yaml` is untouched and the flag defaults to `None`.
+
 ---
 
 ## What it scores on the test split
