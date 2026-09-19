@@ -472,6 +472,85 @@ was built for.
 
 `config/frozen.yaml` is untouched and the flag defaults to `None`.
 
+### The comparison was the problem: +0.00468, and the interval excludes zero
+
+The promotion-gate result pointed at gold verification recall: of 767 golds in
+the executed window, only 593 verified. `scripts/diagnose_verification_misses.py`
+re-runs those 174 failures and records why each one failed.
+
+| cause | n | share |
+|---|---|---|
+| output mismatch | 105 | 60.3% |
+| crashed | 64 | 36.8% |
+| passed one example, failed another | 5 | 2.9% |
+| **timeout** | **0** | **0.0%** |
+
+No timeouts at all, which removes a plausible fix before any work went into
+it: the two-second budget is not what loses golds.
+
+The 64 crashes are 26 `ValueError`, 19 `SyntaxError`, 9 `IndexError`, 5
+`ModuleNotFoundError`, 4 `EOFError`, 1 `NameError`. Two of those deserve
+naming. The `ModuleNotFoundError`s are the `-I -S` sandbox doing its job, at
+the documented rate of about one verification in 120. The `SyntaxError`s are
+*not* Python-2 code — that was tested, and 0 of 19 match Python-2 patterns.
+Twelve are `'return' outside function` and seven are unbound `nonlocal`: the
+corpus stored function **bodies** without their enclosing `def`. A dataset
+extraction artifact, and nothing the pipeline can repair. (`ast.parse` accepts
+all 19, because those errors are raised during symbol-table construction in
+`compile()`; an initial check with the wrong tool said they were fine.)
+
+Sampling the output mismatches showed the parser is not at fault either. Most
+are multiple-valid-answer problems — permutations and colourings, where the
+reference prints one correct answer and the gold prints another — which no
+exact comparison can ever verify. But one class is a pure defect in the
+comparison: a solution printing `1.0000000000000002` against a sample showing
+`1.000000000`. Numerically identical, textually different, counted as wrong.
+
+Offline sizing said 29 of the 105 mismatching golds were in that class.
+`ExecutionConfig.numeric_tolerance` compares tokens as numbers when both parse
+as numbers, falling back to equality otherwise, and requires the same token
+count — so it can only ever turn a mismatch into a match.
+
+| arm | NDCG@10 | MRR@10 | R@1 | R@10 | Δ vs control (95% CI) | p |
+|---|---|---|---|---|---|---|
+| control | 0.95486 | 0.94730 | 0.9273 | 0.9777 | — | — |
+| **+ numeric tolerance 1e-6** | **0.95954** | **0.95312** | **0.9355** | **0.9789** | **+0.00468 [+0.00117, +0.00891]** | **0.017** |
+
+The first arm in this series whose interval excludes zero, on 2000 resamples.
+Seven more queries win at rank 1.
+
+Because a relaxation admits false verifications as readily as it recovers real
+ones, net R@1 cannot settle whether this is a genuine gain. A second
+instrumented run measured the split directly:
+
+| | gold | false | total |
+|---|---|---|---|
+| exact comparison | 593 | 152 | 745 |
+| numeric tolerance | 622 | 154 | 776 |
+| change | **+29** | **+2** | +31 |
+
+Twenty-nine golds recovered against two new false verifications — and +29 is
+exactly what the offline sizing predicted. Precision *rises*, 0.7960 to
+0.8015, while gold verification recall goes 0.7731 to 0.8110. The relaxation
+is lopsided in the right direction because a wrong program rarely produces
+output that is numerically equal to the right answer; it produces output that
+is simply different.
+
+Promotion gates stacked on top add nothing: 0.20 gives +0.00073 (p = 0.461)
+and 0.25 gives +0.00102 (p = 0.245), both intervals spanning zero. That is the
+same structural reason as before, and it holds regardless of the comparison
+rule.
+
+**Six arms were rejected or neutral before this one.** Early exit, dense gates
+at 0.10 and 0.20, promotion gates at 0.05, 0.10, 0.15, 0.20. None of the
+clever gating worked. What worked was noticing the comparison was wrong.
+
+`config/frozen.yaml` is untouched and `numeric_tolerance` defaults to `None`.
+Adopting it on the submission means re-running the test split — a deliberate
+decision, not a side effect of a DEV result. If anything the effect there
+should be larger: the test split is 98.4% competitive-stdin with 97.6% example
+coverage, against DEV's 91.8%.
+
 ---
 
 ## What it scores on the test split

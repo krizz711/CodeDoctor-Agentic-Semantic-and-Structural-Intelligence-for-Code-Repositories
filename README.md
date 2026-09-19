@@ -188,6 +188,15 @@ fusion (+0.0038, p = 0.164, and double the inference cost) and pseudo-relevance
 feedback (neutral at best, significantly negative at α ≥ 0.4). The full grid is
 in `data/first_pass_variants.json`.
 
+**One thing did clear the gate, and it was not a cleverer reranker.** Execution
+counted a solution printing `1.0000000000000002` as wrong against a sample
+showing `1.000000000`. Comparing numeric output as numbers rather than as text
+is worth **+0.00468 NDCG@10 on DEV, 95% CI [+0.00117, +0.00891], p = 0.017** —
+and an instrumented run confirms the mechanism: **29 golds recovered against 2
+new false verifications**, so precision rises rather than falls. Six gating
+arms were rejected or neutral before this one. `numeric_tolerance` ships
+default-off; the submitted configuration is unchanged.
+
 **And one prediction of ours that the gate caught.** Stopping execution at the
 first verified candidate provably cannot change which document ranks first —
 R@1 came back bit-identical at 0.9273 — so we expected it to be free. It is
