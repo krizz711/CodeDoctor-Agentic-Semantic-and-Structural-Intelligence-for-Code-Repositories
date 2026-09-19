@@ -265,7 +265,7 @@ function footer(s, n, dark) {
 
   const items = [
     ["Thousands", "of snippets in the corpus"],
-    ["Arbitrary", "snippet length — 225 tokens median, 289,002 at the tail"],
+    ["Arbitrary", "snippet length — 225 tokens on average, 289,002 at the tail"],
     ["CPU only", "no GPU at query time"],
     ["Sub-second", "retrieval is the first step, so it cannot be the slow one"],
   ];
