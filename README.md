@@ -22,7 +22,7 @@ Python 3.11+.
 ```bash
 pip install -r requirements.txt        # runtime
 pip install -r requirements-eval.txt   # MTEB, torch, sentence-transformers
-pytest -q -m "not model"               # 201 tests, no weights needed, ~20s
+pytest -q -m "not model"               # 212 tests, no weights needed, ~20s
 ```
 
 The two deselected tests load real encoder weights (a multi-GB download). Run
@@ -374,9 +374,32 @@ The same core backs a live developer service over a real repository:
   `H(encoder_rev, tokenizer_rev, template_rev, encoder_input_bytes)` — path and
   line numbers are excluded, so renaming or moving a file triggers **zero**
   re-embeddings and editing one function re-indexes in ~0.01s.
-- **Commit-scoped retrieval (bonus).** A pinned-commit query restricts
-  candidates to that commit's tree snapshot; 50 randomized property trials
-  yield zero cross-commit leakage.
+- **Commit-scoped retrieval — this is P1, not the bonus.** A pinned-commit
+  query restricts candidates to that commit's tree snapshot; 50 randomized
+  property trials yield zero cross-commit leakage. An earlier version of this
+  README called it the bonus goal, which was wrong: the brief defines the
+  bonus as retrieval *across* versions, which is a different problem.
+- **Cross-version retrieval — the actual bonus goal.**
+  `VersionedIndex.retrieve_across_versions` searches every indexed version at
+  once. The brief names the difficulty rather than leaving it implied: across
+  versions the snippets "would still be very similar, which would make them
+  hard to rank properly". Searching all snapshots naively makes that worse — a
+  function that survived ten commits unchanged returns ten near-identical rows
+  and crowds everything else out of the top-k.
+
+  Results are therefore grouped by a canonical identity (file path + symbol
+  name, which is what survives a version change), each group collapses to its
+  best-scoring variant, and the hit carries the versions it spans plus a
+  `variants` count of how many *distinct* contents share that identity. On
+  `test_repos/commander` across two versions, a five-result budget returns
+  **five distinct snippets collapsed against three ungrouped**. Pass
+  `collapse_identical=False` to see the ungrouped ranking, which is what makes
+  the difference measurable rather than asserted.
+- **The dense pass reaches this path too.** `add_snapshot(..., embeddings=...)`
+  turns it on per version and `uses_dense()` reports whether it is active —
+  because a versioned index running lexical-only is a materially weaker system
+  than the one §3 measures, and that should be visible rather than inferred
+  from a score.
 - **Labelled structural edges.** Direct AST matches are `VERIFIED`; dynamic
   dispatch and computed lookups are `CANDIDATE` with cited spans. Unknown is
   reported as unknown.

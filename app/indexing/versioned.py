@@ -25,6 +25,27 @@ class VersionedDocument:
         return cls(commit, document, digest)
 
 
+@dataclass(frozen=True)
+class CrossVersionHit:
+    """One piece of code, and every version it appears in.
+
+    ``variants`` counts how many *distinct* contents share this identity: 1
+    means the snippet is byte-identical everywhere it appears, higher means it
+    genuinely changed and the highest-scoring form is the one reported.
+    """
+
+    document: Document
+    score: float
+    versions: list[str]
+    content_hash: str
+    variants: int
+    sources: tuple[str, ...] = ()
+
+    @property
+    def unchanged_across_versions(self) -> bool:
+        return self.variants == 1 and len(self.versions) > 1
+
+
 @dataclass
 class CommitMetadata:
     sha: str
@@ -144,12 +165,39 @@ class VersionedIndex:
     Unknown commits fail explicitly (never silently falls back to HEAD).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, encoder: Any = None) -> None:
         self._snapshots: dict[str, list[VersionedDocument]] = {}
         self._commit_metadata: dict[str, CommitMetadata] = {}
+        self._embeddings: dict[str, Any] = {}
+        self._encoder = encoder
 
-    def add_snapshot(self, commit: str, documents: Iterable[Document]) -> None:
-        self._snapshots[commit] = [VersionedDocument.create(commit, doc) for doc in documents]
+    def add_snapshot(
+        self,
+        commit: str,
+        documents: Iterable[Document],
+        embeddings: Any = None,
+    ) -> None:
+        """Index one version.
+
+        ``embeddings`` is the dense matrix for these documents, one row each.
+        Supplying it turns the dense pass on for this snapshot; omitting it
+        leaves the snapshot lexical-only, which is a real difference in
+        retrieval quality and is reported by :meth:`uses_dense`.
+        """
+        items = [VersionedDocument.create(commit, doc) for doc in documents]
+        self._snapshots[commit] = items
+        if embeddings is not None:
+            if len(embeddings) != len(items):
+                raise ValueError(
+                    f"{commit}: {len(embeddings)} embedding rows for {len(items)} documents"
+                )
+            self._embeddings[commit] = embeddings
+
+    def uses_dense(self, commit: str | None = None) -> bool:
+        """Whether retrieval on this index runs the dense pass or lexical only."""
+        if commit is not None:
+            return commit in self._embeddings
+        return bool(self._snapshots) and all(c in self._embeddings for c in self._snapshots)
 
     def index_git_commit(self, repo_path: str | Path, commit: str) -> None:
         repo = Path(repo_path).resolve()
@@ -204,8 +252,117 @@ class VersionedIndex:
         docs = [item.document for item in self._snapshots[commit]]
         if not docs:
             return []
-        retriever = HybridRetriever(docs)
+        retriever = HybridRetriever(docs, **self._retriever_kwargs(commit))
         return retriever.search(query, limit=limit)
+
+    def retrieve_across_versions(
+        self,
+        query: str,
+        limit: int = 10,
+        collapse_identical: bool = True,
+    ) -> list["CrossVersionHit"]:
+        """Search every indexed version at once — the Bonus goal.
+
+        The brief states the difficulty directly: across versions the snippets
+        "would still be very similar, which would make them hard to rank
+        properly".  Searching all snapshots naively makes that worse, not
+        better — a function that survived ten commits unchanged returns ten
+        near-identical rows and crowds everything else out of the top-k.
+
+        So results are grouped by a *canonical identity* — the file path and
+        symbol name, which is what survives a version change — and each group
+        collapses to its best-scoring variant, carrying the list of versions it
+        appears in.  A caller asking for ten results gets ten distinct pieces
+        of code rather than one piece of code ten times.
+
+        ``collapse_identical=False`` returns the ungrouped ranking, which is
+        what makes the difference measurable rather than asserted.
+        """
+        scored: list[tuple[float, str, VersionedDocument, tuple[str, ...]]] = []
+        for commit, items in self._snapshots.items():
+            docs = [item.document for item in items]
+            if not docs:
+                continue
+            retriever = HybridRetriever(docs, **self._retriever_kwargs(commit))
+            by_id = {item.document.document_id: item for item in items}
+            # Over-fetch: after collapsing, a version contributes at most one
+            # row per identity, so the per-version top-`limit` is not enough.
+            for hit in retriever.search(query, limit=limit * 4):
+                versioned = by_id.get(hit.document.document_id)
+                if versioned is not None:
+                    scored.append((hit.score, commit, versioned, hit.sources))
+
+        scored.sort(key=lambda row: row[0], reverse=True)
+        if not collapse_identical:
+            return [
+                CrossVersionHit(
+                    document=item.document,
+                    score=score,
+                    versions=[commit],
+                    content_hash=item.content_hash,
+                    variants=1,
+                    sources=sources,
+                )
+                for score, commit, item, sources in scored[:limit]
+            ]
+
+        groups: dict[tuple[str, str], dict[str, Any]] = {}
+        for score, commit, item, sources in scored:
+            key = (item.document.file_path, item.document.name or item.document.document_id)
+            group = groups.setdefault(
+                key,
+                {
+                    "score": score,
+                    "document": item.document,
+                    "sources": sources,
+                    "versions": [],
+                    "hashes": set(),
+                    "best_hash": item.content_hash,
+                },
+            )
+            if commit not in group["versions"]:
+                group["versions"].append(commit)
+            group["hashes"].add(item.content_hash)
+            if score > group["score"]:
+                group.update(
+                    score=score,
+                    document=item.document,
+                    sources=sources,
+                    best_hash=item.content_hash,
+                )
+
+        ordered = sorted(groups.values(), key=lambda g: g["score"], reverse=True)
+        return [
+            CrossVersionHit(
+                document=g["document"],
+                score=g["score"],
+                versions=sorted(g["versions"], key=self._version_order),
+                content_hash=g["best_hash"],
+                variants=len(g["hashes"]),
+                sources=g["sources"],
+            )
+            for g in ordered[:limit]
+        ]
+
+    def _version_order(self, commit: str) -> int:
+        """Insertion order, so 'versions' reads oldest-first as indexed."""
+        try:
+            return list(self._snapshots).index(commit)
+        except ValueError:  # pragma: no cover - defensive
+            return 0
+
+    def _retriever_kwargs(self, commit: str) -> dict[str, Any]:
+        """Dense vectors for this snapshot, when they were supplied.
+
+        Without them ``HybridRetriever`` runs lexical-only, which is a
+        materially weaker system than the one P0 is built on — so whether
+        embeddings reached this path is worth being explicit about rather than
+        discovering from a score.
+        """
+        embeddings = self._embeddings.get(commit)
+        if embeddings is None:
+            return {}
+        return {"document_embeddings": embeddings, "encoder": self._encoder}
 
     def verify_no_cross_commit_leakage(self, results: Sequence[RankedDocument], commit: str) -> bool:
         if commit not in self._snapshots:

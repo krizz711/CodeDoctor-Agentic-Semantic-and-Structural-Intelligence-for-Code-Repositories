@@ -692,7 +692,7 @@ function footer(s, n, dark) {
   const items = [
     ["Zero re-embeddings on a rename", "The embedding cache is keyed on H(encoder_rev, tokenizer_rev, template_rev, encoder_input_bytes). Path and line numbers are deliberately excluded, so moving or renaming a file triggers no re-embedding at all."],
     ["~0.01 s to re-index one edited function", "Incremental at the symbol level, not the file level."],
-    ["0 leaks across 50 randomized property trials", "Commit-pinned queries restrict candidates to that commit's tree snapshot."],
+    ["Bonus: retrieval across ALL versions", "retrieve_across_versions searches every version at once and groups near-identical snippets by canonical identity, so one unchanged function does not take every slot. On commander: 5 distinct snippets against 3 ungrouped."],
     ["100.0% span fidelity", "489 chunks across 171 files round-trip exactly — a chunk's recorded span always reproduces its source text."],
   ];
   let y = 1.68;

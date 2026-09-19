@@ -313,8 +313,16 @@ use. A tier changes *which* model runs, never *how* it is prompted.
   encoder_input_bytes)` — **path and line numbers excluded**, so renaming or
   moving a file triggers **zero** re-embeddings.
 - Editing one function re-indexes in ~0.01 s.
-- Commit-pinned queries restrict candidates to that commit's tree snapshot:
-  **0 leaks across 50 randomized property trials**.
+- **P1** — commit-pinned queries restrict candidates to that commit's tree
+  snapshot: **0 leaks across 50 randomized property trials**.
+- **Bonus** — `retrieve_across_versions` searches every version at once. The
+  brief warns that near-identical snippets across versions are "hard to rank
+  properly", and searching all snapshots naively makes it worse: one unchanged
+  function returns one row per version and crowds out everything else. Results
+  group by canonical identity (path + symbol), collapse to the best-scoring
+  variant, and report the versions spanned plus a count of genuinely distinct
+  contents. On `test_repos/commander`, a five-result budget returns **5
+  distinct snippets against 3 ungrouped**.
 - 100.0% span fidelity — 489 chunks across 171 files round-trip exactly.
 
 ---

@@ -14,7 +14,21 @@ is a GitHub release, which is a manual step on purpose.
 
 ## 1. The release
 
-Tag: **`PRISM_GENAI_HACKATHON_Y2026`**
+> **Check the tag against the portal before pushing it.** The official
+> `theme1_guidelines.pdf` does **not** name a tag. It says only "make a GitHub
+> release and upload the generated file" and links GitHub's own release guide.
+> The string `PRISM_GENAI_HACKATHON_Y2026` comes from our internal
+> `THEME1-BUILD-PLAN-v3.pdf`, p11 — it may have been taken from a submission
+> portal we cannot see from here, or it may have been invented during
+> planning. A release and a tag can both be deleted and recreated, so this is
+> recoverable, but it is worth thirty seconds of checking because the tag is
+> how judges find the submission.
+
+Tag (unverified, see above): **`PRISM_GENAI_HACKATHON_Y2026`**
+
+What the guidelines *do* require, verbatim: a **CSV of the responses from the
+test split**, and the **MTEB JSON** attached to a release. Both are in the
+list below.
 
 Attach these four files. All are committed at the repository root, so they can
 be dragged straight from a clone — or downloaded from the tagged tree on
