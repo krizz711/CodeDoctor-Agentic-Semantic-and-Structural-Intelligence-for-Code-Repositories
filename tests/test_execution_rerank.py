@@ -8,6 +8,7 @@ import pytest
 
 from app.pipeline.execution_rerank import (
     ExecutionConfig,
+    _numeric_match,
     WorkedExample,
     apply_execution_rerank,
     parse_worked_examples,
@@ -285,6 +286,55 @@ class TestDenseGate:
         )
         assert audit["candidates_executed"] == 1
         assert audit["stopped_early"] is True
+
+
+class TestNumericTolerance:
+    """Comparing numbers as numbers, not as text.
+
+    Sized from the corpus: of 105 golds that failed on output mismatch, 29
+    produce output that is numerically equal to the sample and textually
+    different -- a reference solution printing 1.0000000000000002 against a
+    sample showing 1.000000000.
+    """
+
+    exact = ExecutionConfig(enabled=True, timeout_seconds=5.0)
+    loose = ExecutionConfig(enabled=True, timeout_seconds=5.0, numeric_tolerance=1e-6)
+
+    def test_off_by_default(self):
+        assert ExecutionConfig().numeric_tolerance is None
+
+    def test_float_repr_difference_is_a_mismatch_by_default(self):
+        matched, detail = run_candidate("print(1/3)", WorkedExample("", "0.333333333"), self.exact)
+        assert matched is False
+        assert detail == "output mismatch"
+
+    def test_float_repr_difference_matches_under_tolerance(self):
+        matched, detail = run_candidate("print(1/3)", WorkedExample("", "0.333333333"), self.loose)
+        assert matched is True
+        assert detail == "numeric match", "the relaxed path must be distinguishable in the audit"
+
+    def test_a_genuinely_wrong_number_still_fails(self):
+        matched, _ = run_candidate("print(42)", WorkedExample("", "43"), self.loose)
+        assert matched is False
+
+    def test_it_only_ever_relaxes(self):
+        """Anything the exact rule accepts, the relaxed rule must also accept."""
+        example = WorkedExample("21\n", "42")
+        code = "x = int(input())\nprint(x * 2)"
+        assert run_candidate(code, example, self.exact)[0] is True
+        assert run_candidate(code, example, self.loose)[0] is True
+
+    def test_token_count_must_agree(self):
+        assert _numeric_match("1 2", "1 2 3", 1e-6) is False
+        assert _numeric_match("", "1", 1e-6) is False
+
+    def test_non_numeric_tokens_fall_back_to_equality(self):
+        assert _numeric_match("YES 1.0", "YES 1.0000001", 1e-6) is True
+        assert _numeric_match("YES 1.0", "NO 1.0", 1e-6) is False
+
+    def test_nan_never_matches_a_number(self):
+        assert _numeric_match("nan", "0.0", 1e-6) is False
+        assert _numeric_match("1.0 nan", "1.0 2.0", 1e-6) is False
 
 
 class TestPromotionGate:

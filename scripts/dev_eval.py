@@ -124,6 +124,13 @@ def main() -> int:
         help="execute every candidate, but refuse to promote one scoring more "
              "than this far below the row's best",
     )
+    parser.add_argument(
+        "--execution-numeric-tolerance",
+        type=float,
+        default=None,
+        help="compare numeric output within this relative tolerance instead of "
+             "as exact text",
+    )
     parser.add_argument("--limit", type=int, default=0, help="evaluate only the first N queries")
     parser.add_argument("--weights", type=Path, default=None)
     parser.add_argument("--report", type=Path, default=None)
@@ -273,6 +280,7 @@ def main() -> int:
             stop_after_first_match=args.execution_early_exit,
             max_dense_gap=args.execution_max_dense_gap,
             max_promotion_gap=args.execution_max_promotion_gap,
+            numeric_tolerance=args.execution_numeric_tolerance,
         )
         knobs = []
         if exec_config.stop_after_first_match:
@@ -281,6 +289,8 @@ def main() -> int:
             knobs.append(f"dense-gate {exec_config.max_dense_gap:g}")
         if exec_config.max_promotion_gap is not None:
             knobs.append(f"promotion-gate {exec_config.max_promotion_gap:g}")
+        if exec_config.numeric_tolerance is not None:
+            knobs.append(f"numeric-tol {exec_config.numeric_tolerance:g}")
         print(f"  execution depth {exec_config.max_candidates}"
               + (f"   [{', '.join(knobs)}]" if knobs else "   [control]"))
 
@@ -326,6 +336,7 @@ def main() -> int:
         results["execution_early_exit"] = exec_config.stop_after_first_match
         results["execution_max_dense_gap"] = exec_config.max_dense_gap
         results["execution_max_promotion_gap"] = exec_config.max_promotion_gap
+        results["execution_numeric_tolerance"] = exec_config.numeric_tolerance
         results["execution_promotions_blocked"] = blocked
         exec_ndcg = report("3. + execution verification", exec_ranks)
         boot = paired_bootstrap(stage_ndcg, exec_ndcg)

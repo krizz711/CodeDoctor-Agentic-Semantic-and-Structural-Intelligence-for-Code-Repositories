@@ -26,6 +26,7 @@ decision — see ``config/frozen.yaml: pipeline.execution_rerank``.
 from __future__ import annotations
 
 import logging
+import math
 import os
 import re
 import subprocess
@@ -116,6 +117,13 @@ class ExecutionConfig:
     #:
     #: Candidates arrive in descending score order, so this is a prefix cut.
     max_dense_gap: float | None = None
+    #: Compare numeric output with this relative tolerance instead of as text.
+    #:
+    #: ``None`` keeps the exact whitespace-insensitive string rule.  When set
+    #: it can only turn a mismatch into a match, so it is a pure relaxation --
+    #: which means it admits false verifications as readily as it recovers
+    #: real ones, and has to be measured on both counts rather than assumed.
+    numeric_tolerance: float | None = None
     #: Refuse to *promote* a candidate scoring more than this far below the
     #: best candidate in its row, even when it verified.
     #:
@@ -171,6 +179,32 @@ def parse_worked_examples(query_text: str, *, limit: int = 2) -> list[WorkedExam
 def _normalize_output(text: str) -> str:
     """Whitespace-insensitive comparison, line by line."""
     return "\n".join(line.strip() for line in str(text).strip().splitlines() if line.strip())
+
+
+def _numeric_match(produced: str, expected: str, rel_tol: float) -> bool:
+    """Token-wise comparison that treats numbers as numbers.
+
+    A reference solution that prints ``1.0000000000000002`` against a sample
+    showing ``1.000000000`` is correct and fails a string comparison.  This
+    compares token by token, falling back to equality for anything that is not
+    a number, and requires the same token count -- so it is a *relaxation* of
+    the string rule, never a different one.
+    """
+    produced_tokens, expected_tokens = produced.split(), expected.split()
+    if not produced_tokens or len(produced_tokens) != len(expected_tokens):
+        return False
+    for got, want in zip(produced_tokens, expected_tokens):
+        if got == want:
+            continue
+        try:
+            got_value, want_value = float(got), float(want)
+        except ValueError:
+            return False
+        if math.isnan(got_value) or math.isnan(want_value):
+            return False
+        if not math.isclose(got_value, want_value, rel_tol=rel_tol, abs_tol=1e-9):
+            return False
+    return True
 
 
 def _preexec_limits(memory_limit_mb: int):
@@ -238,8 +272,14 @@ def run_candidate(
 
         if completed.returncode != 0:
             return False, f"exit {completed.returncode}"
-        if _normalize_output(completed.stdout) == _normalize_output(example.expected_stdout):
+        produced = _normalize_output(completed.stdout)
+        expected = _normalize_output(example.expected_stdout)
+        if produced == expected:
             return True, "match"
+        if config.numeric_tolerance is not None and _numeric_match(
+            produced, expected, config.numeric_tolerance
+        ):
+            return True, "numeric match"
         return False, "output mismatch"
 
 
