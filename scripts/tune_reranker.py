@@ -40,7 +40,6 @@ from app.pipeline.features import (  # noqa: E402
     analyze_queries,
 )
 from app.pipeline.metrics import metrics_from_ranks, paired_bootstrap, per_query_ndcg  # noqa: E402
-from app.pipeline.query_analysis import QueryFamily  # noqa: E402
 from app.pipeline.reranker import RerankerConfig  # noqa: E402
 from app.pipeline.search import (  # noqa: E402
     CandidatePool,

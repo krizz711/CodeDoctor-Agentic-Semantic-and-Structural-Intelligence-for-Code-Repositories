@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import os
+import json
 from pathlib import Path
-import subprocess
 from typing import Any, Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,12 +11,13 @@ from pydantic import BaseModel
 import numpy as np
 
 from app.indexing.cache import EmbeddingCache, compute_embedding_key
-from app.indexing.incremental import IncrementalIndexer, IncrementalStats
+from app.indexing.incremental import IncrementalIndexer
 from app.indexing.sqlite_index import SQLiteIndex
 from app.indexing.versioned import GitVersionManager, VersionedIndex
 from app.pipeline.query_analysis import analyze_query
 from app.retrieval.hybrid import Document, HybridRetriever
 from app.retrieval.structural import StructuralEngine
+from app.workbench import get_workbench
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -288,18 +288,6 @@ def get_callers(symbol: str = Query(...)) -> dict[str, Any]:
     return {"symbol": symbol, "total": len(callers), "callers": callers}
 
 
-@app.get("/api/structural/sequence")
-def get_tool_sequence(first: str = Query(...), second: str = Query(...)) -> dict[str, Any]:
-    matches = structural_engine.sequence_query(first, second)
-    return {"first_tool": first, "second_tool": second, "matches": matches}
-
-
-@app.get("/api/structural/deeplink")
-def get_deeplinks(keyword: str = Query("bluetooth-settings")) -> dict[str, Any]:
-    matches = structural_engine.deeplink_query(keyword)
-    return {"keyword": keyword, "matches": matches}
-
-
 @app.get("/api/git/history")
 def get_git_history(limit: int = 15) -> dict[str, Any]:
     repo = get_active_repo()
@@ -324,13 +312,6 @@ def get_git_history(limit: int = 15) -> dict[str, Any]:
     except Exception:
         pass
     return {"commits": commits}
-
-
-@app.get("/api/git/evolution")
-def get_evolution(query: str = Query(...), file: Optional[str] = None) -> dict[str, Any]:
-    repo = get_active_repo()
-    results = versioned_index.find_when_changed(query, repo_path=repo, file_path=file, limit=5)
-    return {"query": query, "file": file, "results": results}
 
 
 @app.get("/api/index/status")
@@ -358,6 +339,158 @@ def trigger_reindex(force_rebuild: bool = False) -> dict[str, Any]:
             except Exception:
                 pass
     return {"status": "success", "stats": stats.to_dict()}
+
+
+# ---------------------------------------------------------------------------
+# Workbench: the hands-on demo surface.
+#
+# Kept apart from the endpoints above on purpose.  Those serve the file
+# explorer and answer against whatever the SQLite index currently holds; these
+# serve a *versioned* corpus and report what every retrieval pass did, which is
+# what the Theme 01 hands-on evaluation actually drives.
+# ---------------------------------------------------------------------------
+
+workbench = get_workbench(cache=cache)
+
+
+class WorkbenchQuery(BaseModel):
+    target: str = "self"
+    query: str
+    version: Optional[str] = None
+    limit: int = 10
+    verify: bool = True
+
+
+class WorkbenchCompare(BaseModel):
+    target: str = "self"
+    query: str
+    left: str
+    right: str
+    limit: int = 10
+
+
+@app.get("/api/workbench/targets")
+def workbench_targets() -> dict[str, Any]:
+    return {"targets": workbench.targets(), "state": workbench.state()}
+
+
+@app.post("/api/workbench/open")
+def workbench_open(path: str) -> dict[str, Any]:
+    """Register a local directory as a target, then build it separately.
+
+    Opening and building are two calls because opening is instant and building
+    is not: the UI can show the folder in the picker, with its file count and
+    detected language, before anyone commits to indexing it.
+    """
+    try:
+        return workbench.open_folder(path)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except RuntimeError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
+@app.post("/api/workbench/build")
+def workbench_build(target: str = "self", versions: int = 4, dense: bool = True) -> dict[str, Any]:
+    try:
+        return workbench.start_build(target, versions=versions, dense=dense)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+
+
+@app.get("/api/workbench/status")
+def workbench_status() -> dict[str, Any]:
+    return workbench.state()
+
+
+@app.get("/api/workbench/versions")
+def workbench_versions(target: str = "self") -> dict[str, Any]:
+    """Versions of a target, and an empty list when it is not indexed yet.
+
+    Not an error: the page asks for this before anything is built, and the
+    preset questions are worth showing while the encoder warms up.
+    """
+    ready = workbench.is_ready(target)
+    return {
+        "target": target,
+        "ready": ready,
+        "versions": workbench.versions(target) if ready else [],
+        "presets": workbench.presets(target),
+    }
+
+
+@app.post("/api/workbench/search")
+def workbench_search(request: WorkbenchQuery) -> dict[str, Any]:
+    if not request.query.strip():
+        raise HTTPException(status_code=400, detail="query is empty")
+    try:
+        return workbench.search(
+            request.target,
+            request.query.strip(),
+            version=request.version,
+            limit=request.limit,
+            verify=request.verify,
+        )
+    except KeyError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+
+
+@app.post("/api/workbench/compare")
+def workbench_compare(request: WorkbenchCompare) -> dict[str, Any]:
+    try:
+        return workbench.compare(
+            request.target, request.query.strip(), request.left, request.right, limit=request.limit
+        )
+    except KeyError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+
+
+@app.post("/api/workbench/across")
+def workbench_across(request: WorkbenchQuery) -> dict[str, Any]:
+    try:
+        return workbench.across(request.target, request.query.strip(), limit=request.limit)
+    except KeyError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+
+
+@app.get("/api/workbench/benchmark")
+def workbench_benchmark() -> dict[str, Any]:
+    """The submitted screening result, read from the artifact rather than typed.
+
+    Every number on the benchmark panel comes out of the files that are
+    attached to the release, so the panel cannot drift from the submission.
+    """
+    payload: dict[str, Any] = {"available": False}
+    results_path = REPO_ROOT / "appsretrieval_results.json"
+    audit_path = REPO_ROOT / "execution_audit.json"
+    if results_path.exists():
+        results = json.loads(results_path.read_text(encoding="utf-8"))
+        scores = results.get("scores", {}).get("test", [{}])[0]
+        payload.update(
+            available=True,
+            source=results_path.name,
+            task=results.get("task_name"),
+            ndcg_at_10=scores.get("ndcg_at_10"),
+            mrr_at_10=scores.get("mrr_at_10"),
+            recall_at_10=scores.get("recall_at_10"),
+            main_score=scores.get("main_score"),
+            evaluation_time=results.get("evaluation_time"),
+            mteb_version=results.get("mteb_version"),
+        )
+    if audit_path.exists():
+        try:
+            audit = json.loads(audit_path.read_text(encoding="utf-8"))
+            payload["execution"] = {
+                "executed": audit.get("candidates_executed"),
+                "verified": audit.get("candidates_verified"),
+                "queries_with_examples": audit.get("queries_with_examples"),
+                "seconds": audit.get("seconds"),
+            }
+        except Exception:
+            pass
+    return payload
 
 
 # Serve static web files if present

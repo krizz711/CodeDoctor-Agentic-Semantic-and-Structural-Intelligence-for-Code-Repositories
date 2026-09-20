@@ -74,15 +74,3 @@ def build_payload(
             tar.add(source, arcname=relative, filter=_keep)
             included.append(relative)
     return base64.b64encode(buffer.getvalue()).decode("ascii"), included
-
-
-UNPACK_SNIPPET = '''import base64, io, os, sys, tarfile
-
-WORK = "{work}"
-os.makedirs(WORK, exist_ok=True)
-with tarfile.open(fileobj=io.BytesIO(base64.b64decode(PAYLOAD)), mode="r:gz") as tar:
-    tar.extractall(WORK)
-sys.path.insert(0, WORK)
-os.chdir(WORK)
-print("unpacked CodeDoctor pipeline into", WORK)
-'''

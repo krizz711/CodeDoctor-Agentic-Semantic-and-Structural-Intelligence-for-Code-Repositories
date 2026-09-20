@@ -272,25 +272,6 @@ class CodeEncoder:
             return f"{self.query_prefix}{text}"
         return f"{self.document_prefix}{text}"
 
-    def inspect_encoding_input(self, text: str, mode: str = "document") -> dict[str, Any]:
-        """Report the prompt, token count and truncation state for one input."""
-        prefix = self.query_prefix if mode == "query" else self.document_prefix
-        prompt_text = self.get_prompt_text(text, mode=mode)
-        cap = self.query_max_seq_length if mode == "query" else self.document_max_seq_length
-        tokens: list[int] = []
-        if hasattr(self.model, "tokenizer"):
-            tokens = self.model.tokenizer.encode(prompt_text, truncation=False)
-        return {
-            "mode": mode,
-            "prefix": prefix,
-            "has_prefix": bool(prefix),
-            "raw_text_sample": text[:120],
-            "final_input_sample": prompt_text[:160],
-            "token_count": len(tokens),
-            "max_seq_length_cap": cap,
-            "is_truncated": len(tokens) > cap,
-        }
-
     # -- encoding ----------------------------------------------------------
 
     def _token_lengths(self, texts: Sequence[str], mode: str) -> list[int]:

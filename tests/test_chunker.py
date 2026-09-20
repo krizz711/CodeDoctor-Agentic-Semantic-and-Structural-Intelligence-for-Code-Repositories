@@ -1,4 +1,3 @@
-from pathlib import Path
 
 from app.parser.chunker import Chunk, chunk_source
 

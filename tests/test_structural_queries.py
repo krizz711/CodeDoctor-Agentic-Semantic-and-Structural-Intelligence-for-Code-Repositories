@@ -2,7 +2,7 @@ import pytest
 
 from app.indexing.sqlite_index import SQLiteIndex
 from app.indexing.versioned import VersionedIndex
-from app.retrieval.structural import SnapshotNotIndexedError, StructuralEngine
+from app.retrieval.structural import StructuralEngine
 
 
 @pytest.fixture

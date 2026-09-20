@@ -30,7 +30,6 @@ if str(REPO_ROOT) not in sys.path:
 from app.pipeline.execution_rerank import (  # noqa: E402
     ExecutionConfig,
     apply_execution_rerank,
-    parse_worked_examples,
 )
 from app.pipeline.features import (  # noqa: E402
     FEATURE_NAMES,

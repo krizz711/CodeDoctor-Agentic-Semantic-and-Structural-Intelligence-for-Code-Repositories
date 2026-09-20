@@ -10,7 +10,6 @@ matrix when ``similarity()`` is called, or the second pass silently no-ops.
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from app.pipeline.encoder import PrePostPipelineEncoder
 from app.pipeline.features import FEATURE_NAMES

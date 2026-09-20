@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, List
 
 from app.indexing.sqlite_index import SQLiteIndex
 from app.parser.edges import EdgeRecord, StructuralExtractor

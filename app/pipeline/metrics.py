@@ -39,19 +39,6 @@ class RankMetrics:
         }
 
 
-def ndcg_at_10_from_rank(rank: int | None) -> float:
-    """Single-gold NDCG@10: ``1 / log2(rank + 1)`` for rank <= 10, else 0."""
-    if rank is None or rank > 10:
-        return 0.0
-    return 1.0 / math.log2(rank + 1)
-
-
-def mrr_at_10_from_rank(rank: int | None) -> float:
-    if rank is None or rank > 10:
-        return 0.0
-    return 1.0 / rank
-
-
 def per_query_ndcg(ranks: np.ndarray) -> np.ndarray:
     out = np.zeros(len(ranks), dtype=np.float64)
     inside = ranks <= 10
