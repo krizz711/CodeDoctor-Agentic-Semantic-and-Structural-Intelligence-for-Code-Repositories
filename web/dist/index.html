@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>CodeDoctor — Grounded Code Intelligence</title>
+<link rel="icon" type="image/png" href="/assets/favicon.png" />
 <!--
   Retrieval workbench for Samsung PRISM GenAI Hackathon 2026, Theme 01.
 
@@ -77,9 +78,8 @@
   }
   .brand { display: flex; align-items: center; gap: 9px; font-weight: 650; letter-spacing: -.01em; }
   .brand .dot {
-    width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center;
-    background: linear-gradient(140deg, var(--accent), #2f82c9); color: #04121a;
-    font-size: 11px; font-weight: 800;
+    width: 22px; height: 22px; border-radius: 6px; display: block;
+    object-fit: cover; flex: 0 0 22px;
   }
   .brand small { color: var(--ink-3); font-weight: 500; font-size: 11px; }
 
@@ -404,7 +404,7 @@
   <!-- ===================== top bar ===================== -->
   <header class="topbar">
     <div class="brand">
-      <span class="dot">CD</span>
+      <img class="dot" src="/assets/logo-64.png" alt="CodeDoctor" />
       <span>CodeDoctor</span>
       <small>retrieval workbench</small>
     </div>
@@ -905,18 +905,59 @@ function renderTimeline() {
 }
 
 /* ----------------------------------------------------------------- search */
-async function runSearch() {
+// Wait until the target can answer. The build publishes its lexical index
+// before it starts encoding, so "searchable" arrives in well under a second
+// on most repositories -- long before "ready".
+async function waitUntilSearchable(timeoutMs = 120000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const state = await api("/api/workbench/status");
+    applyState(state);
+    if (state.phase === "error") throw new Error(state.error || "index build failed");
+    if (["searchable", "encoding", "ready"].includes(state.phase)) return;
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  throw new Error("index build did not become searchable in time");
+}
+
+// The <select> can hold a placeholder before a build ("not indexed"). Sending
+// that as a commit ref asks the backend for a snapshot that cannot exist.
+function selectedVersion() {
+  const value = $("version").value;
+  if (!value) return null;
+  return (S.versions || []).some((v) => v.ref === value) ? value : null;
+}
+
+async function runSearch(options) {
+  // Bound directly to onclick, so the first argument is a click Event.
+  // Read the flag by name rather than by position.
+  const retried = !!(options && options.retried === true);
   const query = $("q").value.trim();
   if (!query || !S.target) return;
   $("run").disabled = true;
   $("results").innerHTML = '<div class="empty">Retrieving…</div>';
   try {
     const data = await post("/api/workbench/search", {
-      target: S.target.key, query, version: $("version").value || null, limit: 10,
+      target: S.target.key, query, version: selectedVersion(), limit: 10,
     });
     S.lastSearch = data; S.results = data.results; S.selected = 0;
     renderSearch(data);
   } catch (e) {
+    // Asking a question of an unindexed target used to be a dead end: an error
+    // telling the user to POST to an endpoint. Build it and answer instead --
+    // the first thing anyone does here is type a question, not press a button.
+    if (!retried && /not indexed yet/i.test(e.message)) {
+      $("results").innerHTML = '<div class="empty">Indexing this target, then answering…</div>';
+      try {
+        await post("/api/workbench/build?target=" + encodeURIComponent(S.target.key), {});
+        await waitUntilSearchable();
+        await loadVersions();
+        startPolling();
+        return await runSearch({ retried: true });
+      } catch (buildError) {
+        e = buildError;
+      }
+    }
     $("results").innerHTML = '<div class="banner bad"><div><div class="t">Retrieval failed</div>' +
       '<div class="d">' + esc(e.message) + "</div></div></div>";
   } finally {

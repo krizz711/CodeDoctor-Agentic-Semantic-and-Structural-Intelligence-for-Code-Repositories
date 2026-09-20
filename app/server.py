@@ -493,6 +493,26 @@ def workbench_benchmark() -> dict[str, Any]:
     return payload
 
 
+@app.middleware("http")
+async def no_stale_html(request, call_next):
+    """Make the browser revalidate the UI on every load.
+
+    The whole interface is one hand-written HTML file with its CSS and JS
+    inline, which means a cached copy is a cached *application*. A browser that
+    holds one will keep showing an old build against a new backend -- the
+    symptom is a page whose colours and progress text belong to a previous
+    version while the API responses are current. That is a confusing five
+    minutes for anyone, and an expensive one in front of a judge.
+
+    Assets under /assets are content-addressed by name and safe to cache.
+    """
+    response = await call_next(request)
+    path = request.url.path
+    if path.endswith((".html", "/")) or path == "":
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return response
+
+
 # Serve static web files if present
 if STATIC_DIR.exists():
     app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")

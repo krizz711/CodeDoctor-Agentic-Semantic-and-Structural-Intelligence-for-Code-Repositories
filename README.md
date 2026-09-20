@@ -1,4 +1,8 @@
-# CodeDoctor
+<p align="center">
+  <img src="docs/assets/logo.png" alt="CodeDoctor" width="180" />
+</p>
+
+<h1 align="center">CodeDoctor</h1>
 
 **Agentic semantic and structural intelligence for code repositories.**
 Samsung PRISM GenAI Hackathon 2026 · Theme 01.
