@@ -599,17 +599,32 @@ class Workbench:
         cached retriever, so a query issued mid-encode sees either the lexical
         index or the dense one, never a half-built mixture.
         """
+        # Count the whole job before starting it, so the progress bar has a
+        # fixed denominator. Adding each version's pending work as that version
+        # begins makes the percentage slide backwards -- 80% of version one is
+        # 40% of two -- which reads as the build going wrong. The pre-count is
+        # a SHA per chunk and a cache lookup: milliseconds, no model.
+        plan: list[tuple[VersionInfo, list[Document], list[bool]]] = []
+        pending_total = 0
         for info in built.versions:
             documents = built.index.documents_at(info.ref)
             if not documents:
                 continue
             eligible = self._dense_eligible(documents)
+            pending_total += self._count_uncached(documents, eligible)
+            plan.append((info, documents, eligible))
+
+        with self._lock:
+            self._state.encoded = 0
+            self._state.encode_total = pending_total
+
+        for info, documents, eligible in plan:
             self._set(
                 phase="encoding",
                 message=f"Encoding {info.ref} ({eligible.count(True)} chunks) -- "
                         f"searchable meanwhile",
             )
-            embeddings = self._encode_documents(documents, eligible)
+            embeddings = self._encode_documents(documents, eligible, accumulate_total=False)
             built.index.add_snapshot(info.ref, documents, embeddings=embeddings)
             built.index.warm(info.ref)
             info.dense = True
@@ -816,10 +831,31 @@ class Workbench:
         except Exception:  # pragma: no cover - warm-up is best effort
             pass
 
+    def _count_uncached(
+        self,
+        documents: Sequence[Document],
+        eligible: Sequence[bool],
+    ) -> int:
+        """How many of these chunks would actually need a forward pass.
+
+        Same cache keys and same eligibility rule as ``_encode_documents``, so
+        the number it returns is the number that will be encoded -- not an
+        estimate that the real run then contradicts.
+        """
+        pending = 0
+        for position, document in enumerate(documents):
+            if not eligible[position]:
+                continue
+            key = compute_embedding_key(_encoder_input(document))
+            if self._cache.get(key, real_only=True) is None:
+                pending += 1
+        return pending
+
     def _encode_documents(
         self,
         documents: Sequence[Document],
         eligible: Sequence[bool] | None = None,
+        accumulate_total: bool = True,
     ) -> np.ndarray:
         """Vectors for every chunk, reusing anything already in the cache.
 
@@ -848,7 +884,8 @@ class Workbench:
 
         with self._lock:
             self._state.reused += reused
-            self._state.encode_total += len(pending)
+            if accumulate_total:
+                self._state.encode_total += len(pending)
 
         batch = 8
         for start in range(0, len(pending), batch):

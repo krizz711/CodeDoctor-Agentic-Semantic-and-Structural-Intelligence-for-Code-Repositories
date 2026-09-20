@@ -387,6 +387,14 @@
     0%   { transform: translateX(-100%) }
     100% { transform: translateX(300%) }
   }
+  /* determinate: real progress, so no animation pretending to be progress */
+  .bar.det { height: 4px; }
+  .bar.det i { animation: none; transition: width .3s ease; }
+  .barline {
+    display: flex; gap: 10px; align-items: baseline; margin-top: 5px;
+    font-size: 11px; color: var(--ink-3);
+  }
+  .barline .num { color: var(--ink); font-size: 12.5px; font-weight: 600; }
 
   @media (max-width: 1240px) {
     .aside { width: 320px; flex-basis: 320px; }
@@ -700,13 +708,27 @@ function applyState(state) {
     banner.className = "banner";
     $("build-spin").style.display = "block";
     $("build-go").style.display = "none";
-    // A counter that climbs for fifteen minutes reads as a stall. An
-    // indeterminate bar says "working" without inviting arithmetic, and the
-    // corpus is searchable during this anyway.
     $("build-title").textContent =
       state.phase === "searchable" || state.phase === "encoding"
         ? "Searchable — still encoding" : "Indexing";
-    $("build-detail").innerHTML = '<div class="bar"><i></i></div>';
+
+    // Determinate while encoding: the denominator is counted before the job
+    // starts, so this percentage only ever goes up. Before encoding begins
+    // there is nothing to divide by, so the bar runs indeterminate rather than
+    // inventing a number.
+    const total = state.encode_total || 0;
+    if (total > 0) {
+      const done = Math.min(state.encoded || 0, total);
+      const pct = Math.floor((done / total) * 100);
+      $("build-detail").innerHTML =
+        '<div class="bar det"><i style="width:' + pct + '%"></i></div>' +
+        '<div class="barline"><span class="num">' + pct + "%</span>" +
+        "<span>" + done.toLocaleString() + " / " + total.toLocaleString() + " chunks" +
+        (state.reused ? " · " + state.reused.toLocaleString() + " reused" : "") +
+        "</span></div>";
+    } else {
+      $("build-detail").innerHTML = '<div class="bar"><i></i></div>';
+    }
     setChip($("chip-dense"), "busy", "encoding");
   }
 }
