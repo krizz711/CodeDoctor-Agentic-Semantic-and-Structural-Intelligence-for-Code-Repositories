@@ -9,9 +9,17 @@ copied by hand.
 
 from __future__ import annotations
 
+import importlib.util
 
 import pytest
 import yaml
+
+#: True when MTEB is importable. Computed with find_spec rather than
+#: pytest.importorskip: importorskip RAISES Skipped, and at module scope that
+#: skips the whole file. This file's other 34 tests pin the frozen recipe and
+#: must run whether or not the optional evaluation dependency is present --
+#: they were silently not running for exactly this reason.
+HAS_MTEB = importlib.util.find_spec("mteb") is not None
 
 from app.retrieval.encode import (
     APPS_INSTRUCTION,
@@ -71,7 +79,11 @@ class TestFrozenConfig:
         """
         pipeline = frozen["pipeline"]
         assert pipeline["execution_rerank"] is True
-        assert pipeline["execution_candidates"] == 10
+        # 20, not 10. Depth 20 scored 0.96543 against 0.96085 on the test split:
+        # it recovers 25 golds sitting at dense ranks 11-20 and loses 13 to false
+        # verification, netting +8 rank-1 hits. This assertion said 10 for as long
+        # as the file was silently uncollected, so nothing caught the drift.
+        assert pipeline["execution_candidates"] == 20
         assert pipeline["execution_timeout_seconds"] > 0
 
     def test_the_shipped_reranker_is_the_identity_it_was_gated_into(self):
@@ -123,9 +135,7 @@ class TestEncoderHonoursFrozenConfig:
         assert encoder.get_prompt_text("abc", mode="document") == "abc"
 
 
-@pytest.mark.skipif(
-    pytest.importorskip("mteb", reason="mteb not installed") is None, reason="mteb not installed"
-)
+@pytest.mark.skipif(not HAS_MTEB, reason="mteb not installed")
 class TestAgainstMtebRegistry:
     """Pin the config against MTEB's own definition of the published model."""
 

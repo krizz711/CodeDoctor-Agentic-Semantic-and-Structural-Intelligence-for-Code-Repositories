@@ -77,3 +77,36 @@ jobs:
 
       - name: Retrieval on an unseen repository
         run: python scripts/judge_endtoend.py --repo test_repos/commander
+
+  registry:
+    name: Frozen recipe vs MTEB's own registry
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # These five tests are the only ones that need mteb. They pin
+    # config/frozen.yaml against MTEB's model registry -- the instruction
+    # template, the task prompt, apply_instruction_to_passages, add_eos_token,
+    # max_seq_length and both pinned revision SHAs -- so a registry change
+    # cannot silently invalidate the submitted recipe.
+    #
+    # They are cheap once installed (13s) but the install is not, so they get
+    # their own job rather than slowing the main one. They were skipped
+    # entirely until the importorskip scoping was fixed.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install with the evaluation stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install "mteb==2.21.0" "sentence-transformers>=5.0,<7"
+      - name: Registry pins
+        run: pytest -q "tests/test_published_recipe.py::TestAgainstMtebRegistry" -rs
+      - name: Fail if they silently skipped
+        run: |
+          pytest -q "tests/test_published_recipe.py::TestAgainstMtebRegistry" \
+            --collect-only 2>/dev/null | grep -q "5 tests collected" \
+            || { echo "registry tests did not collect -- mteb import is broken"; exit 1; }

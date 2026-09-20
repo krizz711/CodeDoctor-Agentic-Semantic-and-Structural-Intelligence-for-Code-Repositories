@@ -11,7 +11,7 @@
 
 <p align="center">
   <img alt="NDCG@10 0.96558" src="https://img.shields.io/badge/CoIR%20AppsRetrieval-NDCG%4010%200.96558-1f6feb?style=flat-square" />
-  <img alt="tests" src="https://img.shields.io/badge/tests-279%20passed%20%C2%B7%201%20skipped-2ea043?style=flat-square" />
+  <img alt="tests" src="https://img.shields.io/badge/tests-309%20passed%20%C2%B7%205%20skipped-2ea043?style=flat-square" />
   <img alt="cpu" src="https://img.shields.io/badge/runs%20on-CPU-4dd8ff?style=flat-square" />
   <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-555?style=flat-square" />
 </p>
@@ -32,7 +32,7 @@ and line number is checkable and a generated paragraph is not.
 | **CoIR AppsRetrieval · NDCG@10** | **0.96558** |
 | Dense pass alone, same frozen recipe | 0.93756 |
 | Published score for the same encoder | 0.93692 |
-| Test suite | **279 passed, 1 skipped** |
+| Test suite | **309 passed, 5 skipped** |
 | Cold index of a 7,132-line codebase | **1.0 s** (lexical, no model) |
 | Identifier lookup | **0.4 ms** |
 | First question on an unindexed repo | **5.6 s**, including building the index |
@@ -171,15 +171,15 @@ a program that passes the same examples.
 
 ```
 $ python -m pytest -q
-........................................................................ [ 25%]
-........................................................................ [ 51%]
-........................................................................ [ 77%]
-...............................................................          [100%]
-279 passed, 1 skipped in 92.92s (0:01:32)
+........................................................................ [ 45%]
+............................................sssss....................... [ 68%]
+........................................................................ [ 91%]
+..........................                                               [100%]
+309 passed, 5 skipped in 64.45s (0:01:04)
 ```
 
 Verbatim in [`docs/evidence/test-run.txt`](docs/evidence/test-run.txt).
-**30 test files, 279 tests.** The largest groups:
+**30 test files, 314 tests.** The largest groups:
 
 | tests | file | what it pins |
 |---|---|---|
@@ -193,6 +193,19 @@ Verbatim in [`docs/evidence/test-run.txt`](docs/evidence/test-run.txt).
 Four of these exist purely to stop a number being reported that was never
 computed: `test_result_cache_disabled`, `test_config_freeze`,
 `test_published_recipe`, `test_firewall_audit`.
+
+The five skips are the MTEB-registry checks, which need the optional `mteb`
+dependency. They are **not** quietly ignored — CI runs them in their own job
+and fails if they collect anything other than five tests.
+
+> **How we found out 30 tests were not running.** `test_published_recipe.py`
+> called `pytest.importorskip("mteb")` inside a class decorator. That argument
+> is evaluated at *module import*, and `importorskip` raises, so the whole file
+> was skipped and reported as a single innocuous `1 skipped`. Thirty tests —
+> every frozen-recipe guard in the project — had not run in the default
+> environment. Scoping the skip to the class surfaced them, and one had drifted:
+> it still asserted `execution_candidates == 10` after the config moved to 20.
+> A guard nobody runs is not a guard.
 
 > ### The trap they guard against
 >
@@ -286,7 +299,7 @@ and answers. Measured from a cold server: **5.6 s to ten ranked hits**.
 ## 10 · Reproducing every number
 
 ```bash
-python -m pytest -q                       # 279 passed, 1 skipped
+python -m pytest -q                       # 309 passed, 5 skipped
 python scripts/run_all.py                 # acceptance pipeline
 python scripts/run_ablation.py            # per-pass value, paired bootstrap
 python scripts/judge_endtoend.py --repo test_repos/commander
