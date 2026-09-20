@@ -4,12 +4,11 @@ from dataclasses import dataclass
 import hashlib
 from pathlib import Path
 import time
-from typing import Optional, Sequence
+from typing import Optional
 import numpy as np
 
 from app.indexing.cache import EmbeddingCache, compute_embedding_key
 from app.indexing.sqlite_index import SQLiteIndex
-from app.parser.chunker import Chunk, chunk_source
 from app.retrieval.encode import CodeEncoder, get_shared_encoder
 
 SUPPORTED_EXTENSIONS = {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".py"}

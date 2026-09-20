@@ -3,8 +3,7 @@ import subprocess
 from pathlib import Path
 import pytest
 
-from app.indexing.versioned import GitVersionManager, VersionedIndex
-from app.retrieval.hybrid import Document
+from app.indexing.versioned import VersionedIndex
 
 
 def run_git_cmd(repo_dir: Path, args: list[str]) -> str:

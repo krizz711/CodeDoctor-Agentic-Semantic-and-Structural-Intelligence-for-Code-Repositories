@@ -19,3 +19,4 @@ artifacts/
 .ruff_cache/
 .hypothesis/
 predictions/
+.claude/

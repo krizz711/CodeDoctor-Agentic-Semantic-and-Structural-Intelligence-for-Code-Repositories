@@ -6,9 +6,8 @@ import json
 from pathlib import Path
 import re
 import subprocess
-from typing import Any, Iterable, Mapping, Optional, Sequence
+from typing import Any, Iterable, Optional, Sequence
 
-from app.indexing.sqlite_index import SQLiteIndex
 from app.parser.chunker import chunk_source
 from app.retrieval.hybrid import Document, HybridRetriever, RankedDocument
 
@@ -170,6 +169,14 @@ class VersionedIndex:
         self._commit_metadata: dict[str, CommitMetadata] = {}
         self._embeddings: dict[str, Any] = {}
         self._encoder = encoder
+        #: One retriever per snapshot, built on first use.
+        #:
+        #: Constructing it tokenises every chunk to build the BM25 statistics,
+        #: which on a real repository costs a few hundred milliseconds -- per
+        #: query, if it is rebuilt per query.  Snapshots never change after
+        #: ``add_snapshot``, so the work is done once and the cache is dropped
+        #: whenever a commit is (re)indexed.
+        self._retrievers: dict[str, HybridRetriever] = {}
 
     def add_snapshot(
         self,
@@ -186,6 +193,7 @@ class VersionedIndex:
         """
         items = [VersionedDocument.create(commit, doc) for doc in documents]
         self._snapshots[commit] = items
+        self._retrievers.pop(commit, None)
         if embeddings is not None:
             if len(embeddings) != len(items):
                 raise ValueError(
@@ -237,23 +245,51 @@ class VersionedIndex:
         # Also index under short ref if different
         if commit != sha:
             self._snapshots[commit] = self._snapshots[sha]
+            self._retrievers.pop(commit, None)
+
+    def documents_at(self, commit: str) -> list[Document]:
+        """The documents held for one snapshot, in index order.
+
+        Exposed so a caller can encode a snapshot it already published and
+        re-add it with vectors, without reaching into private state.
+        """
+        return [item.document for item in self._snapshots.get(commit, [])]
 
     def commits(self) -> list[str]:
         return sorted(self._snapshots.keys())
 
-    def retrieve(self, query: str, commit: str, limit: int = 10) -> list[RankedDocument]:
+    def retrieve(
+        self,
+        query: str,
+        commit: str,
+        limit: int = 10,
+        use_dense: bool | None = None,
+    ) -> list[RankedDocument]:
         """
         Retrieves results strictly from the specified commit snapshot.
         Raises KeyError if the snapshot is not indexed.
+
+        ``use_dense`` overrides the retriever's own setting for this one call.
+        The query router uses it to answer an identifier lookup off the lexical
+        index alone, without paying for an encoder forward pass that cannot
+        change rank 1. Passing ``True`` on a snapshot with no embeddings is a
+        no-op -- the retriever still has nothing to compare against.
         """
         if commit not in self._snapshots:
             raise KeyError(f"Snapshot {commit} is not indexed")
 
-        docs = [item.document for item in self._snapshots[commit]]
-        if not docs:
+        retriever = self._retriever_for(commit)
+        if retriever is None:
             return []
-        retriever = HybridRetriever(docs, **self._retriever_kwargs(commit))
-        return retriever.search(query, limit=limit)
+        if use_dense is None:
+            return retriever.search(query, limit=limit)
+
+        previous = retriever.use_dense
+        retriever.use_dense = bool(use_dense) and previous
+        try:
+            return retriever.search(query, limit=limit)
+        finally:
+            retriever.use_dense = previous
 
     def retrieve_across_versions(
         self,
@@ -280,10 +316,9 @@ class VersionedIndex:
         """
         scored: list[tuple[float, str, VersionedDocument, tuple[str, ...]]] = []
         for commit, items in self._snapshots.items():
-            docs = [item.document for item in items]
-            if not docs:
+            retriever = self._retriever_for(commit)
+            if retriever is None:
                 continue
-            retriever = HybridRetriever(docs, **self._retriever_kwargs(commit))
             by_id = {item.document.document_id: item for item in items}
             # Over-fetch: after collapsing, a version contributes at most one
             # row per identity, so the per-version top-`limit` is not enough.
@@ -343,6 +378,33 @@ class VersionedIndex:
             )
             for g in ordered[:limit]
         ]
+
+    def warm(self, commit: str) -> bool:
+        """Build this snapshot's retriever now rather than on the first query.
+
+        Worth doing at index time: otherwise the very first question anyone
+        asks pays for the whole corpus being tokenised, which is exactly the
+        question someone is watching.
+        """
+        return self._retriever_for(commit) is not None
+
+    def last_timings(self, commit: str) -> dict[str, float]:
+        """Per-pass milliseconds from the most recent retrieval on a snapshot."""
+        retriever = self._retrievers.get(commit)
+        return dict(retriever.last_timings) if retriever is not None else {}
+
+    def _retriever_for(self, commit: str) -> HybridRetriever | None:
+        """The cached retriever for a snapshot, built on first use."""
+        cached = self._retrievers.get(commit)
+        if cached is not None:
+            return cached
+        items = self._snapshots.get(commit) or []
+        documents = [item.document for item in items]
+        if not documents:
+            return None
+        retriever = HybridRetriever(documents, **self._retriever_kwargs(commit))
+        self._retrievers[commit] = retriever
+        return retriever
 
     def _version_order(self, commit: str) -> int:
         """Insertion order, so 'versions' reads oldest-first as indexed."""

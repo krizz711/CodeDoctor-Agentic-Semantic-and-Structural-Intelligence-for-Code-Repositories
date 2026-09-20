@@ -220,11 +220,29 @@ def main() -> None:
     print("\nFetching task AppsRetrieval ...")
     task = mteb.get_task("AppsRetrieval")
     print("Evaluating ...")
-    evaluate_kwargs: dict[str, Any] = {"encode_kwargs": {"batch_size": args.batch_size}}
+    evaluate_kwargs: dict[str, Any] = {
+        "encode_kwargs": {"batch_size": args.batch_size},
+        "cache": None,
+        "overwrite_strategy": "always",
+    }
     if args.predictions:
         args.predictions.mkdir(parents=True, exist_ok=True)
         evaluate_kwargs["prediction_folder"] = str(args.predictions)
 
+    # cache=None is load-bearing, not tidiness.
+    #
+    # mteb.evaluate defaults to cache=ResultCache(~/.cache/mteb) with
+    # overwrite_strategy="only-missing". build_mteb_encoder advertises the
+    # UPSTREAM model meta (name + revision), so on any machine that has pulled
+    # MTEB's public results repository the evaluator finds a published result
+    # for codefuse-ai/F2LLM-v2-* at this exact revision and returns it WITHOUT
+    # running a single forward pass. It comes back in ~11s wearing the base
+    # encoder's score -- 0.34186 on CodeTransOceanDL, 0.93692 on AppsRetrieval
+    # -- and nothing in the output says the pipeline never ran.
+    #
+    # The submitted 0.96558 predates this hazard only because it was produced
+    # on a machine with a cold cache. Disabling the cache is what makes the
+    # number belong to this pipeline.
     results = mteb.evaluate(mteb_model, [task], **evaluate_kwargs)
     task_result = list(results.task_results)[0]
     payload = task_result.to_dict()

@@ -1,564 +1,1315 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CodeDoctor — Grounded Code Intelligence</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            vscode: {
-              bg: '#1e1e1e',
-              sidebar: '#252526',
-              active: '#37373d',
-              border: '#3c3c3c',
-              accent: '#007acc',
-              text: '#cccccc',
-              muted: '#858585',
-              yellow: '#dcdcaa',
-              green: '#4ec9b0',
-              blue: '#569cd6',
-              orange: '#ce9178',
-              badge: '#2d2d2d'
-            }
-          }
-        }
-      }
-    };
-  </script>
-  <!-- Google Fonts: JetBrains Mono & Inter -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background-color: #1e1e1e;
-      color: #cccccc;
-    }
-    code, pre, .font-mono {
-      font-family: 'JetBrains Mono', monospace;
-    }
-    .custom-scrollbar::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-      background: #1e1e1e;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: #3c3c3c;
-      border-radius: 3px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-      background: #555555;
-    }
-    .span-highlight {
-      background-color: rgba(255, 215, 0, 0.15);
-      border-left: 3px solid #e5c07b;
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CodeDoctor — Grounded Code Intelligence</title>
+<link rel="icon" type="image/png" href="/assets/favicon.png" />
+<!--
+  Retrieval workbench for Samsung PRISM GenAI Hackathon 2026, Theme 01.
+
+  No build step and no CDN: every style and script in this file is inline, so
+  the demo runs from a clone with nothing but `uvicorn app.server:app`. A demo
+  that needs the network to render is a demo that fails in the room.
+
+  Nothing here invents a number. Scores, latencies, pass states and version
+  metadata all arrive from /api/workbench/*, and where a pass did not run the
+  panel prints the reason the pipeline gave rather than hiding the row.
+-->
+<style>
+  :root {
+    --bg: #07111f;
+    --panel: #0b1728;
+    --raised: #0f1e33;
+    --hover: #15263d;
+    --line: #1c2f47;
+    --line-strong: #2b4564;
+    --ink: #edf4ff;
+    --ink-2: #91a8c3;
+    --ink-3: #5f7590;
+    --accent: #4dd8ff;
+    --accent-soft: rgba(77, 216, 255, .13);
+    --ok: #42d392;
+    --warn: #ffd65a;
+    --info: #4dd8ff;
+    --off: #4a5f7a;
+    /* the canvas texture: two deep washes plus a faint survey grid. It is
+       painted on <body> only, so it shows through .center -- where results
+       sit on solid cards -- and never behind dense data itself. */
+    --wash-a: #122848;
+    --wash-b: #1d1338;
+    --grid: rgba(35, 64, 98, .20);
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(circle at 12% 6%, var(--wash-a) 0, rgba(7, 17, 31, 0) 34%),
+      radial-gradient(circle at 88% 94%, var(--wash-b) 0, rgba(7, 17, 31, 0) 38%),
+      linear-gradient(to right, var(--grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+    background-attachment: fixed;
+    font-family: var(--sans); font-size: 13px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #23364d; border-radius: 6px; border: 2px solid transparent; }
+  ::-webkit-scrollbar-thumb:hover { background: #31496a; }
+
+  .label {
+    font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 600;
+  }
+  .mono { font-family: var(--mono); }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ---------- shell ---------- */
+  .shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  .topbar {
+    height: 52px; flex: 0 0 52px; display: flex; align-items: center; gap: 18px;
+    padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 650; letter-spacing: -.01em; }
+  .brand .dot {
+    width: 26px; height: 26px; display: block; flex: 0 0 26px;
+    object-fit: contain;
+  }
+  .brand small { color: var(--ink-3); font-weight: 500; font-size: 11px; }
+
+  .ctxbar { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+  .crumb {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 9px; border: 1px solid var(--line); border-radius: 7px;
+    background: var(--raised); font-family: var(--mono); font-size: 11.5px;
+  }
+  .crumb.sel { cursor: pointer; }
+  .crumb.sel:hover { border-color: var(--line-strong); background: var(--hover); }
+  .sep { color: var(--ink-3); }
+  select.bare {
+    background: transparent; color: var(--ink); border: 0; outline: 0;
+    font-family: var(--mono); font-size: 11.5px; cursor: pointer; max-width: 320px;
+  }
+  select.bare option { background: #14171b; color: var(--ink); }
+
+  .chips { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11px;
+    padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--raised); color: var(--ink-2); white-space: nowrap;
+  }
+  .led { width: 6px; height: 6px; border-radius: 50%; background: var(--off); flex: 0 0 6px; }
+  .led.ok { background: var(--ok); box-shadow: 0 0 7px rgba(74,222,128,.55); }
+  .led.warn { background: var(--warn); box-shadow: 0 0 7px rgba(251,191,36,.5); }
+  .led.busy { background: var(--info); animation: pulse 1.1s ease-in-out infinite; }
+  .led.bad { background: #f87171; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+
+  .body { flex: 1; display: flex; min-height: 0; }
+
+  /* ---------- left rail ---------- */
+  .rail {
+    width: 188px; flex: 0 0 188px; border-right: 1px solid var(--line);
+    background: var(--panel); display: flex; flex-direction: column; padding: 14px 10px;
+    gap: 3px; overflow-y: auto;
+  }
+  .rail .label { padding: 0 8px 7px; }
+  .navitem {
+    display: flex; gap: 10px; align-items: flex-start; padding: 8px 9px;
+    border-radius: 8px; cursor: pointer; border: 1px solid transparent;
+  }
+  .navitem:hover { background: var(--hover); }
+  .navitem.on { background: var(--raised); border-color: var(--line-strong); }
+  .navitem.on .navtitle { color: var(--ink); }
+  .navitem.on .navicon { color: var(--accent); }
+  .navicon { color: var(--ink-3); flex: 0 0 16px; margin-top: 1px; }
+  .navtitle { font-size: 12.5px; font-weight: 550; color: var(--ink-2); }
+  .navsub { font-size: 10.5px; color: var(--ink-3); line-height: 1.35; }
+
+  .railfoot { margin-top: auto; padding: 10px 8px 2px; border-top: 1px solid var(--line); }
+  .kv { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; padding: 2px 0; }
+  .kv span:first-child { color: var(--ink-3); }
+  .kv span:last-child { font-family: var(--mono); color: var(--ink-2); }
+
+  /* ---------- main ---------- */
+  .main { flex: 1; min-width: 0; display: flex; }
+  .center { flex: 1; min-width: 0; overflow-y: auto; padding: 18px 20px 48px; }
+  .aside {
+    width: 372px; flex: 0 0 372px; border-left: 1px solid var(--line);
+    background: var(--panel); overflow-y: auto; padding: 16px 16px 48px;
+  }
+
+  .ask { position: relative; }
+  .ask textarea {
+    width: 100%; min-height: 62px; resize: vertical; padding: 14px 120px 14px 15px;
+    background: var(--raised); border: 1px solid var(--line-strong); border-radius: 11px;
+    color: var(--ink); font-family: var(--sans); font-size: 14px; line-height: 1.45; outline: 0;
+  }
+  .ask textarea::placeholder { color: var(--ink-3); }
+  .ask textarea:focus { border-color: #45505c; box-shadow: 0 0 0 3px rgba(77,216,255,.09); }
+  .ask .go {
+    position: absolute; right: 10px; top: 10px; display: inline-flex; align-items: center; gap: 7px;
+    background: var(--accent); color: #04121a; border: 0; border-radius: 8px;
+    padding: 8px 13px; font-size: 12.5px; font-weight: 650; cursor: pointer;
+  }
+  .ask .go:hover { filter: brightness(1.08); }
+  .ask .go:disabled { opacity: .45; cursor: not-allowed; }
+  .hint { margin-top: 7px; font-size: 11px; color: var(--ink-3); }
+
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
+  .preset {
+    font-size: 11.5px; padding: 5px 10px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--raised); color: var(--ink-2);
+  }
+  .preset:hover { border-color: var(--accent); color: var(--ink); background: var(--accent-soft); }
+
+  .strip {
+    display: flex; gap: 8px; margin: 16px 0 0; flex-wrap: wrap;
+  }
+  .pass {
+    flex: 1 1 165px; min-width: 165px; border: 1px solid var(--line); border-radius: 9px;
+    background: var(--panel); padding: 9px 11px;
+  }
+  .pass .head { display: flex; align-items: center; gap: 7px; }
+  .pass .name { font-size: 12px; font-weight: 600; }
+  .pass .state { margin-left: auto; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+  .pass.on .state { color: var(--ok); }
+  .pass.off .state { color: var(--off); }
+  .pass.off .name { color: var(--ink-2); }
+  .pass .detail { font-size: 10.5px; color: var(--ink-3); margin-top: 4px; line-height: 1.4; }
+
+  .timings {
+    display: flex; gap: 0; margin-top: 10px; border: 1px solid var(--line);
+    border-radius: 9px; overflow: hidden; background: var(--panel);
+  }
+  .tcell { flex: 1; padding: 9px 12px; border-right: 1px solid var(--line); }
+  .tcell:last-child { border-right: 0; }
+  .tcell .v { font-family: var(--mono); font-size: 16px; font-variant-numeric: tabular-nums; }
+  .tcell .v small { font-size: 10px; color: var(--ink-3); margin-left: 2px; }
+  .tcell.total .v { color: var(--accent); }
+  .tcell .k { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-top: 2px; }
+
+  .secthead {
+    display: flex; align-items: baseline; gap: 10px; margin: 22px 0 10px;
+  }
+  .secthead h2 { margin: 0; font-size: 13px; font-weight: 650; letter-spacing: -.005em; }
+  .secthead .note { font-size: 11px; color: var(--ink-3); }
+  .secthead .right { margin-left: auto; font-size: 11px; color: var(--ink-3); font-family: var(--mono); }
+
+  /* ---------- results ---------- */
+  .hit {
+    border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+    margin-bottom: 7px; cursor: pointer; overflow: hidden;
+  }
+  .hit:hover { border-color: var(--line-strong); background: var(--raised); }
+  .hit.sel { border-color: var(--accent); background: var(--raised); }
+  .hit .row { display: flex; align-items: center; gap: 11px; padding: 10px 12px; }
+  .rank {
+    width: 26px; flex: 0 0 26px; text-align: center; font-family: var(--mono);
+    font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums;
+  }
+  .hit.sel .rank, .hit:first-child .rank { color: var(--accent); }
+  .hit .who { min-width: 0; flex: 1; }
+  .hit .sym { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .hit .sym .kind { color: var(--ink-3); }
+  .hit .where {
+    font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .badges { display: flex; gap: 4px; align-items: center; flex: 0 0 auto; }
+  .badge {
+    font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase; font-weight: 650;
+    padding: 2.5px 6px; border-radius: 5px; border: 1px solid;
+  }
+  .badge.dense { color: var(--info); border-color: rgba(106,164,255,.35); background: rgba(106,164,255,.09); }
+  .badge.bm25  { color: #c084fc; border-color: rgba(192,132,252,.32); background: rgba(192,132,252,.09); }
+  .badge.exact { color: var(--warn); border-color: rgba(251,191,36,.32); background: rgba(251,191,36,.09); }
+  .badge.verified { color: var(--ok); border-color: rgba(74,222,128,.35); background: rgba(74,222,128,.1); }
+  .badge.failed { color: var(--off); border-color: var(--line-strong); }
+  .moved {
+    font-size: 9.5px; font-family: var(--mono); color: var(--ok);
+    border: 1px solid rgba(74,222,128,.3); background: rgba(74,222,128,.08);
+    padding: 2.5px 6px; border-radius: 5px;
+  }
+  .score {
+    font-family: var(--mono); font-size: 12px; color: var(--ink-2); width: 62px;
+    text-align: right; flex: 0 0 62px; font-variant-numeric: tabular-nums;
+  }
+  .hit .code { border-top: 1px solid var(--line); display: none; }
+  .hit.sel .code { display: block; }
+
+  pre.src {
+    margin: 0; padding: 10px 12px 12px; overflow-x: auto; background: #0a0c0e;
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.6; max-height: 340px;
+  }
+  pre.src .ln {
+    display: inline-block; width: 34px; margin-right: 12px; text-align: right;
+    color: #3b434c; user-select: none;
+  }
+  .tok-kw { color: #ff8f6b; }
+  .tok-str { color: #9ece6a; }
+  .tok-com { color: #4d5763; font-style: italic; }
+  .tok-num { color: #7dcfff; }
+  .tok-def { color: #7aa2f7; }
+
+  /* ---------- evidence aside ---------- */
+  .card {
+    border: 1px solid var(--line); border-radius: 10px; background: var(--raised);
+    padding: 12px; margin-bottom: 11px;
+  }
+  .card > .label { margin-bottom: 9px; display: block; }
+  .bar { height: 5px; border-radius: 3px; background: #1b2026; overflow: hidden; margin-top: 5px; }
+  .bar > i { display: block; height: 100%; border-radius: 3px; }
+  .sigrow { margin-bottom: 11px; }
+  .sigrow:last-child { margin-bottom: 0; }
+  .sigtop { display: flex; align-items: baseline; gap: 8px; font-size: 11.5px; }
+  .sigtop .m { font-weight: 600; text-transform: capitalize; }
+  .sigtop .r { color: var(--ink-3); font-family: var(--mono); font-size: 10.5px; }
+  .sigtop .c { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+  .sum {
+    margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--line-strong);
+    display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px;
+  }
+
+  .edge {
+    display: flex; gap: 8px; align-items: baseline; padding: 5px 0;
+    border-bottom: 1px solid var(--line); font-size: 11.5px;
+  }
+  .edge:last-child { border-bottom: 0; }
+  .edge .sym { font-family: var(--mono); color: var(--ink); }
+  .edge .loc { font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-left: auto; }
+  .tag {
+    font-size: 9px; letter-spacing: .05em; padding: 1.5px 5px; border-radius: 4px;
+    border: 1px solid var(--line-strong); color: var(--ink-3);
+  }
+  .tag.v { color: var(--ok); border-color: rgba(74,222,128,.3); }
+
+  .empty { color: var(--ink-3); font-size: 11.5px; padding: 10px 2px; line-height: 1.5; }
+
+  /* ---------- versions ---------- */
+  .tl { border-left: 1px solid var(--line-strong); margin: 4px 0 0 7px; padding-left: 16px; }
+  .tlitem { position: relative; padding: 9px 0; cursor: pointer; }
+  .tlitem::before {
+    content: ""; position: absolute; left: -21px; top: 15px; width: 9px; height: 9px;
+    border-radius: 50%; background: var(--bg); border: 2px solid var(--line-strong);
+  }
+  .tlitem.head::before { border-color: var(--accent); background: var(--accent); }
+  .tlitem .sha { font-family: var(--mono); font-size: 11.5px; color: var(--ink); }
+  .tlitem .subj { font-size: 11.5px; color: var(--ink-2); }
+  .tlitem .meta { font-size: 10.5px; color: var(--ink-3); font-family: var(--mono); }
+
+  table.grid { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  table.grid th {
+    text-align: left; font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 600; padding: 7px 9px; border-bottom: 1px solid var(--line-strong);
+  }
+  table.grid td { padding: 7px 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.grid tr:last-child td { border-bottom: 0; }
+  table.grid td.m { font-family: var(--mono); }
+  .mv { font-family: var(--mono); font-size: 11px; }
+  .mv.up { color: var(--ok); } .mv.down { color: #f87171; }
+  .mv.entered { color: var(--info); } .mv.left { color: var(--ink-3); } .mv.same { color: var(--ink-3); }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px;
+    border: 1px solid var(--line-strong); border-radius: 8px; background: var(--raised);
+    color: var(--ink); font-size: 12px; cursor: pointer; font-family: var(--sans);
+  }
+  .btn:hover { border-color: #3a5677; background: var(--hover); }
+
+  /* ---------- query plan (the router's decisions) ---------- */
+  .plan {
+    border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+    padding: 11px 13px; margin-bottom: 12px;
+  }
+  .plan .phead {
+    display: flex; align-items: baseline; gap: 9px; margin-bottom: 9px;
+  }
+  .plan .verdict { font-size: 11.5px; color: var(--ink-2); }
+  .plan .verdict b { color: var(--ink); font-weight: 600; }
+  .pchips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pchip {
+    font-family: var(--mono); font-size: 10.5px; padding: 3px 8px;
+    border-radius: 999px; border: 1px solid var(--line); cursor: help;
+  }
+  .pchip.on { color: var(--ink); border-color: var(--line-strong); background: var(--raised); }
+  .pchip.on.expensive { border-color: rgba(255,214,90,.4); }
+  .pchip.off { color: var(--ink-3); text-decoration: line-through; opacity: .75; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #04121a; font-weight: 640; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  .banner {
+    border: 1px solid var(--line-strong); border-radius: 10px; padding: 11px 13px;
+    background: var(--raised); font-size: 12px; display: flex; gap: 10px; align-items: flex-start;
+    margin-bottom: 14px;
+  }
+  .banner.warn { border-color: rgba(251,191,36,.35); background: rgba(251,191,36,.06); }
+  .banner.bad { border-color: rgba(248,113,113,.4); background: rgba(248,113,113,.06); }
+  .banner .t { font-weight: 620; margin-bottom: 2px; }
+  .banner .d { color: var(--ink-2); line-height: 1.5; }
+
+  .bigstat { display: flex; gap: 12px; flex-wrap: wrap; }
+  .bigstat .s {
+    flex: 1 1 150px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--panel); padding: 14px 15px;
+  }
+  .bigstat .s .v { font-family: var(--mono); font-size: 26px; letter-spacing: -.02em; }
+  .bigstat .s .k { font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-3); margin-top: 3px; }
+  .bigstat .s.hero .v { color: var(--accent); }
+
+  .view { display: none; }
+  .view.on { display: block; }
+  .prose { font-size: 12px; color: var(--ink-2); line-height: 1.6; max-width: 70ch; }
+  .prose code { font-family: var(--mono); font-size: 11.5px; color: var(--ink); background: var(--raised);
+    padding: 1px 5px; border-radius: 4px; border: 1px solid var(--line); }
+
+  .spin { width: 13px; height: 13px; border: 2px solid rgba(255,255,255,.18);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg) } }
+
+  /* indeterminate loader: progress without a number to stare at */
+  .bar {
+    height: 2px; width: 100%; max-width: 320px; margin-top: 7px;
+    background: var(--line); border-radius: 2px; overflow: hidden;
+  }
+  .bar i {
+    display: block; height: 100%; width: 38%; border-radius: 2px;
+    background: var(--accent); animation: slide 1.5s ease-in-out infinite;
+  }
+  @keyframes slide {
+    0%   { transform: translateX(-100%) }
+    100% { transform: translateX(300%) }
+  }
+  /* determinate: real progress, so no animation pretending to be progress */
+  .bar.det { height: 4px; }
+  .bar.det i { animation: none; transition: width .3s ease; }
+  .barline {
+    display: flex; gap: 10px; align-items: baseline; margin-top: 5px;
+    font-size: 11px; color: var(--ink-3);
+  }
+  .barline .num { color: var(--ink); font-size: 12.5px; font-weight: 600; }
+
+  @media (max-width: 1240px) {
+    .aside { width: 320px; flex-basis: 320px; }
+  }
+  @media (max-width: 1040px) {
+    .aside { display: none; }
+    .rail { width: 58px; flex-basis: 58px; }
+    .rail .navtitle, .rail .navsub, .rail .label, .railfoot { display: none; }
+  }
+</style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden bg-vscode-bg text-vscode-text select-none">
+<body>
+<div class="shell">
 
-  <!-- Top Navigation / Search Bar -->
-  <header class="h-12 bg-vscode-sidebar border-b border-vscode-border px-4 flex items-center justify-between shrink-0">
-    <div class="flex items-center space-x-3">
-      <div class="flex items-center space-x-2">
-        <svg class="w-5 h-5 text-vscode-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-        </svg>
-        <span class="font-semibold tracking-tight text-white">CodeDoctor</span>
-        <span class="text-xs px-2 py-0.5 rounded bg-vscode-badge text-vscode-muted font-mono" id="repo-badge">repository</span>
-      </div>
-      <div class="h-4 w-[1px] bg-vscode-border mx-1"></div>
-      <div class="flex items-center space-x-2 text-xs text-vscode-muted font-mono">
-        <span class="flex items-center space-x-1">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-          </svg>
-          <span id="header-branch">main</span>
-        </span>
-        <span>•</span>
-        <span id="header-commit">HEAD</span>
-      </div>
+  <!-- ===================== top bar ===================== -->
+  <header class="topbar">
+    <div class="brand">
+      <img class="dot" src="/assets/mark-96.png" alt="" aria-hidden="true" />
+      <span>CodeDoctor</span>
+      <small>retrieval workbench</small>
     </div>
 
-    <!-- Central Search Input -->
-    <div class="flex-1 max-w-2xl mx-6">
-      <div class="relative flex items-center">
-        <input
-          id="search-input"
-          type="text"
-          placeholder="Search repository: natural language, symbol, or question... (e.g. 'Where is authentication handled?')"
-          class="w-full bg-vscode-bg border border-vscode-border rounded px-3 py-1.5 pl-9 text-xs text-white placeholder-vscode-muted focus:outline-none focus:border-vscode-accent font-mono transition-colors"
-          onkeydown="if(event.key === 'Enter') handleSearch()"
-        />
-        <svg class="w-4 h-4 text-vscode-muted absolute left-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    <div class="ctxbar">
+      <span class="crumb sel">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="color:var(--ink-3)">
+          <path d="M2 4.5A1.5 1.5 0 013.5 3h3l1.2 1.6h4.8A1.5 1.5 0 0114 6.1v5.4a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 11.5v-7z"/>
         </svg>
-        <button
-          onclick="handleSearch()"
-          class="absolute right-1.5 px-2.5 py-0.5 bg-vscode-accent hover:bg-blue-600 text-white rounded text-xs font-medium transition-colors"
-        >
-          Search
-        </button>
-      </div>
+        <select id="target" class="bare"></select>
+      </span>
+      <span class="sep">/</span>
+      <span class="crumb sel">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="color:var(--ink-3)">
+          <circle cx="4.5" cy="4" r="1.8"/><circle cx="4.5" cy="12" r="1.8"/><circle cx="11.5" cy="8" r="1.8"/>
+          <path d="M4.5 5.8v4.4M6.3 4.3h2.4a1.5 1.5 0 011.5 1.5v.7"/>
+        </svg>
+        <select id="version" class="bare"></select>
+      </span>
     </div>
 
-    <!-- Right Controls: Commit Selector & Index Trigger -->
-    <div class="flex items-center space-x-3 text-xs">
-      <select
-        id="commit-selector"
-        onchange="handleCommitChange(this.value)"
-        class="bg-vscode-bg border border-vscode-border text-vscode-text rounded px-2 py-1 text-xs focus:outline-none focus:border-vscode-accent font-mono"
-      >
-        <option value="">Current Workspace (HEAD)</option>
-      </select>
-      <button
-        onclick="triggerReindex()"
-        class="flex items-center space-x-1.5 px-2.5 py-1 bg-vscode-badge hover:bg-vscode-active border border-vscode-border rounded text-white transition-colors"
-        title="Trigger Incremental Re-Index"
-      >
-        <svg id="sync-icon" class="w-3.5 h-3.5 text-vscode-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-        <span>Re-index</span>
-      </button>
+    <div class="chips">
+      <span class="chip" id="chip-dense"><i class="led"></i><span>dense idle</span></span>
+      <span class="chip" id="chip-iso"><i class="led"></i><span>isolation —</span></span>
     </div>
   </header>
 
-  <!-- Error Banner (Shown when backend is down or errors occur) -->
-  <div id="error-banner" class="hidden bg-red-900/60 border-b border-red-700 px-4 py-2 text-xs text-red-200 flex items-center justify-between">
-    <div class="flex items-center space-x-2">
-      <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-      <span id="error-message">Backend connection failed.</span>
+  <div class="body">
+    <!-- ===================== left rail ===================== -->
+    <nav class="rail">
+      <span class="label">Workbench</span>
+
+      <div class="navitem on" data-view="retrieve">
+        <svg class="navicon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="7" cy="7" r="4.2"/><path d="M10.2 10.2L14 14"/>
+        </svg>
+        <div><div class="navtitle">Retrieve</div><div class="navsub">Rank snippets for a question</div></div>
+      </div>
+
+      <div class="navitem" data-view="versions">
+        <svg class="navicon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M3 3.5v9M3 3.5h6.5a2.5 2.5 0 010 5H3"/><circle cx="12.5" cy="12.5" r="1.6"/><path d="M12.5 10.9V8.5"/>
+        </svg>
+        <div><div class="navtitle">Versions</div><div class="navsub">P1 and the cross-version bonus</div></div>
+      </div>
+
+      <div class="navitem" data-view="benchmark">
+        <svg class="navicon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M2.5 13.5h11M4.5 13.5V8M8 13.5V3.5M11.5 13.5v-3.5"/>
+        </svg>
+        <div><div class="navtitle">Screening</div><div class="navsub">The submitted MTEB result</div></div>
+      </div>
+
+      <div class="railfoot">
+        <span class="label" style="display:block;margin-bottom:6px">Index</span>
+        <div class="kv"><span>chunks</span><span id="s-chunks">—</span></div>
+        <div class="kv"><span>versions</span><span id="s-versions">—</span></div>
+        <div class="kv"><span>encoded</span><span id="s-encoded">—</span></div>
+        <div class="kv"><span>reused</span><span id="s-reused">—</span></div>
+        <div class="kv"><span>encoder</span><span id="s-encoder">—</span></div>
+      </div>
+    </nav>
+
+    <!-- ===================== main ===================== -->
+    <div class="main">
+      <div class="center">
+
+        <!-- ---------- build banner ---------- -->
+        <div class="banner" id="build-banner" style="display:none">
+          <div class="spin" id="build-spin"></div>
+          <div style="flex:1">
+            <div class="t" id="build-title">Indexing</div>
+            <div class="d" id="build-detail"></div>
+          </div>
+          <button class="btn" id="build-go" style="display:none">Build index</button>
+        </div>
+
+        <!-- ================= RETRIEVE ================= -->
+        <section class="view on" id="view-retrieve">
+          <div class="ask">
+            <textarea id="q" rows="2" placeholder="Ask in plain English — “How is the input preprocessed before going to the main function?”"></textarea>
+            <button class="go" id="run">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2.5l10 5.5-10 5.5z"/></svg>
+              Retrieve
+            </button>
+          </div>
+          <div class="hint">Ranked code, not a generated answer. ⌘/Ctrl + Enter to run.</div>
+          <div class="presets" id="presets"></div>
+
+          <div class="plan" id="plan" style="display:none"></div>
+          <div class="strip" id="passes"></div>
+          <div class="timings" id="timings" style="display:none">
+            <div class="tcell"><div class="v" id="t-encode">—</div><div class="k">query encode</div></div>
+            <div class="tcell"><div class="v" id="t-cand">—</div><div class="k">candidates</div></div>
+            <div class="tcell"><div class="v" id="t-struct">—</div><div class="k">structural</div></div>
+            <div class="tcell"><div class="v" id="t-verify">—</div><div class="k">verification</div></div>
+            <div class="tcell total"><div class="v" id="t-total">—</div><div class="k">total query</div></div>
+          </div>
+          <div class="hint" id="timing-note"></div>
+
+          <div class="secthead">
+            <h2>Relevant code</h2>
+            <span class="note">ranked by relevance</span>
+            <span class="right" id="results-meta"></span>
+          </div>
+          <div id="results">
+            <div class="empty">Pick a corpus, ask a question, and the ranked snippets land here.</div>
+          </div>
+        </section>
+
+        <!-- ================= VERSIONS ================= -->
+        <section class="view" id="view-versions">
+          <div class="secthead" style="margin-top:0">
+            <h2>P1 · the same question at two versions</h2>
+            <span class="note">indexes are rebuilt per version; retrieval is pinned to one</span>
+          </div>
+
+          <div class="banner warn" id="single-version" style="display:none">
+            <i class="led warn" style="margin-top:5px"></i>
+            <div><div class="t">Only one version indexed</div><div class="d"></div></div>
+          </div>
+
+          <div class="ask">
+            <textarea id="vq" rows="2" placeholder="A question to run against both versions"></textarea>
+            <button class="go" id="vrun">Compare</button>
+          </div>
+
+          <div class="split" style="margin-top:12px">
+            <div class="card" style="margin:0">
+              <span class="label">Version A (older)</span>
+              <select id="vleft" class="bare" style="width:100%;max-width:none"></select>
+            </div>
+            <div class="card" style="margin:0">
+              <span class="label">Version B</span>
+              <select id="vright" class="bare" style="width:100%;max-width:none"></select>
+            </div>
+          </div>
+
+          <div id="compare-out"></div>
+
+          <div class="secthead">
+            <h2>Bonus · one ranking across <em>every</em> version</h2>
+            <span class="note">near-identical snippets collapsed to one row</span>
+            <span class="right" id="across-meta"></span>
+          </div>
+          <div class="prose" style="margin-bottom:11px">
+            The brief names the difficulty itself: across versions the snippets “would still be very
+            similar, which would make them hard to rank properly”. Searching every snapshot naively
+            makes it worse — a function that survived four commits returns four near-identical rows and
+            crowds the rest out. Rows are grouped by the identity that survives a commit (path + symbol),
+            each collapsing to its best-scoring variant. The right-hand column is the ungrouped ranking,
+            so the difference is measured rather than claimed.
+          </div>
+          <div id="across-out"><div class="empty">Run a comparison above to populate this.</div></div>
+
+          <div class="secthead"><h2>Indexed history</h2><span class="note">real commits from this repository</span></div>
+          <div class="tl" id="timeline"></div>
+        </section>
+
+        <!-- ================= BENCHMARK ================= -->
+        <section class="view" id="view-benchmark">
+          <div class="secthead" style="margin-top:0">
+            <h2>Screening result</h2>
+            <span class="note">read from the artifact attached to the release, not typed into this page</span>
+          </div>
+          <div class="bigstat" id="bench"></div>
+
+          <div class="secthead"><h2>What produced it</h2></div>
+          <div class="prose">
+            Three passes over CoIR <code>AppsRetrieval</code>: a dense pass with the published
+            F2LLM-v2 recipe, a lexical pass, and an execution pass that <em>runs</em> the top-20
+            candidates against the worked examples parsed out of the problem statement and promotes
+            whichever ones reproduce them. The execution pass is the only one that cleared a paired
+            bootstrap gate — the nine-feature reranker did not, and ships as the identity
+            configuration rather than being quietly left in.
+            <br><br>
+            The same three passes answer the queries on the Retrieve tab. What changes there is the
+            corpus: a repository has no worked examples to run, so the execution pass reports that it
+            had nothing to execute instead of showing a badge it did not earn.
+          </div>
+
+          <div class="secthead"><h2>Execution pass, on the submitted run</h2></div>
+          <div class="bigstat" id="bench-exec"></div>
+        </section>
+
+      </div>
+
+      <!-- ===================== evidence aside ===================== -->
+      <aside class="aside">
+        <span class="label">Why it ranked there</span>
+        <div id="evidence">
+          <div class="empty">Select a result to see the evidence behind its position.</div>
+        </div>
+      </aside>
     </div>
-    <button onclick="dismissError()" class="text-red-300 hover:text-white font-bold">&times;</button>
   </div>
+</div>
 
-  <!-- Historical Commit Notice Banner -->
-  <div id="historical-banner" class="hidden bg-amber-950/70 border-b border-amber-700 px-4 py-1.5 text-xs text-amber-200 flex items-center justify-between">
-    <div class="flex items-center space-x-2">
-      <span class="font-semibold uppercase tracking-wider text-[10px] bg-amber-700/80 text-white px-1.5 py-0.5 rounded">Historical Version</span>
-      <span>Retrieval is strictly isolated to commit <span id="banner-commit-sha" class="font-mono font-bold"></span>. Cross-commit leakage is zero.</span>
-    </div>
-    <button onclick="resetToHead()" class="text-amber-300 hover:underline">Return to HEAD</button>
-  </div>
+<script>
+"use strict";
 
-  <!-- Main 3-Column Layout -->
-  <div class="flex-1 flex overflow-hidden">
+/* ------------------------------------------------------------------ state */
+const S = {
+  targets: [], target: null, versions: [], version: null,
+  results: [], selected: 0, lastSearch: null, polling: null, presets: [],
+};
 
-    <!-- Column 1: Explorer & Index Counters -->
-    <aside class="w-64 bg-vscode-sidebar border-r border-vscode-border flex flex-col shrink-0">
-      <!-- Section Tabs -->
-      <div class="h-9 px-3 border-b border-vscode-border flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-vscode-muted">
-        <span>Explorer</span>
-        <span class="text-[10px] lowercase" id="file-count">0 files</span>
-      </div>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-      <!-- File Tree -->
-      <div class="flex-1 overflow-y-auto custom-scrollbar p-2" id="file-tree">
-        <div class="text-xs text-vscode-muted p-2">Loading repository files...</div>
-      </div>
+async function api(path, options) {
+  const res = await fetch(path, options);
+  if (!res.ok) {
+    let detail = res.statusText;
+    try { detail = (await res.json()).detail || detail; } catch (e) { /* not json */ }
+    throw new Error(detail);
+  }
+  return res.json();
+}
+const post = (path, body) => api(path, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body || {}),
+});
 
-      <!-- Index Status Panel (Phase 3 Counters) -->
-      <div class="border-t border-vscode-border bg-vscode-bg/50 p-3 text-xs">
-        <div class="flex items-center justify-between mb-2">
-          <span class="font-semibold uppercase tracking-wider text-[10px] text-vscode-muted">Index Status</span>
-          <span class="w-2 h-2 rounded-full bg-emerald-500" id="status-indicator"></span>
-        </div>
-        <div class="space-y-1.5 font-mono text-[11px]">
-          <div class="flex justify-between">
-            <span class="text-vscode-muted">Total Chunks:</span>
-            <span class="text-white" id="stat-chunks">-</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-vscode-muted">Cached Embeds:</span>
-            <span class="text-white" id="stat-embeds">-</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-vscode-muted">Reused:</span>
-            <span class="text-emerald-400" id="stat-reused">-</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-vscode-muted">Re-embedded:</span>
-            <span class="text-amber-400" id="stat-reembedded">-</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-vscode-muted">Re-index Latency:</span>
-            <span class="text-vscode-yellow" id="stat-elapsed">-</span>
-          </div>
-        </div>
-      </div>
-    </aside>
+/* --------------------------------------------------------- code rendering */
+/* One pass, in this order: comment, string, number, keyword.
+   Chained .replace() calls cannot be used here — the string pass would match
+   the class names the comment pass just inserted and highlight its own markup,
+   which is how `class="tok-com"` ends up printed inside the listing. A regex
+   literal keeps the escaping readable; the alternation is inline for the same
+   reason. */
+const TOKENS = /(#[^\n]*|\/\/[^\n]*)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|\b(\d+\.?\d*)\b|\b(def|class|return|if|elif|else|for|while|import|from|as|with|try|except|finally|raise|yield|lambda|await|async|pass|break|continue|in|not|and|or|is|None|True|False|self|function|const|let|var|new|this|export|default|typeof|instanceof|null|undefined|throw|case|switch|extends|super|static)\b/g;
 
-    <!-- Column 2: Search Results & Evidence Bundles -->
-    <section class="w-96 border-r border-vscode-border flex flex-col bg-vscode-bg shrink-0">
-      <!-- Results Header -->
-      <div class="h-9 px-3 border-b border-vscode-border flex items-center justify-between text-xs text-vscode-muted">
-        <span class="font-semibold uppercase tracking-wider text-[10px]" id="results-count-title">Evidence Results</span>
-        <span class="font-mono text-[11px]" id="results-time"></span>
-      </div>
+function highlight(line) {
+  let out = "", last = 0, match;
+  TOKENS.lastIndex = 0;
+  while ((match = TOKENS.exec(line)) !== null) {
+    if (match[0] === "") { TOKENS.lastIndex++; continue; }
+    out += esc(line.slice(last, match.index));
+    const cls = match[1] ? "tok-com" : match[2] ? "tok-str" : match[3] ? "tok-num" : "tok-kw";
+    out += '<span class="' + cls + '">' + esc(match[0]) + "</span>";
+    last = match.index + match[0].length;
+  }
+  return out + esc(line.slice(last));
+}
 
-      <!-- Evidence Facet Tabs -->
-      <div class="px-3 py-1.5 border-b border-vscode-border bg-vscode-sidebar/50 flex space-x-2 text-[11px] overflow-x-auto custom-scrollbar" id="facet-tabs">
-        <button onclick="filterFacet('all')" class="px-2 py-0.5 rounded bg-vscode-accent text-white font-medium" data-facet="all">All</button>
-      </div>
+function renderCode(code, startLine, truncated) {
+  const lines = String(code || "").replace(/\s+$/, "").split("\n").slice(0, 160);
+  const body = lines.map((line, i) =>
+    '<span class="ln">' + (startLine + i) + "</span>" + highlight(line)
+  ).join("\n");
+  const tail = truncated || lines.length >= 160
+    ? '\n<span class="ln">…</span><span class="tok-com">snippet truncated for display</span>' : "";
+  return '<pre class="src">' + body + tail + "</pre>";
+}
 
-      <!-- Results List -->
-      <div class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2" id="results-list">
-        <div class="text-center text-xs text-vscode-muted py-8">
-          Type a query above to retrieve code evidence.
-        </div>
-      </div>
-    </section>
+/* ------------------------------------------------------------ status chips */
+function setChip(node, cls, text) {
+  node.querySelector(".led").className = "led " + (cls || "");
+  node.querySelector("span:last-child").textContent = text;
+}
 
-    <!-- Column 3: Code Viewer & Structural Intelligence -->
-    <main class="flex-1 flex flex-col overflow-hidden bg-vscode-bg">
-      <!-- Code Viewer Tab Header -->
-      <div class="h-9 bg-vscode-sidebar border-b border-vscode-border px-3 flex items-center justify-between text-xs">
-        <div class="flex items-center space-x-2 font-mono">
-          <svg class="w-4 h-4 text-vscode-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <span class="text-white" id="code-filepath">No file selected</span>
-          <span class="text-vscode-muted" id="code-span-info"></span>
-        </div>
-        <div class="flex items-center space-x-2">
-          <span class="text-[11px] px-2 py-0.5 rounded bg-vscode-badge text-vscode-muted font-mono" id="code-lang">text</span>
-        </div>
-      </div>
+function applyState(state) {
+  $("s-encoded").textContent = state.encode_total
+    ? state.encoded + "/" + state.encode_total : "0";
+  $("s-reused").textContent = state.reused != null ? state.reused : "—";
+  if (state.phase !== "ready" && state.phase !== "idle" && state.target === (S.target || {}).key) {
+    $("s-chunks").textContent = state.chunks ? state.chunks.toLocaleString() : "—";
+    $("s-versions").textContent = state.versions_total
+      ? state.versions_done + "/" + state.versions_total : "—";
+  }
 
-      <!-- Code & Structural Split View -->
-      <div class="flex-1 flex overflow-hidden">
-        <!-- Monaco / Code Lines View -->
-        <div class="flex-1 overflow-y-auto custom-scrollbar p-4 font-mono text-xs leading-relaxed select-text" id="code-viewer-container">
-          <div class="text-vscode-muted text-center py-16 font-sans">
-            Select a file from the explorer or click a search result to inspect code and cited spans.
-          </div>
-        </div>
+  const banner = $("build-banner");
+  if (state.phase === "ready") {
+    banner.style.display = "none";
+    setChip($("chip-dense"), state.dense ? "ok" : "warn",
+            state.dense ? "dense active" : "lexical only");
+  } else if (state.phase === "error") {
+    banner.style.display = "flex";
+    banner.className = "banner bad";
+    $("build-spin").style.display = "none";
+    $("build-title").textContent = "Index build failed";
+    $("build-detail").textContent = state.error || "unknown error";
+    setChip($("chip-dense"), "bad", "dense failed");
+  } else if (state.phase === "idle") {
+    // Nothing is building. Whether a banner belongs here is a question about
+    // the *selected* target, which selectTarget owns -- so leave it alone.
+    setChip($("chip-dense"), "", "dense idle");
+  } else {
+    banner.style.display = "flex";
+    banner.className = "banner";
+    $("build-spin").style.display = "block";
+    $("build-go").style.display = "none";
+    $("build-title").textContent =
+      state.phase === "searchable" || state.phase === "encoding"
+        ? "Searchable — still encoding" : "Indexing";
 
-        <!-- Structural Inspector Panel -->
-        <aside class="w-80 border-l border-vscode-border bg-vscode-sidebar/30 flex flex-col overflow-hidden">
-          <div class="h-9 px-3 border-b border-vscode-border flex items-center justify-between text-xs text-vscode-muted">
-            <span class="font-semibold uppercase tracking-wider text-[10px]">Structural Relationships</span>
-            <span class="text-[10px]" id="structural-symbol">-</span>
-          </div>
+    // Determinate while encoding: the denominator is counted before the job
+    // starts, so this percentage only ever goes up. Before encoding begins
+    // there is nothing to divide by, so the bar runs indeterminate rather than
+    // inventing a number.
+    const total = state.encode_total || 0;
+    if (total > 0) {
+      const done = Math.min(state.encoded || 0, total);
+      const pct = Math.floor((done / total) * 100);
+      $("build-detail").innerHTML =
+        '<div class="bar det"><i style="width:' + pct + '%"></i></div>' +
+        '<div class="barline"><span class="num">' + pct + "%</span>" +
+        "<span>" + done.toLocaleString() + " / " + total.toLocaleString() + " chunks" +
+        (state.reused ? " · " + state.reused.toLocaleString() + " reused" : "") +
+        "</span></div>";
+    } else {
+      $("build-detail").innerHTML = '<div class="bar"><i></i></div>';
+    }
+    setChip($("chip-dense"), "busy", "encoding");
+  }
+}
 
-          <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3" id="structural-content">
-            <div class="text-xs text-vscode-muted text-center py-6">
-              Select a symbol or search result to view AST call sites, imports, and honesty badges.
-            </div>
-          </div>
-        </aside>
-      </div>
-    </main>
+function startPolling() {
+  if (S.polling) clearInterval(S.polling);
+  S.polling = setInterval(async () => {
+    try {
+      const state = await api("/api/workbench/status");
+      applyState(state);
+      if (state.phase === "ready" || state.phase === "error") {
+        clearInterval(S.polling); S.polling = null;
+        if (state.phase === "ready") await loadVersions();
+      }
+    } catch (e) { clearInterval(S.polling); S.polling = null; }
+  }, 1200);
+}
 
-  </div>
+/* ------------------------------------------------------------------- boot */
+async function boot() {
+  const data = await api("/api/workbench/targets");
+  S.targets = data.targets;
 
-  <!-- Client Script -->
-  <script>
-    const API_BASE = '';
-    let currentRepoInfo = null;
-    let currentSearchResults = [];
-    let activeFacet = 'all';
-    let selectedResultIndex = null;
-    let selectedFileContent = '';
+  const select = $("target");
+  renderTargetOptions();
 
-    async function fetchApi(endpoint, options = {}) {
+  const first = S.targets.find((t) => t.available) || S.targets[0];
+  select.value = first.key;
+  await selectTarget(first.key);
+
+  applyState(data.state);
+  if (data.state.phase !== "ready" && data.state.phase !== "idle") startPolling();
+
+  loadBenchmark();
+}
+
+function renderTargetOptions() {
+  $("target").innerHTML =
+    S.targets.map((t) =>
+      '<option value="' + esc(t.key) + '"' + (t.available ? "" : " disabled") + ">" +
+      esc(t.label) + " · " + esc(t.language) + (t.available ? "" : " (unavailable)") + "</option>"
+    ).join("") +
+    '<option value="__open__">Open a folder…</option>';
+}
+
+// Any local directory becomes a target. It needs no git history, so it indexes
+// as a single snapshot -- the Versions tab stays a git-target feature and says
+// so rather than showing an empty timeline.
+async function openFolder() {
+  const path = window.prompt(
+    "Absolute path to a project folder. It is indexed from disk — chunking is " +
+    "near-instant, and the folder becomes searchable before any embedding finishes."
+  );
+  if (!path) { $("target").value = S.target ? S.target.key : ""; return; }
+  try {
+    const opened = await api("/api/workbench/open?path=" + encodeURIComponent(path), { method: "POST" });
+    const data = await api("/api/workbench/targets");
+    S.targets = data.targets;
+    renderTargetOptions();
+    $("target").value = opened.key;
+    await selectTarget(opened.key);
+  } catch (e) {
+    $("target").value = S.target ? S.target.key : "";
+    offerBuild(e.message);
+  }
+}
+
+async function selectTarget(key) {
+  if (key === "__open__") { await openFolder(); return; }
+  S.target = S.targets.find((t) => t.key === key);
+  try {
+    await loadVersions();
+  } catch (e) {
+    offerBuild(e.message);
+  }
+}
+
+function offerBuild(detail) {
+  const banner = $("build-banner");
+  const usable = S.target.available;
+  banner.style.display = "flex";
+  banner.className = usable ? "banner warn" : "banner";
+  $("build-spin").style.display = "none";
+  // An unavailable corpus cannot be built by pressing anything, so offering a
+  // button that is guaranteed to fail is worse than printing the fix.
+  $("build-go").style.display = usable ? "inline-flex" : "none";
+  $("build-title").textContent = usable
+    ? S.target.label + " is not indexed yet"
+    : S.target.label + " is not available in this checkout";
+  $("build-detail").textContent = usable
+    ? (detail || S.target.blurb)
+    : S.target.unavailable_reason;
+  S.versions = []; S.version = null;
+  $("version").innerHTML = "<option>not indexed</option>";
+  $("timeline").innerHTML = "";
+  renderIndexStats();
+}
+
+async function build() {
+  $("build-go").style.display = "none";
+  $("build-spin").style.display = "block";
+  $("build-title").textContent = "Starting build";
+  try {
+    const state = await post("/api/workbench/build?target=" + S.target.key + "&versions=4&dense=true");
+    applyState(state);
+    startPolling();
+  } catch (e) {
+    $("build-spin").style.display = "none";
+    $("build-banner").className = "banner bad";
+    $("build-title").textContent = "Could not start the build";
+    $("build-detail").textContent = e.message;
+  }
+}
+
+async function loadVersions() {
+  const data = await api("/api/workbench/versions?target=" + S.target.key);
+  S.presets = data.presets || [];
+  renderPresets();
+
+  if (!data.ready || !data.versions.length) {
+    offerBuild(S.target.blurb);
+    return;
+  }
+  S.versions = data.versions;
+
+  const isGit = S.target.kind === "git";
+  const vlabel = (v, i) => esc(v.short_sha) +
+    (i === 0 && isGit ? (v.working_tree ? " · working tree" : " · HEAD") : "") +
+    " — " + esc((v.subject || "").slice(0, 46));
+  $("version").innerHTML = S.versions.map((v, i) =>
+    '<option value="' + v.ref + '">' + vlabel(v, i) + "</option>").join("");
+  S.version = S.versions.length ? S.versions[0].ref : null;
+  $("version").value = S.version;
+
+  const single = S.versions.length < 2;
+  $("vrun").disabled = single;
+  $("single-version").style.display = single ? "flex" : "none";
+  if (single) {
+    $("single-version").querySelector(".d").textContent =
+      S.target.label + " has one version in this checkout — the subtree was added in a " +
+      "single commit and never changed, so there is nothing to compare. Switch the corpus " +
+      "to one with real churn to exercise P1.";
+  }
+  const older = S.versions.length > 1 ? S.versions[S.versions.length - 1].ref : S.version;
+  $("vleft").innerHTML = $("version").innerHTML;
+  $("vright").innerHTML = $("version").innerHTML;
+  $("vleft").value = older;
+  $("vright").value = S.version;
+
+  renderTimeline();
+  renderIndexStats();
+  $("build-banner").style.display = "none";
+}
+
+/* The rail describes the corpus that is selected. Leaving the last build's
+   counters up there while a different corpus is on screen is a small lie that
+   is very easy to tell by accident. */
+function renderIndexStats() {
+  const total = S.versions.reduce((sum, v) => sum + v.chunks, 0);
+  const dense = S.versions.length > 0 && S.versions.every((v) => v.dense);
+  $("s-chunks").textContent = total ? total.toLocaleString() : "—";
+  $("s-versions").textContent = S.versions.length
+    ? S.versions.length + (S.versions.length === 1 ? " version" : " versions") : "—";
+  $("s-encoder").textContent = !S.versions.length ? "—" : dense ? "F2LLM-v2-0.6B" : "lexical only";
+}
+
+function renderPresets() {
+  const rows = S.presets.length ? S.presets : [];
+  $("presets").innerHTML = rows.map((p, i) =>
+    '<span class="preset" data-preset="' + i + '">' + esc(p.label) + "</span>"
+  ).join("");
+  $("presets").querySelectorAll(".preset").forEach((node) => {
+    node.onclick = () => {
+      const preset = rows[Number(node.dataset.preset)];
+      $("q").value = preset.query;
+      $("vq").value = preset.query.length > 400 ? "" : preset.query;
+      runSearch();
+    };
+  });
+}
+
+function renderTimeline() {
+  $("timeline").innerHTML = S.versions.map((v, i) =>
+    '<div class="tlitem' + (i === 0 ? " head" : "") + '" data-ref="' + v.ref + '">' +
+      '<div><span class="sha">' + esc(v.short_sha) + "</span> " +
+      (i === 0 && v.working_tree ? '<span class="tag">working tree</span> ' : "") +
+      '<span class="subj">' + esc(v.subject || "") + "</span></div>" +
+      '<div class="meta">' + v.chunks + " chunks · " +
+      (v.dense ? "dense + lexical" : "lexical only") +
+      (v.author ? " · " + esc(v.author) : "") + "</div>" +
+    "</div>"
+  ).join("");
+  $("timeline").querySelectorAll(".tlitem").forEach((node) => {
+    node.onclick = () => { $("version").value = node.dataset.ref; S.version = node.dataset.ref; show("retrieve"); };
+  });
+}
+
+/* ----------------------------------------------------------------- search */
+// Wait until the target can answer. The build publishes its lexical index
+// before it starts encoding, so "searchable" arrives in well under a second
+// on most repositories -- long before "ready".
+async function waitUntilSearchable(timeoutMs = 120000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const state = await api("/api/workbench/status");
+    applyState(state);
+    if (state.phase === "error") throw new Error(state.error || "index build failed");
+    if (["searchable", "encoding", "ready"].includes(state.phase)) return;
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  throw new Error("index build did not become searchable in time");
+}
+
+// The <select> can hold a placeholder before a build ("not indexed"). Sending
+// that as a commit ref asks the backend for a snapshot that cannot exist.
+function selectedVersion() {
+  const value = $("version").value;
+  if (!value) return null;
+  return (S.versions || []).some((v) => v.ref === value) ? value : null;
+}
+
+async function runSearch(options) {
+  // Bound directly to onclick, so the first argument is a click Event.
+  // Read the flag by name rather than by position.
+  const retried = !!(options && options.retried === true);
+  const query = $("q").value.trim();
+  if (!query || !S.target) return;
+  $("run").disabled = true;
+  $("results").innerHTML = '<div class="empty">Retrieving…</div>';
+  try {
+    const data = await post("/api/workbench/search", {
+      target: S.target.key, query, version: selectedVersion(), limit: 10,
+    });
+    S.lastSearch = data; S.results = data.results; S.selected = 0;
+    renderSearch(data);
+  } catch (e) {
+    // Asking a question of an unindexed target used to be a dead end: an error
+    // telling the user to POST to an endpoint. Build it and answer instead --
+    // the first thing anyone does here is type a question, not press a button.
+    if (!retried && /not indexed yet/i.test(e.message)) {
+      $("results").innerHTML = '<div class="empty">Indexing this target, then answering…</div>';
       try {
-        const res = await fetch(API_BASE + endpoint, options);
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({ detail: res.statusText }));
-          throw new Error(errData.detail || `HTTP ${res.status}`);
-        }
-        return await res.json();
-      } catch (err) {
-        showError(err.message);
-        throw err;
+        await post("/api/workbench/build?target=" + encodeURIComponent(S.target.key), {});
+        await waitUntilSearchable();
+        await loadVersions();
+        startPolling();
+        return await runSearch({ retried: true });
+      } catch (buildError) {
+        e = buildError;
       }
     }
+    $("results").innerHTML = '<div class="banner bad"><div><div class="t">Retrieval failed</div>' +
+      '<div class="d">' + esc(e.message) + "</div></div></div>";
+  } finally {
+    $("run").disabled = false;
+  }
+}
 
-    function showError(msg) {
-      document.getElementById('error-message').textContent = msg;
-      document.getElementById('error-banner').classList.remove('hidden');
+function renderPlan(routing) {
+  const el = $("plan");
+  if (!routing) { el.style.display = "none"; return; }
+  el.style.display = "block";
+
+  const rows = []
+    .concat((routing.ran || []).map((s) => ({ ...s, on: true })))
+    .concat((routing.skipped || []).map((s) => ({ ...s, on: false })));
+
+  // The headline is what the router refused to spend, because that is the
+  // claim being made: the cheap answer was enough.
+  let verdict;
+  if (routing.dense_skipped) {
+    verdict = "<b>dense skipped</b> — answered off the lexical index";
+  } else if (routing.escalated) {
+    verdict = "<b>escalated to dense</b> — lexical evidence was weak";
+  } else if (routing.signals && !routing.signals.dense_available) {
+    verdict = "<b>lexical only</b> — no warm vectors for this snapshot";
+  } else {
+    verdict = "<b>dense planned up front</b> — no identifier to match on";
+  }
+
+  // Chips, not sentences. The reason is the evidence, so it stays -- on the
+  // title attribute, one hover away, instead of four lines of prose per query.
+  el.innerHTML =
+    '<div class="phead"><span class="label">Plan</span>' +
+    '<span class="verdict">' + verdict + "</span></div>" +
+    '<div class="pchips">' +
+    rows.map((s) =>
+      '<span class="pchip ' + (s.on ? "on " : "off ") + esc(s.cost) + '" title="' +
+      esc(s.reason) + '">' + esc(s.pass) + "</span>"
+    ).join("") +
+    "</div>";
+}
+
+function renderSearch(data) {
+  renderPlan(data.routing);
+  // The detail moves to a tooltip. The plan chips above already say which
+  // passes ran; repeating it here in prose was the same claim twice.
+  $("passes").innerHTML = data.passes.map((p) =>
+    '<div class="pass ' + (p.ran ? "on" : "off") + '" title="' + esc(p.detail) + '">' +
+      '<div class="head"><span class="name">' + esc(p.name) + "</span>" +
+      '<span class="state">' + (p.ran ? "ran" : "not run") + "</span></div>" +
+    "</div>"
+  ).join("");
+
+  $("timings").style.display = "flex";
+  const t = data.timings;
+  const ms = (v) => (v >= 1000 ? (v / 1000).toFixed(2) + "<small>s</small>"
+                   : v < 0.1 ? "&lt;0.1<small>ms</small>"
+                   : v + "<small>ms</small>");
+  // A pass that did not run has no duration. Printing 0 ms for it reads as
+  // "instant" when it means "never happened".
+  const ran = (name) => (data.passes.find((p) => p.name === name) || {}).ran;
+  const cell = (id, value, didRun) =>
+    ($(id).innerHTML = didRun === false ? '<span style="color:var(--ink-3)">—</span>' : ms(value));
+  cell("t-encode", t.encode_ms || 0, ran("Dense"));
+  cell("t-cand", t.candidates_ms, true);
+  cell("t-struct", t.structural_ms, ran("Structural"));
+  cell("t-verify", t.verification_ms, ran("Execution"));
+  cell("t-total", t.total_ms, true);
+
+  const pt = data.pass_timings || {};
+  const breakdown = ["dense", "bm25", "exact"]
+    .filter((k) => pt[k + "_ms"] != null)
+    .map((k) => k + " " + pt[k + "_ms"] + " ms").join(" · ");
+  $("timing-note").textContent = breakdown || "";
+
+  const enc = data.encoder || {};
+  $("s-encoder").textContent = enc.active ? String(enc.model).split("/").pop() : "lexical";
+  const iso = data.isolation;
+  setChip($("chip-iso"), iso.leaked === 0 ? "ok" : "bad",
+          iso.leaked === 0
+            ? "0 leaks / " + iso.checked + " checked"
+            : "leak detected");
+
+  $("results-meta").textContent = data.total + " of " + data.limit + " · pinned to " + data.version;
+
+  if (!data.results.length) {
+    $("results").innerHTML = '<div class="empty">Nothing matched at this version.</div>';
+    $("evidence").innerHTML = '<div class="empty">No result to explain.</div>';
+    return;
+  }
+
+  $("results").innerHTML = data.results.map((r, i) => {
+    const badges = r.sources.map((s) =>
+      '<span class="badge ' + s + '">' + s + "</span>").join("");
+    const verified = r.verification && r.verification.state === "verified"
+      ? '<span class="badge verified">verified</span>' : "";
+    const moved = r.promoted_from
+      ? '<span class="moved">was #' + r.promoted_from + "</span>" : "";
+    return '<div class="hit' + (i === 0 ? " sel" : "") + '" data-i="' + i + '">' +
+      '<div class="row">' +
+        '<div class="rank">' + r.rank + "</div>" +
+        '<div class="who">' +
+          '<div class="sym">' + esc(r.name || "(anonymous)") +
+            ' <span class="kind">' + esc((r.type || "").toLowerCase()) + "</span></div>" +
+          '<div class="where">' + esc(r.file_path) + ":" + r.start_line + "–" + r.end_line + "</div>" +
+        "</div>" +
+        '<div class="badges">' + moved + verified + badges + "</div>" +
+        '<div class="score">' + r.score.toFixed(4) + "</div>" +
+      "</div>" +
+      '<div class="code">' + renderCode(r.code, r.start_line, r.truncated) + "</div>" +
+    "</div>";
+  }).join("");
+
+  document.querySelectorAll(".hit").forEach((node) => {
+    node.onclick = () => selectHit(Number(node.dataset.i));
+  });
+  selectHit(0);
+}
+
+function selectHit(index) {
+  S.selected = index;
+  document.querySelectorAll(".hit").forEach((node, i) =>
+    node.classList.toggle("sel", i === index));
+  renderEvidence(S.results[index]);
+}
+
+function renderEvidence(r) {
+  if (!r) return;
+  const palette = { dense: "var(--info)", bm25: "#c084fc", exact: "var(--warn)" };
+  const signals = r.signals.map((s) =>
+    '<div class="sigrow">' +
+      '<div class="sigtop">' +
+        '<span class="m">' + esc(s.method) + "</span>" +
+        '<span class="r">rank ' + s.rank + " · raw " + s.raw + "</span>" +
+        '<span class="c">+' + s.contribution.toFixed(5) + "</span>" +
+      "</div>" +
+      '<div class="bar"><i style="width:' + Math.round(s.share * 100) +
+        "%;background:" + (palette[s.method] || "var(--ink-3)") + '"></i></div>' +
+    "</div>"
+  ).join("");
+
+  const st = r.structural || {};
+  const edgeList = (rows, kind) => rows && rows.length
+    ? rows.map((e) =>
+        '<div class="edge"><span class="sym">' + esc(e.symbol) + "</span>" +
+        (e.status ? '<span class="tag' + (e.status === "VERIFIED" ? " v" : "") + '">' +
+          esc(e.status.toLowerCase()) + "</span>" : "") +
+        '<span class="loc">' + esc((e.file_path || "").split("/").pop()) + ":" + e.line + "</span></div>")
+      .join("")
+    : '<div class="empty" style="padding:4px 0">no ' + kind + " found in the AST at this version</div>";
+
+  const v = r.verification || { state: "not_run" };
+  const verifyCard = v.state === "not_run"
+    ? '<div class="empty" style="padding:4px 0">This pass did not run for this query. ' +
+      'The reason is in the Execution card above the results.</div>'
+    : '<div class="sigtop"><span class="m">' +
+      (v.state === "verified" ? "reproduced every example" : "did not reproduce the examples") +
+      "</span></div>" +
+      '<div class="empty" style="padding:4px 0">' + v.examples + " worked example(s) executed in a " +
+      "throwaway subprocess" + (v.note ? " — " + esc(v.note) : "") + "</div>";
+
+  $("evidence").innerHTML =
+    '<div class="card">' +
+      '<span class="label">Fusion</span>' + signals +
+      '<div class="sum"><span>sum of contributions</span><span>' +
+        r.signals.reduce((a, s) => a + s.contribution, 0).toFixed(5) + "</span></div>" +
+      '<div class="sum" style="border:0;padding-top:2px"><span>fused retrieval score</span><span>' +
+        (r.retrieval_score != null ? r.retrieval_score : r.score).toFixed(5) + "</span></div>" +
+      (r.promotion_bonus
+        ? '<div class="sum" style="border:0;padding-top:2px;color:var(--ok)">' +
+          "<span>execution bonus</span><span>+" + r.promotion_bonus.toFixed(5) + "</span></div>" +
+          '<div class="sum" style="border:0;padding-top:2px"><span>final score</span><span>' +
+          r.score.toFixed(5) + "</span></div>"
+        : "") +
+    "</div>" +
+    '<div class="card"><span class="label">Called by</span>' + edgeList(st.callers, "callers") + "</div>" +
+    '<div class="card"><span class="label">Calls out to</span>' + edgeList(st.calls, "callees") + "</div>" +
+    '<div class="card"><span class="label">Execution verification</span>' + verifyCard + "</div>" +
+    '<div class="card"><span class="label">Span</span>' +
+      '<div class="kv"><span>file</span><span>' + esc(r.file_path) + "</span></div>" +
+      '<div class="kv"><span>lines</span><span>' + r.start_line + "–" + r.end_line + "</span></div>" +
+      '<div class="kv"><span>kind</span><span>' + esc(r.type || "—") + "</span></div>" +
+    "</div>";
+}
+
+/* --------------------------------------------------------------- versions */
+async function runCompare() {
+  const query = $("vq").value.trim() || $("q").value.trim();
+  if (!query) return;
+  $("vq").value = query;
+  $("vrun").disabled = true;
+  $("compare-out").innerHTML = '<div class="empty">Running the query at both versions…</div>';
+  try {
+    const data = await post("/api/workbench/compare", {
+      target: S.target.key, query, left: $("vleft").value, right: $("vright").value, limit: 10,
+    });
+    renderCompare(data);
+    const across = await post("/api/workbench/across", { target: S.target.key, query, limit: 8 });
+    renderAcross(across);
+  } catch (e) {
+    $("compare-out").innerHTML = '<div class="banner bad"><div><div class="t">Comparison failed</div>' +
+      '<div class="d">' + esc(e.message) + "</div></div></div>";
+  } finally {
+    $("vrun").disabled = false;
+  }
+}
+
+function renderCompare(data) {
+  const arrow = { up: "▲", down: "▼", entered: "＋", left: "−", same: "=" };
+  const rows = data.rows.map((r) =>
+    "<tr>" +
+      '<td class="m">' + (r.left_rank || "—") + "</td>" +
+      '<td class="m">' + (r.right_rank || "—") + "</td>" +
+      '<td><span class="mv ' + r.movement + '">' + arrow[r.movement] +
+        (r.delta ? " " + Math.abs(r.delta) : "") + "</span></td>" +
+      '<td class="m">' + esc(r.name || "—") + "</td>" +
+      '<td class="m" style="color:var(--ink-3)">' + esc(r.file_path) + "</td>" +
+    "</tr>"
+  ).join("");
+
+  const mismatch = data.comparable === false
+    ? '<div class="banner bad" style="margin-bottom:10px">' +
+      '<i class="led bad" style="margin-top:5px"></i><div><div class="t">' +
+      "These two versions are not comparable</div>" +
+      '<div class="d">' + esc(data.comparable_reason) + "</div></div></div>"
+    : "";
+
+  $("compare-out").innerHTML = mismatch +
+    '<div class="secthead"><h2>Rank movement</h2>' +
+      '<span class="note">' + data.changed + " of " + data.rows.length +
+      " rows moved between the two versions</span>" +
+      '<span class="right">' + data.elapsed_ms + " ms · both retrievals</span></div>" +
+    '<div class="card" style="padding:2px 4px">' +
+      '<table class="grid"><thead><tr>' +
+        "<th>A</th><th>B</th><th>move</th><th>symbol</th><th>file</th>" +
+      "</tr></thead><tbody>" + rows + "</tbody></table></div>" +
+    '<div class="banner" style="margin-top:10px">' +
+      '<i class="led ' + (data.isolation.left_clean && data.isolation.right_clean ? "ok" : "bad") +
+      '" style="margin-top:5px"></i><div><div class="t">Snapshot isolation</div>' +
+      '<div class="d">Every result at A came from A and every result at B came from B — checked ' +
+      "against each snapshot's own document ids, not assumed. An unknown version raises rather " +
+      "than falling back to HEAD.</div></div></div>";
+}
+
+function renderAcross(data) {
+  $("across-meta").textContent = data.elapsed_ms + " ms · " + data.versions_searched + " versions";
+  const rows = [];
+  const depth = Math.max(data.collapsed.length, data.ungrouped.length);
+  for (let i = 0; i < depth; i++) {
+    const c = data.collapsed[i], u = data.ungrouped[i];
+    const span = c && c.versions.length > 1
+      ? c.versions[0] + "…" + c.versions[c.versions.length - 1] : (c ? c.versions[0] : "");
+    rows.push("<tr>" +
+      '<td class="m" style="color:var(--ink-3)">' + (i + 1) + "</td>" +
+      '<td class="m">' + (c ? esc(c.name) : "—") +
+        (c && c.unchanged ? ' <span class="tag v">unchanged</span>' : "") + "</td>" +
+      '<td class="m" style="color:var(--ink-3)">' + (c ? esc(span) + " ×" + c.variants : "") + "</td>" +
+      '<td class="m" style="color:var(--ink-3)">' + (u ? esc(u.name) : "—") + "</td>" +
+    "</tr>");
+  }
+  $("across-out").innerHTML =
+    '<div class="card" style="padding:2px 4px"><table class="grid"><thead><tr>' +
+      "<th>#</th><th>collapsed (shipped)</th><th>versions</th><th>ungrouped (what it prevents)</th>" +
+    "</tr></thead><tbody>" + rows.join("") + "</tbody></table></div>" +
+    '<div class="bigstat" style="margin-top:11px">' +
+      '<div class="s hero"><div class="v">' + data.distinct_collapsed + "</div>" +
+        '<div class="k">distinct snippets, collapsed</div></div>' +
+      '<div class="s"><div class="v">' + data.distinct_ungrouped + "</div>" +
+        '<div class="k">distinct snippets, ungrouped</div></div>' +
+      '<div class="s"><div class="v">' + data.unchanged_count + "</div>" +
+        '<div class="k">unchanged across versions</div></div>' +
+    "</div>";
+}
+
+/* -------------------------------------------------------------- benchmark */
+async function loadBenchmark() {
+  try {
+    const b = await api("/api/workbench/benchmark");
+    if (!b.available) {
+      $("bench").innerHTML = '<div class="empty">appsretrieval_results.json is not in this checkout.</div>';
+      return;
     }
+    const cell = (v, k, hero) =>
+      '<div class="s' + (hero ? " hero" : "") + '"><div class="v">' + v + "</div>" +
+      '<div class="k">' + k + "</div></div>";
+    $("bench").innerHTML =
+      cell(b.ndcg_at_10.toFixed(5), "NDCG@10 · main score", true) +
+      cell(b.mrr_at_10.toFixed(5), "MRR@10") +
+      cell(b.recall_at_10.toFixed(5), "Recall@10") +
+      cell(esc(b.task), "MTEB task") +
+      cell("v" + esc(b.mteb_version), "MTEB version");
 
-    function dismissError() {
-      document.getElementById('error-banner').classList.add('hidden');
-    }
+    const e = b.execution || {};
+    $("bench-exec").innerHTML =
+      cell((e.queries_with_examples || 0).toLocaleString(), "queries with worked examples") +
+      cell((e.executed || 0).toLocaleString(), "candidates executed") +
+      cell((e.verified || 0).toLocaleString(), "candidates that reproduced them") +
+      cell(Math.round((e.seconds || 0) / 60) + " min", "sandbox time");
+  } catch (e) { /* benchmark panel is optional */ }
+}
 
-    async function initApp() {
-      try {
-        await loadRepoInfo();
-        await loadIndexStatus();
-        await loadGitHistory();
-      } catch (e) {
-        console.error('Init failed:', e);
-      }
-    }
+/* ------------------------------------------------------------------ wiring */
+function show(view) {
+  document.querySelectorAll(".view").forEach((n) => n.classList.toggle("on", n.id === "view-" + view));
+  document.querySelectorAll(".navitem").forEach((n) => n.classList.toggle("on", n.dataset.view === view));
+  // The evidence panel explains one ranked result, so it belongs to Retrieve
+  // and nowhere else.
+  document.querySelector(".aside").style.display = view === "retrieve" ? "" : "none";
+}
+document.querySelectorAll(".navitem").forEach((n) => { n.onclick = () => show(n.dataset.view); });
 
-    async function loadRepoInfo() {
-      const info = await fetchApi('/api/repo/info');
-      currentRepoInfo = info;
-      document.getElementById('repo-badge').textContent = info.name;
-      document.getElementById('header-branch').textContent = info.branch;
-      document.getElementById('header-commit').textContent = info.head_commit;
-      document.getElementById('file-count').textContent = `${info.files_count} files`;
+$("run").onclick = runSearch;
+$("vrun").onclick = runCompare;
+$("build-go").onclick = build;
+$("q").addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") runSearch();
+});
+$("vq").addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") runCompare();
+});
+$("target").onchange = (e) => selectTarget(e.target.value);
+$("version").onchange = (e) => { S.version = e.target.value; };
 
-      // Populate file tree
-      const treeContainer = document.getElementById('file-tree');
-      treeContainer.innerHTML = '';
-      info.file_tree.forEach(file => {
-        const div = document.createElement('div');
-        div.className = 'px-2 py-1 hover:bg-vscode-active rounded cursor-pointer text-xs font-mono truncate text-vscode-text flex items-center space-x-2';
-        div.innerHTML = `
-          <svg class="w-3.5 h-3.5 text-vscode-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-          </svg>
-          <span class="truncate">${file}</span>
-        `;
-        div.onclick = () => loadFile(file);
-        treeContainer.appendChild(div);
-      });
-    }
-
-    async function loadIndexStatus() {
-      const stats = await fetchApi('/api/index/status');
-      document.getElementById('stat-chunks').textContent = stats.total_indexed_chunks || stats.chunks_total || 0;
-      document.getElementById('stat-embeds').textContent = stats.cached_embeddings || stats.embeddings_total || 0;
-      document.getElementById('stat-reused').textContent = stats.reused || 0;
-      document.getElementById('stat-reembedded').textContent = stats.re_embedded || 0;
-      document.getElementById('stat-elapsed').textContent = `${stats.elapsed_seconds || 0}s`;
-    }
-
-    async function loadGitHistory() {
-      try {
-        const hist = await fetchApi('/api/git/history?limit=10');
-        const selector = document.getElementById('commit-selector');
-        selector.innerHTML = '<option value="">Current Workspace (HEAD)</option>';
-        hist.commits.forEach(c => {
-          const opt = document.createElement('option');
-          opt.value = c.sha;
-          opt.textContent = `${c.short_sha} — ${c.message.slice(0, 30)}`;
-          selector.appendChild(opt);
-        });
-      } catch (e) {
-        console.warn('Git history unavail:', e);
-      }
-    }
-
-    async function triggerReindex() {
-      const icon = document.getElementById('sync-icon');
-      icon.classList.add('animate-spin');
-      try {
-        await fetchApi('/api/index/reindex?force_rebuild=false', { method: 'POST' });
-        await loadIndexStatus();
-      } finally {
-        icon.classList.remove('animate-spin');
-      }
-    }
-
-    function handleCommitChange(sha) {
-      const banner = document.getElementById('historical-banner');
-      if (sha) {
-        banner.classList.remove('hidden');
-        document.getElementById('banner-commit-sha').textContent = sha.slice(0, 8);
-      } else {
-        banner.classList.add('hidden');
-      }
-      handleSearch();
-    }
-
-    function resetToHead() {
-      document.getElementById('commit-selector').value = '';
-      document.getElementById('historical-banner').classList.add('hidden');
-      handleSearch();
-    }
-
-    async function handleSearch() {
-      const query = document.getElementById('search-input').value.trim();
-      if (!query) return;
-
-      const commitSha = document.getElementById('commit-selector').value || null;
-      const t0 = performance.now();
-
-      const data = await fetchApi('/api/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, commit: commitSha, limit: 15 })
-      });
-
-      const t1 = performance.now();
-      document.getElementById('results-time').textContent = `${Math.round(t1 - t0)}ms`;
-      currentSearchResults = data.results || [];
-      renderSearchResults(data);
-    }
-
-    function renderSearchResults(data) {
-      const listContainer = document.getElementById('results-list');
-      const results = data.results || [];
-      document.getElementById('results-count-title').textContent = `Evidence (${results.length})`;
-
-      // Render Facet Tabs
-      const facetContainer = document.getElementById('facet-tabs');
-      facetContainer.innerHTML = '';
-      const bundles = data.evidence_bundles || {};
-      const facets = ['all', ...Object.keys(bundles)];
-
-      facets.forEach(facet => {
-        const btn = document.createElement('button');
-        const count = facet === 'all' ? results.length : (bundles[facet]?.length || 0);
-        btn.className = `px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-          activeFacet === facet ? 'bg-vscode-accent text-white' : 'bg-vscode-active text-vscode-muted hover:text-white'
-        }`;
-        btn.textContent = `${facet.replace('_', ' ')} (${count})`;
-        btn.onclick = () => filterFacet(facet);
-        facetContainer.appendChild(btn);
-      });
-
-      listContainer.innerHTML = '';
-      if (results.length === 0) {
-        listContainer.innerHTML = '<div class="text-center text-xs text-vscode-muted py-8">No results found.</div>';
-        return;
-      }
-
-      results.forEach((res, index) => {
-        const div = document.createElement('div');
-        div.className = `p-2.5 rounded border border-vscode-border hover:border-vscode-accent cursor-pointer transition-colors ${
-          selectedResultIndex === index ? 'bg-vscode-active border-vscode-accent' : 'bg-vscode-sidebar/50'
-        }`;
-        div.onclick = () => selectResult(index);
-
-        const sources = (res.sources || []).map(s => {
-          let col = 'bg-blue-900/60 text-blue-300';
-          if (s === 'exact') col = 'bg-emerald-900/60 text-emerald-300';
-          if (s === 'bm25') col = 'bg-amber-900/60 text-amber-300';
-          return `<span class="text-[9px] px-1.5 py-0.5 rounded font-mono ${col}">${s}</span>`;
-        }).join(' ');
-
-        div.innerHTML = `
-          <div class="flex items-center justify-between mb-1">
-            <span class="font-mono text-xs font-semibold text-white truncate">${res.name || res.file_path}</span>
-            <span class="text-[10px] px-1.5 py-0.5 rounded bg-vscode-badge text-vscode-green font-mono uppercase">${res.type || 'CHUNK'}</span>
-          </div>
-          <div class="text-[11px] font-mono text-vscode-muted truncate mb-1.5">${res.file_path}:${res.start_line}-${res.end_line}</div>
-          <div class="flex items-center justify-between text-[10px]">
-            <div class="flex space-x-1">${sources}</div>
-            <span class="text-vscode-yellow font-mono">score: ${res.score}</span>
-          </div>
-        `;
-        listContainer.appendChild(div);
-      });
-
-      if (results.length > 0) {
-        selectResult(0);
-      }
-    }
-
-    function filterFacet(facet) {
-      activeFacet = facet;
-      handleSearch();
-    }
-
-    async function selectResult(index) {
-      selectedResultIndex = index;
-      const res = currentSearchResults[index];
-      if (!res) return;
-
-      await loadFile(res.file_path, res.start_byte, res.end_byte, res.start_line, res.end_line);
-      await loadStructuralInfo(res.name || res.file_path);
-    }
-
-    async function loadFile(filePath, highlightStart = null, highlightEnd = null, startLine = 1, endLine = 1) {
-      const data = await fetchApi(`/api/repo/file?path=${encodeURIComponent(filePath)}`);
-      selectedFileContent = data.content;
-
-      document.getElementById('code-filepath').textContent = filePath;
-      document.getElementById('code-lang').textContent = filePath.endsWith('.py') ? 'python' : 'javascript';
-      document.getElementById('code-span-info').textContent = highlightStart !== null ? `(L${startLine}-L${endLine})` : '';
-
-      const container = document.getElementById('code-viewer-container');
-      const lines = data.content.split('\n');
-
-      let html = '<div class="space-y-0.5">';
-      lines.forEach((lineText, idx) => {
-        const lineNum = idx + 1;
-        const isHighlight = highlightStart !== null && (lineNum >= startLine && lineNum <= endLine);
-        const escaped = lineText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        html += `
-          <div class="flex items-start ${isHighlight ? 'span-highlight' : 'hover:bg-vscode-active/40'} px-2 py-0.5 rounded">
-            <span class="w-10 shrink-0 text-vscode-muted text-[10px] select-none text-right pr-3">${lineNum}</span>
-            <span class="flex-1 whitespace-pre text-vscode-text">${escaped || '&nbsp;'}</span>
-          </div>
-        `;
-      });
-      html += '</div>';
-      container.innerHTML = html;
-
-      // Scroll to highlighted line
-      if (highlightStart !== null) {
-        const targetElem = container.querySelector('.span-highlight');
-        if (targetElem) {
-          targetElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
-    }
-
-    async function loadStructuralInfo(symbol) {
-      document.getElementById('structural-symbol').textContent = symbol;
-      const container = document.getElementById('structural-content');
-
-      try {
-        const data = await fetchApi(`/api/structural/callers?symbol=${encodeURIComponent(symbol)}`);
-        const callers = data.callers || [];
-
-        if (callers.length === 0) {
-          container.innerHTML = `
-            <div class="p-3 bg-vscode-sidebar rounded border border-vscode-border text-xs">
-              <div class="text-vscode-muted">No explicit AST callers found for <span class="font-mono text-white">${symbol}</span>.</div>
-            </div>
-          `;
-          return;
-        }
-
-        let html = '<div class="space-y-2">';
-        callers.forEach(c => {
-          const isVerified = c.status === 'VERIFIED';
-          const badgeClass = isVerified ? 'bg-emerald-900/60 text-emerald-300 border-emerald-700' : 'bg-amber-900/60 text-amber-300 border-amber-700';
-          const icon = isVerified ? '✓ Verified' : '△ Candidate';
-
-          html += `
-            <div class="p-2.5 bg-vscode-sidebar rounded border border-vscode-border text-xs space-y-1">
-              <div class="flex items-center justify-between">
-                <span class="font-mono font-semibold text-white truncate">${c.caller_symbol}</span>
-                <span class="text-[9px] px-1.5 py-0.5 rounded border font-medium ${badgeClass}">${icon} (${Math.round(c.confidence * 100)}%)</span>
-              </div>
-              <div class="font-mono text-[10px] text-vscode-muted truncate">${c.file_path}:L${c.line}</div>
-              <div class="text-[10px] text-vscode-muted flex items-center justify-between pt-1">
-                <span>Span: [${c.span[0]}:${c.span[1]}]</span>
-                <button onclick="loadFile('${c.file_path}', ${c.span[0]}, ${c.span[1]}, ${c.line}, ${c.line})" class="text-vscode-accent hover:underline text-[10px]">Jump to Call</button>
-              </div>
-            </div>
-          `;
-        });
-        html += '</div>';
-        container.innerHTML = html;
-      } catch (e) {
-        container.innerHTML = `<div class="text-xs text-red-400 p-2">Failed to load structural info: ${e.message}</div>`;
-      }
-    }
-
-    // Startup
-    window.addEventListener('DOMContentLoaded', initApp);
-  </script>
+boot().catch((e) => {
+  $("build-banner").style.display = "flex";
+  $("build-banner").className = "banner bad";
+  $("build-spin").style.display = "none";
+  $("build-title").textContent = "Backend unreachable";
+  $("build-detail").textContent = e.message + " — start it with: uvicorn app.server:app --port 8000";
+});
+</script>
 </body>
 </html>

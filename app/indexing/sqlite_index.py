@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
 import re
 import sqlite3
-from typing import Any, List, Optional
+from typing import Any
 
 from app.parser.chunker import Chunk, chunk_source
 
@@ -209,18 +208,6 @@ class SQLiteIndex:
             return [dict(row) for row in rows]
         except sqlite3.OperationalError:
             return []
-
-    def get_chunk(self, chunk_id: str) -> Optional[dict[str, Any]]:
-        row = self.conn.execute(
-            """
-            SELECT c.*, f.path as file_path
-            FROM chunks c
-            JOIN files f ON c.file_id = f.id
-            WHERE c.id = ?
-            """,
-            (chunk_id,),
-        ).fetchone()
-        return dict(row) if row else None
 
     def all_chunks(self) -> list[dict[str, Any]]:
         rows = self.conn.execute(

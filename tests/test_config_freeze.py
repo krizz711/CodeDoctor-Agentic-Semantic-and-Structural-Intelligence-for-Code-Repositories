@@ -1,5 +1,3 @@
-from pathlib import Path
-import pytest
 import yaml
 
 from app.retrieval.encode import CodeEncoder, FROZEN_CONFIG_PATH, DEFAULT_CONFIG_PATH

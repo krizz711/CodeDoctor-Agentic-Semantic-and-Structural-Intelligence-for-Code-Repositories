@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
-import tree_sitter
 from tree_sitter import Language, Node, Parser
 import tree_sitter_javascript
 import tree_sitter_python

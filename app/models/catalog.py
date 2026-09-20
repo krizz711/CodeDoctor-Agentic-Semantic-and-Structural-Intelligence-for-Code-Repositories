@@ -38,7 +38,3 @@ class ModelSpec:
 def load_catalog(path: str | Path = "config/models.json") -> dict[str, ModelSpec]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     return {item["alias"]: ModelSpec.from_dict(item) for item in payload["models"]}
-
-
-def configured_models(path: str | Path = "config/models.json") -> list[ModelSpec]:
-    return [model for model in load_catalog(path).values() if model.configured()]

@@ -10,14 +10,11 @@ Evaluates against Samsung PRISM GenAI Hackathon (Theme 01) Guidelines:
 """
 from __future__ import annotations
 
-import gc
-import json
 from pathlib import Path
 import random
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 import numpy as np
 
@@ -28,9 +25,8 @@ if str(REPO_ROOT) not in sys.path:
 from app.indexing.cache import EmbeddingCache
 from app.indexing.incremental import IncrementalIndexer
 from app.indexing.sqlite_index import SQLiteIndex
-from app.indexing.versioned import GitVersionManager, VersionedIndex
+from app.indexing.versioned import VersionedIndex
 from app.retrieval.hybrid import Document, HybridRetriever
-from app.retrieval.structural import StructuralEngine
 from scripts.verify_span_fidelity import run_span_fidelity
 
 

@@ -1,7 +1,4 @@
-import shutil
 import time
-from pathlib import Path
-import pytest
 
 from app.indexing.cache import EmbeddingCache
 from app.indexing.incremental import IncrementalIndexer

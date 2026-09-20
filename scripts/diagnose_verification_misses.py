@@ -36,7 +36,6 @@ from app.pipeline.execution_rerank import (  # noqa: E402
     parse_worked_examples,
     run_candidate,
 )
-from app.pipeline.reranker import RerankerConfig  # noqa: E402
 from app.pipeline.search import build_candidate_pool  # noqa: E402
 from app.pipeline.splits import TEST_DOMINANT_FAMILY, make_development_split  # noqa: E402
 from scripts.dev_eval import load_jsonl_texts  # noqa: E402

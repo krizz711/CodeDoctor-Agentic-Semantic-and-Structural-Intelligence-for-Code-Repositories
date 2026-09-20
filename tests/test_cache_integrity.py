@@ -1,6 +1,3 @@
-from pathlib import Path
-import pytest
-import numpy as np
 
 from app.indexing.cache import EmbeddingCache
 from app.indexing.incremental import IncrementalIndexer

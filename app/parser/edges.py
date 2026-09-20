@@ -3,10 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import re
-from typing import List, Optional
-from tree_sitter import Language, Node, Parser
+from typing import List
+from tree_sitter import Node
 
-from app.parser.chunker import JS_LANG, PY_LANG, TS_LANG, TSX_LANG, _compute_line, _get_parser_and_lang
+from app.parser.chunker import _compute_line, _get_parser_and_lang
 
 
 @dataclass

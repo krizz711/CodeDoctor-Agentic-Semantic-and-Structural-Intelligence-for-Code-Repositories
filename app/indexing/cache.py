@@ -38,8 +38,19 @@ class EmbeddingCache:
     """
 
     def __init__(self, db_path: str | Path = ":memory:") -> None:
-        self.conn = sqlite3.connect(str(db_path), check_same_thread=False)
+        self.conn = sqlite3.connect(str(db_path), check_same_thread=False, timeout=30.0)
         self.conn.row_factory = sqlite3.Row
+        # The live server and a warm-up script are meant to share this file:
+        # one answers queries from it while the other fills it. Default SQLite
+        # would fail the reader the moment the writer held the lock, so the
+        # cache is opened in WAL with a real busy timeout instead.
+        if str(db_path) != ":memory:":
+            try:
+                self.conn.execute("PRAGMA journal_mode=WAL")
+                self.conn.execute("PRAGMA busy_timeout=30000")
+                self.conn.execute("PRAGMA synchronous=NORMAL")
+            except sqlite3.DatabaseError:  # pragma: no cover - exotic filesystems
+                pass
         self._init_schema()
 
     def _init_schema(self) -> None:

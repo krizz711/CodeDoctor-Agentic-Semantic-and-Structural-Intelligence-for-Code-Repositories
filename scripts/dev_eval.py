@@ -37,15 +37,13 @@ from app.pipeline.execution_rerank import (  # noqa: E402
     parse_worked_examples,
 )
 from app.pipeline.features import (  # noqa: E402
-    FEATURE_NAMES,
     CorpusStatistics,
     FeatureExtractor,
     analyze_queries,
 )
 from app.pipeline.metrics import metrics_from_ranks, paired_bootstrap, per_query_ndcg  # noqa: E402
-from app.pipeline.reranker import Reranker, RerankerConfig  # noqa: E402
+from app.pipeline.reranker import RerankerConfig  # noqa: E402
 from app.pipeline.search import (  # noqa: E402
-    CandidatePool,
     build_candidate_pool,
     load_hub_profile,
 )
