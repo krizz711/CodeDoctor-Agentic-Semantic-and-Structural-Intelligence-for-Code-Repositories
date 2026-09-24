@@ -1,0 +1,25 @@
+{
+  "store": "f2llm06b_extcc_dev.jsonl.gz",
+  "eligible_statements": 77,
+  "rerun": 161,
+  "soundness": {
+    "passed": 50,
+    "of": 50
+  },
+  "discrimination": {
+    "rejected": 1,
+    "of": 111
+  },
+  "ndcg": {
+    "base": 0.7487944705021771,
+    "metamorphic": 0.7522117875987376
+  },
+  "delta": {
+    "delta": 0.0034173170965605786,
+    "ci": [
+      0.0,
+      0.013669268386242314
+    ],
+    "p": 0.761
+  }
+}

@@ -1,0 +1,10 @@
+Loading CoIR-Retrieval/apps ...
+  corpus=8765  train=5000  test=3765
+Encoder: codefuse-ai/F2LLM-v2-0.6B on cuda (tier=interactive, tag=f2llm06b, attention budget 16,000,000, max batch 16)
+  query prefix   : 'Instruct: Retrieve the most relevant code snippet for the given query.\nQuery: '
+  max_seq_length : 8192   add_eos_token: True
+`torch_dtype` is deprecated! Use `dtype` instead!
+Token indices sequence length is longer than the specified maximum sequence length for this model (24664 > 8192). Running this sequence through the model will result in indexing errors
+  corpus: 8765 texts in 480.3s (55 ms/text) norm[0.9964..1.0039]
+  qtrain: 5000 texts in 811.6s (162 ms/text) norm[0.9980..1.0039]
+Wrote C:\Users\Asus\manish\CodeDoctor\artifacts\apps\manifest.json

@@ -1,0 +1,3 @@
+9577 texts, 8765 reused, encoding 812 with codefuse-ai/F2LLM-v2-0.6B on cuda
+`torch_dtype` is deprecated! Use `dtype` instead!
+wrote artifacts\ext_cc\emb_f2llm06b_corpus.npy in 164s

@@ -1,0 +1,4 @@
+external set versions_apps: 150 queries in ext_dev
+executing 3,000 (query, candidate) pairs with 6 workers ...
+  2,000/3,000 in 69s
+recorded 3,000 pairs over 150 queries in 101s -> data\outcomes\f2llm06b_versions.jsonl.gz

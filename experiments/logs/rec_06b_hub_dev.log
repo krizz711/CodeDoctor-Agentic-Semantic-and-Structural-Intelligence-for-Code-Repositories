@@ -1,0 +1,18 @@
+5000 eligible queries (all families), TUNE=2500 DEV=2500 seed=20260919  -> recording dev: 2500 queries
+hubness-corrected pools: bank emb_f2llm06b_queries.npy (217), beta 0.3, k 10
+executing 29,740 (query, candidate) pairs with 6 workers ...
+  2,000/29,740 in 42s
+  4,000/29,740 in 73s
+  6,000/29,740 in 112s
+  8,000/29,740 in 161s
+  10,000/29,740 in 205s
+  12,000/29,740 in 253s
+  14,000/29,740 in 298s
+  16,000/29,740 in 350s
+  18,000/29,740 in 400s
+  20,000/29,740 in 508s
+  22,000/29,740 in 574s
+  24,000/29,740 in 609s
+  26,000/29,740 in 651s
+  28,000/29,740 in 691s
+recorded 29,740 pairs over 2500 queries in 730s -> data\outcomes\f2llm06b_all_dev_hubcc.jsonl.gz

@@ -1,0 +1,25 @@
+{
+  "store": "f2llm06b_all_dev.jsonl.gz",
+  "eligible_statements": 497,
+  "rerun": 481,
+  "soundness": {
+    "passed": 383,
+    "of": 389
+  },
+  "discrimination": {
+    "rejected": 26,
+    "of": 92
+  },
+  "ndcg": {
+    "base": 0.9264763103237236,
+    "metamorphic": 0.9266239384222951
+  },
+  "delta": {
+    "delta": 0.000147628098571417,
+    "ci": [
+      0.0,
+      0.000442884295714251
+    ],
+    "p": 0.73
+  }
+}

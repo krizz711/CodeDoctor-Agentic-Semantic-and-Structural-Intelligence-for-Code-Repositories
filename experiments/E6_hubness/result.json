@@ -1,0 +1,105 @@
+{
+  "model": "f2llm06b",
+  "k": 10,
+  "tune_curve": {
+    "0.0": 0.9149062610735227,
+    "0.05": 0.9166477267588554,
+    "0.1": 0.9171533835770944,
+    "0.2": 0.920173571955155,
+    "0.3": 0.9215066926240782,
+    "0.5": 0.9248024074600515,
+    "0.75": 0.9237771098780196,
+    "1.0": 0.9202538687134273
+  },
+  "beta": 0.5,
+  "dev_dense": 0.9006931783507204,
+  "dev_hubness": 0.9127899670246475,
+  "delta": 0.0120967886739271,
+  "ci": [
+    0.008767473066714259,
+    0.015471741155784008
+  ],
+  "p": 0.0,
+  "n_dev": 2500,
+  "leakage_diagnostics": {
+    "question": "does the gain come from penalising documents that are golds of bank (TUNE) queries -- one-gold-per-document benchmark structure -- rather than hubness?",
+    "wrong_top1_is_tune_gold": "25.7% of 412 dense rank-1 errors, vs a 28.5% base rate: not over-represented",
+    "delta_skip_closest_bank_query": {
+      "delta": 0.00989,
+      "ci": [
+        0.00664,
+        0.01332
+      ]
+    },
+    "delta_with_tune_golds_removed_from_corpus": {
+      "delta": 0.00962,
+      "ci": [
+        0.00668,
+        0.01289
+      ]
+    },
+    "reading": "about +0.0095 of the +0.0121 is genuine hubness reduction; about +0.0025 came from benchmark structure. Report the conservative figure. For the scored configuration, use a bank whose golds are not in the corpus (e.g. CodeContests statements) -- to be measured."
+  },
+  "clean_bank_codecontests": {
+    "5": {
+      "tune_curve": {
+        "0.0": 0.9149062610735226,
+        "0.1": 0.916666068172186,
+        "0.2": 0.9184169389208336,
+        "0.3": 0.9194710121937629,
+        "0.5": 0.9162574027031238,
+        "0.75": 0.9075085057056836,
+        "1.0": 0.8907593099886383
+      },
+      "beta": 0.3,
+      "dev_delta": 0.003967193016855665,
+      "ci": [
+        0.0012697324595332801,
+        0.006799579663327393
+      ]
+    },
+    "10": {
+      "tune_curve": {
+        "0.0": 0.9149062610735226,
+        "0.1": 0.9169566834943649,
+        "0.2": 0.9174791127341235,
+        "0.3": 0.9178965940385179,
+        "0.5": 0.9174897800654468,
+        "0.75": 0.9088801448202776,
+        "1.0": 0.8947927387243082
+      },
+      "beta": 0.3,
+      "dev_delta": 0.004591587175232519,
+      "ci": [
+        0.0019314356093168405,
+        0.007368284171702842
+      ]
+    }
+  },
+  "with_execution_dev": {
+    "bank": "CodeContests (golds not in corpus)",
+    "beta": 0.3,
+    "dense": {
+      "delta": 0.00459,
+      "ci": [
+        0.00189,
+        0.00734
+      ]
+    },
+    "legacy+numeric": {
+      "delta": 0.00433,
+      "ci": [
+        0.00145,
+        0.00742
+      ]
+    },
+    "call-style": {
+      "delta": 0.00518,
+      "ci": [
+        0.00209,
+        0.00851
+      ]
+    },
+    "status": "passes on DEV; TUNE replication queued (beta was fitted on TUNE dense-only, so TUNE is a weaker check)"
+  }
+}

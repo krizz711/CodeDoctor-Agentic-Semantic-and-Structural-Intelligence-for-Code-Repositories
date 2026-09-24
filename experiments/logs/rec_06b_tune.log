@@ -1,0 +1,21 @@
+5000 eligible queries (all families), TUNE=2500 DEV=2500 seed=20260919  -> recording tune: 2500 queries
+<unknown>:1: SyntaxWarning: invalid escape sequence '\*'
+<unknown>:1: SyntaxWarning: invalid escape sequence '\*'
+<unknown>:1: SyntaxWarning: invalid escape sequence '\*'
+<unknown>:1: SyntaxWarning: invalid escape sequence '\*'
+executing 29,120 (query, candidate) pairs with 6 workers ...
+  2,000/29,120 in 43s
+  4,000/29,120 in 72s
+  6,000/29,120 in 115s
+  8,000/29,120 in 164s
+  10,000/29,120 in 208s
+  12,000/29,120 in 253s
+  14,000/29,120 in 302s
+  16,000/29,120 in 345s
+  18,000/29,120 in 416s
+  20,000/29,120 in 509s
+  22,000/29,120 in 546s
+  24,000/29,120 in 583s
+  26,000/29,120 in 619s
+  28,000/29,120 in 654s
+recorded 29,120 pairs over 2500 queries in 675s -> C:\Users\Asus\manish\CodeDoctor\data\outcomes\f2llm06b_all_tune.jsonl.gz

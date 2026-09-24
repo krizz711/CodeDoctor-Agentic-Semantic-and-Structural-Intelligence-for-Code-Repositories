@@ -1,0 +1,48 @@
+{
+  "n": 2500,
+  "escalation_rate": 0.6204,
+  "ndcg": {
+    "small": 0.7789817163543874,
+    "large": 0.9319651990263228,
+    "cascade": 0.9243777803696186
+  },
+  "delta_vs_large": {
+    "delta": -0.0075874186567042754,
+    "ci": [
+      -0.011808894466801707,
+      -0.003557031647514242
+    ],
+    "p": 0.0
+  },
+  "cost_per_query": {
+    "cascade": 0.5322399999999974,
+    "large": 0.5999999999999821
+  },
+  "executions_per_query": {
+    "cascade": 15.0896,
+    "large": 11.904
+  },
+  "verdict": "REJECTED (pre-registered rule): 160M->0.6B cascade is significantly worse (-0.0076) and escalates 62% (>60%).",
+  "exploratory_after_the_fact": {
+    "note": "stop rules below were explored on DEV after seeing the main result; not a shipping basis",
+    "stop_if_small_rank1_verifies": {
+      "delta": -0.0004,
+      "ci": [
+        -0.00189,
+        0.00116
+      ],
+      "escalated": 0.763,
+      "cost_change": "+2.9% (more expensive)"
+    },
+    "estimate_0.6B_to_1.7B_strict_stop": {
+      "precision_when_stopping": 0.975,
+      "stop_rate_all_families": 0.374,
+      "cost_vs_always_1.7B_by_family": {
+        "competitive_stdin": 0.79,
+        "leetcode_method": 0.76,
+        "kata_function": 1.17
+      },
+      "status": "estimate only: quality needs the 1.7B artifacts"
+    }
+  }
+}
