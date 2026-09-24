@@ -95,6 +95,7 @@ def get_pipeline_config(config_path: Path | None = None) -> dict:
         "execution_judge_rules": bool(block.get("execution_judge_rules", False)),
         "execution_timeout_mode": str(block.get("execution_timeout_mode", "wall")),
         "execution_deepen_to": int(block.get("execution_deepen_to", 0) or 0),
+        "execution_skip_interactive": bool(block.get("execution_skip_interactive", False)),
         # PRE-5 hubness correction: off unless a bank is configured.
         "hubness_bank": block.get("hubness_bank") or None,
         "hubness_beta": float(block.get("hubness_beta", 0.3)),
@@ -278,6 +279,7 @@ def main() -> None:
         judge_rules=pipeline_defaults["execution_judge_rules"],
         timeout_mode=pipeline_defaults["execution_timeout_mode"],
         deepen_to=pipeline_defaults["execution_deepen_to"],
+        skip_interactive=pipeline_defaults["execution_skip_interactive"],
     )
     if execution_config.enabled:
         print(f"Execution pass  : ON (top {execution_config.max_candidates}, "

@@ -54,8 +54,9 @@ PARSER_FILES = (
     "app/pipeline/execution_rerank.py",
     "app/pipeline/query_analysis.py",
 )
-#: What the v2 candidate runs: call-style on, extended stdin off, 2 examples.
-PRIMARY = ExecutionConfig(enabled=True, call_style=True, extended_stdin=False)
+#: What the v2 candidate runs: call-style on, extended stdin off, 2 examples,
+#: interactive statements skipped (V3b; the original V3 run predates that flag).
+PRIMARY = ExecutionConfig(enabled=True, call_style=True, extended_stdin=False, skip_interactive=True)
 #: The parser without the cap, for context only.
 UNCAPPED = replace(PRIMARY, extended_stdin=True, max_examples=10)
 CALL_TOLERANCE = 1e-6

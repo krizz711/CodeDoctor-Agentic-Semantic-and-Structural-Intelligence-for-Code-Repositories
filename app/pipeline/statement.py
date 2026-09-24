@@ -121,6 +121,24 @@ _JS_WORDS = {"true": "True", "false": "False", "null": "None", "nil": "None", "N
 _JS_WORD_RE = re.compile(r"\b(true|false|null|nil)\b")
 
 
+class _BracesAsLists(ast.NodeTransformer):
+    """Statements write arrays C-style, ``{10, 3, -27, -1}``.
+
+    Read as a Python set, such an array lost its order and duplicates, and
+    iterated in per-process hash order: the same statement gave different
+    examples in different processes (experiments/STRESS_TEST.md, F11).
+    Dict displays are left alone.
+    """
+
+    def visit_Set(self, node: ast.Set) -> ast.List:
+        self.generic_visit(node)
+        return ast.copy_location(ast.List(elts=node.elts, ctx=ast.Load()), node)
+
+
+def _literal_eval(text: str) -> Any:
+    return ast.literal_eval(_BracesAsLists().visit(ast.parse(text, mode="eval")))
+
+
 def parse_literal(raw: str) -> tuple[bool, Any]:
     """Parse a value as written in a statement: Python, JSON-ish, or Ruby-ish.
 
@@ -135,7 +153,7 @@ def parse_literal(raw: str) -> tuple[bool, Any]:
         return False, None
     for candidate in (text, _JS_WORD_RE.sub(lambda m: _JS_WORDS[m.group(1)], text)):
         try:
-            value = ast.literal_eval(candidate)
+            value = _literal_eval(candidate)
         except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):
             continue
         if isinstance(value, tuple) and len(value) == 1 and not text.startswith("("):

@@ -1,0 +1,3330 @@
+{
+ "prereg": "experiments/V3_parser_gold/prereg_oracle.md",
+ "parser_blobs": {
+  "app/pipeline/statement.py": "efe8b8ee415052f02d5deaa9af979f0c2ba734ca",
+  "app/pipeline/execution_rerank.py": "79e39503a8fc7e0176e43487e2f7a6198a892433",
+  "app/pipeline/query_analysis.py": "d933d434d1faf3f59cb1822fa36f6499a0a2f35f"
+ },
+ "seed": 20260924,
+ "o2_dropped_near_duplicates": 1301,
+ "configs": {
+  "primary": {
+   "settings": {
+    "call_style": true,
+    "extended_stdin": false,
+    "max_examples": 2
+   },
+   "O1_apps_train": {
+    "DIAG": {
+     "overall": {
+      "statements": 2461,
+      "stdin_statements": 891,
+      "call_statements": 1570,
+      "stdin": {
+       "precision": {
+        "value": 0.9194,
+        "ci95": [
+         0.9014,
+         0.9369
+        ],
+        "num": 844,
+        "den": 918
+       },
+       "precision_token_level_diagnostic": {
+        "value": 0.9194,
+        "ci95": [
+         0.9014,
+         0.9369
+        ],
+        "num": 844,
+        "den": 918
+       },
+       "recall_capped": {
+        "value": 0.9326,
+        "ci95": [
+         0.916,
+         0.948
+        ],
+        "num": 844,
+        "den": 905
+       },
+       "statements_with_visible_tests": 787,
+       "nothing_extracted_but_visible": 35,
+       "exact_set_rate": 0.9212,
+       "call_examples_on_stdin_problems": 1
+      },
+      "call": {
+       "precision": {
+        "value": 0.4226,
+        "ci95": [
+         0.3896,
+         0.4579
+        ],
+        "num": 745,
+        "den": 1763
+       },
+       "coverage_any_confirmed": 0.2459,
+       "coverage_any_extracted": 0.3911,
+       "stdin_examples_on_call_problems": 19
+      }
+     },
+     "by_group": {
+      "competitive_stdin": {
+       "statements": 871,
+       "stdin_statements": 867,
+       "call_statements": 4,
+       "stdin": {
+        "precision": {
+         "value": 0.9194,
+         "ci95": [
+          0.9003,
+          0.9378
+         ],
+         "num": 844,
+         "den": 918
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.9194,
+         "ci95": [
+          0.9003,
+          0.9378
+         ],
+         "num": 844,
+         "den": 918
+        },
+        "recall_capped": {
+         "value": 0.9409,
+         "ci95": [
+          0.9246,
+          0.9566
+         ],
+         "num": 844,
+         "den": 897
+        },
+        "statements_with_visible_tests": 779,
+        "nothing_extracted_but_visible": 27,
+        "exact_set_rate": 0.9307,
+        "call_examples_on_stdin_problems": 0
+       },
+       "call": {
+        "precision": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ],
+         "num": 0,
+         "den": 3
+        },
+        "coverage_any_confirmed": 0.0,
+        "coverage_any_extracted": 0.25,
+        "stdin_examples_on_call_problems": 1
+       }
+      },
+      "kata_function": {
+       "statements": 1095,
+       "stdin_statements": 3,
+       "call_statements": 1092,
+       "stdin": {
+        "precision": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "precision_token_level_diagnostic": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "recall_capped": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "statements_with_visible_tests": 0,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 0.0,
+        "call_examples_on_stdin_problems": 0
+       },
+       "call": {
+        "precision": {
+         "value": 0.5881,
+         "ci95": [
+          0.5393,
+          0.6351
+         ],
+         "num": 591,
+         "den": 1005
+        },
+        "coverage_any_confirmed": 0.2198,
+        "coverage_any_extracted": 0.3178,
+        "stdin_examples_on_call_problems": 6
+       }
+      },
+      "leetcode_method": {
+       "statements": 294,
+       "stdin_statements": 3,
+       "call_statements": 291,
+       "stdin": {
+        "precision": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "precision_token_level_diagnostic": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "recall_capped": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ],
+         "num": 0,
+         "den": 3
+        },
+        "statements_with_visible_tests": 3,
+        "nothing_extracted_but_visible": 3,
+        "exact_set_rate": 0.0,
+        "call_examples_on_stdin_problems": 1
+       },
+       "call": {
+        "precision": {
+         "value": 0.1943,
+         "ci95": [
+          0.1708,
+          0.2192
+         ],
+         "num": 144,
+         "den": 741
+        },
+        "coverage_any_confirmed": 0.4914,
+        "coverage_any_extracted": 0.8969,
+        "stdin_examples_on_call_problems": 10
+       }
+      },
+      "unknown": {
+       "statements": 201,
+       "stdin_statements": 18,
+       "call_statements": 183,
+       "stdin": {
+        "precision": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "precision_token_level_diagnostic": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "recall_capped": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ],
+         "num": 0,
+         "den": 5
+        },
+        "statements_with_visible_tests": 5,
+        "nothing_extracted_but_visible": 5,
+        "exact_set_rate": 0.0,
+        "call_examples_on_stdin_problems": 0
+       },
+       "call": {
+        "precision": {
+         "value": 0.7143,
+         "ci95": [
+          0.0,
+          1.0
+         ],
+         "num": 10,
+         "den": 14
+        },
+        "coverage_any_confirmed": 0.0164,
+        "coverage_any_extracted": 0.0273,
+        "stdin_examples_on_call_problems": 2
+       }
+      }
+     }
+    },
+    "CONF": {
+     "overall": {
+      "statements": 2344,
+      "stdin_statements": 851,
+      "call_statements": 1493,
+      "stdin": {
+       "precision": {
+        "value": 0.9377,
+        "ci95": [
+         0.9194,
+         0.9534
+        ],
+        "num": 828,
+        "den": 883
+       },
+       "precision_token_level_diagnostic": {
+        "value": 0.9377,
+        "ci95": [
+         0.9194,
+         0.9534
+        ],
+        "num": 828,
+        "den": 883
+       },
+       "recall_capped": {
+        "value": 0.9583,
+        "ci95": [
+         0.944,
+         0.9717
+        ],
+        "num": 828,
+        "den": 864
+       },
+       "statements_with_visible_tests": 750,
+       "nothing_extracted_but_visible": 18,
+       "exact_set_rate": 0.948,
+       "call_examples_on_stdin_problems": 1
+      },
+      "call": {
+       "precision": {
+        "value": 0.4348,
+        "ci95": [
+         0.3999,
+         0.4704
+        ],
+        "num": 730,
+        "den": 1679
+       },
+       "coverage_any_confirmed": 0.2612,
+       "coverage_any_extracted": 0.3885,
+       "stdin_examples_on_call_problems": 7
+      }
+     },
+     "by_group": {
+      "competitive_stdin": {
+       "statements": 834,
+       "stdin_statements": 832,
+       "call_statements": 2,
+       "stdin": {
+        "precision": {
+         "value": 0.9398,
+         "ci95": [
+          0.9237,
+          0.9553
+         ],
+         "num": 827,
+         "den": 880
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.9398,
+         "ci95": [
+          0.9237,
+          0.9553
+         ],
+         "num": 827,
+         "den": 880
+        },
+        "recall_capped": {
+         "value": 0.9594,
+         "ci95": [
+          0.9438,
+          0.9729
+         ],
+         "num": 827,
+         "den": 862
+        },
+        "statements_with_visible_tests": 748,
+        "nothing_extracted_but_visible": 17,
+        "exact_set_rate": 0.9492,
+        "call_examples_on_stdin_problems": 1
+       },
+       "call": {
+        "precision": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "coverage_any_confirmed": 0.0,
+        "coverage_any_extracted": 0.0,
+        "stdin_examples_on_call_problems": 0
+       }
+      },
+      "kata_function": {
+       "statements": 1051,
+       "stdin_statements": 6,
+       "call_statements": 1045,
+       "stdin": {
+        "precision": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "precision_token_level_diagnostic": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "recall_capped": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "statements_with_visible_tests": 0,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 0.0,
+        "call_examples_on_stdin_problems": 0
+       },
+       "call": {
+        "precision": {
+         "value": 0.5876,
+         "ci95": [
+          0.539,
+          0.6313
+         ],
+         "num": 580,
+         "den": 987
+        },
+        "coverage_any_confirmed": 0.2335,
+        "coverage_any_extracted": 0.3225,
+        "stdin_examples_on_call_problems": 3
+       }
+      },
+      "leetcode_method": {
+       "statements": 264,
+       "stdin_statements": 3,
+       "call_statements": 261,
+       "stdin": {
+        "precision": {
+         "value": 0.3333,
+         "ci95": [
+          0.0,
+          1.0
+         ],
+         "num": 1,
+         "den": 3
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.3333,
+         "ci95": [
+          0.0,
+          1.0
+         ],
+         "num": 1,
+         "den": 3
+        },
+        "recall_capped": {
+         "value": 0.5,
+         "ci95": [
+          0.0,
+          1.0
+         ],
+         "num": 1,
+         "den": 2
+        },
+        "statements_with_visible_tests": 2,
+        "nothing_extracted_but_visible": 1,
+        "exact_set_rate": 0.5,
+        "call_examples_on_stdin_problems": 0
+       },
+       "call": {
+        "precision": {
+         "value": 0.2107,
+         "ci95": [
+          0.1859,
+          0.2396
+         ],
+         "num": 142,
+         "den": 674
+        },
+        "coverage_any_confirmed": 0.5402,
+        "coverage_any_extracted": 0.9042,
+        "stdin_examples_on_call_problems": 3
+       }
+      },
+      "unknown": {
+       "statements": 195,
+       "stdin_statements": 10,
+       "call_statements": 185,
+       "stdin": {
+        "precision": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "precision_token_level_diagnostic": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "recall_capped": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "statements_with_visible_tests": 0,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 0.0,
+        "call_examples_on_stdin_problems": 0
+       },
+       "call": {
+        "precision": {
+         "value": 0.4444,
+         "ci95": [
+          0.1762,
+          0.75
+         ],
+         "num": 8,
+         "den": 18
+        },
+        "coverage_any_confirmed": 0.027,
+        "coverage_any_extracted": 0.0378,
+        "stdin_examples_on_call_problems": 1
+       }
+      }
+     }
+    },
+    "audit": {
+     "unconfirmed_extractions": [
+      {
+       "id": "q253",
+       "input_or_args": "(7, [1, 2, 1, 0, 2, 1, 0, 1])",
+       "output_or_expected": "3"
+      },
+      {
+       "id": "q2462",
+       "input_or_args": "(16,)",
+       "output_or_expected": "True"
+      },
+      {
+       "id": "q448",
+       "input_or_args": "('bcabc',)",
+       "output_or_expected": "'abc'"
+      },
+      {
+       "id": "q2402",
+       "input_or_args": "('aaaa', 'dog cat cat dog')",
+       "output_or_expected": "False"
+      },
+      {
+       "id": "q248",
+       "input_or_args": "([7, 3, 4, 7], 7)",
+       "output_or_expected": "2"
+      },
+      {
+       "id": "q4878",
+       "input_or_args": "('words',)",
+       "output_or_expected": "'positive'"
+      },
+      {
+       "id": "q431",
+       "input_or_args": "('abc',)",
+       "output_or_expected": "7"
+      },
+      {
+       "id": "q2550",
+       "input_or_args": "(' practice makes perfect',)",
+       "output_or_expected": "'practice   makes   perfect '"
+      },
+      {
+       "id": "q4807",
+       "input_or_args": "()",
+       "output_or_expected": "0.3"
+      },
+      {
+       "id": "q3130",
+       "input_or_args": "('8409',)",
+       "output_or_expected": "True"
+      },
+      {
+       "id": "q214",
+       "input_or_args": "(2.0, -2)",
+       "output_or_expected": "0.25"
+      },
+      {
+       "id": "q467",
+       "input_or_args": "('AB@qq.com',)",
+       "output_or_expected": "'a*****b@qq.com'"
+      },
+      {
+       "id": "q3757",
+       "input_or_args": "(26,)",
+       "output_or_expected": "['3+23', '7+19', '13+13']"
+      },
+      {
+       "id": "q205",
+       "input_or_args": "([4, 5, 6, 7, 0, 1, 2], 3)",
+       "output_or_expected": "-1"
+      },
+      {
+       "id": "q3242",
+       "input_or_args": "('abcabc',)",
+       "output_or_expected": "'bcac'"
+      },
+      {
+       "id": "q463",
+       "input_or_args": "([[1, 0], [1, 1]],)",
+       "output_or_expected": "3"
+      },
+      {
+       "id": "q192",
+       "input_or_args": "(['1', '4', '9'], 1000000000)",
+       "output_or_expected": "29523"
+      },
+      {
+       "id": "q4318",
+       "input_or_args": "(('3\u2663', 'Q\u2663', '\u2666'),)",
+       "output_or_expected": "'The second card won.'"
+      },
+      {
+       "id": "q437",
+       "input_or_args": "(56,)",
+       "output_or_expected": "6"
+      },
+      {
+       "id": "q3255",
+       "input_or_args": "(170,)",
+       "output_or_expected": "1"
+      },
+      {
+       "id": "q393",
+       "input_or_args": "('100100010100110',)",
+       "output_or_expected": "12"
+      },
+      {
+       "id": "q4081",
+       "input_or_args": "(['1', '2'],)",
+       "output_or_expected": "False"
+      },
+      {
+       "id": "q446",
+       "input_or_args": "([5, 3, 2, 4],)",
+       "output_or_expected": "0"
+      },
+      {
+       "id": "q3521",
+       "input_or_args": "(4, 130, 200)",
+       "output_or_expected": "[163, 167]"
+      },
+      {
+       "id": "q4031",
+       "input_or_args": "('', '')",
+       "output_or_expected": "{}"
+      },
+      {
+       "id": "q507",
+       "input_or_args": "(' -42',)",
+       "output_or_expected": "-42"
+      },
+      {
+       "id": "q34",
+       "input_or_args": "1\n4",
+       "output_or_expected": "2\n2 4\n3 3\n3 1"
+      },
+      {
+       "id": "q283",
+       "input_or_args": "([[2, 2, 2, 2, 2], [2, 2, 2, 2, 2], [2, 2, 2, 2, 2], [2, 2, 2, 2, 2], [2, 2, 2, 2, 2]], 1)",
+       "output_or_expected": "0"
+      },
+      {
+       "id": "q148",
+       "input_or_args": "(6, [2, 10, 3, 1, 5, 8], [5, 4, 3, 9, 7, 2], 3)",
+       "output_or_expected": "68"
+      },
+      {
+       "id": "q430",
+       "input_or_args": "('1123', '0111')",
+       "output_or_expected": "'1A1B'"
+      }
+     ],
+     "missed_visible_tests": [
+      {
+       "id": "q1169",
+       "input_or_args": "2\nababab\nbgbbbbbbbbbbbbbbbbbbbbbbbb\n1\nacbacbacaa\nbbbbbbbbbbbbbbbbbbbbbbbbbb\n2",
+       "output_or_expected": "5\n8"
+      },
+      {
+       "id": "q2298",
+       "input_or_args": "4 5\n3 1\n1 2\n4 1\n6 2\n1 2\n2 3\n2 4\n1 4\n3 4",
+       "output_or_expected": "6"
+      },
+      {
+       "id": "q2042",
+       "input_or_args": "10\n3 2 1 4 1 4 1 4 1 4",
+       "output_or_expected": "8"
+      },
+      {
+       "id": "q2043",
+       "input_or_args": "3 1 100 10\nwhw",
+       "output_or_expected": "0"
+      },
+      {
+       "id": "q2294",
+       "input_or_args": "2\n1 2 3 1",
+       "output_or_expected": "3\n4\n5"
+      },
+      {
+       "id": "q2199",
+       "input_or_args": "2\nalex\nalex",
+       "output_or_expected": "1"
+      },
+      {
+       "id": "q2029",
+       "input_or_args": "qqqq",
+       "output_or_expected": "Impossible"
+      },
+      {
+       "id": "q2330",
+       "input_or_args": "5 3\n1 5 2 4 7\n7 9 6",
+       "output_or_expected": "4"
+      },
+      {
+       "id": "q1503",
+       "input_or_args": "3\nabcd\n4\na b c d\naabbbcccdddd\n4\na b c d\nacd\n3\na b d",
+       "output_or_expected": "1\n1\n0"
+      },
+      {
+       "id": "q701",
+       "input_or_args": "1\n3\n4 7 2 9\n5 6 4 7\n2 6 4 3",
+       "output_or_expected": "10"
+      },
+      {
+       "id": "q2003",
+       "input_or_args": "bbaabaabbb",
+       "output_or_expected": "0.100000000000000"
+      },
+      {
+       "id": "q2264",
+       "input_or_args": "abc",
+       "output_or_expected": "3"
+      },
+      {
+       "id": "q2165",
+       "input_or_args": "2 4\n1 3",
+       "output_or_expected": "2\n0 2"
+      },
+      {
+       "id": "q2224",
+       "input_or_args": "2 2\n2012-03-16 23:59:59:Disk size is too sm\n2012-03-17 00:00:00:Network failute dete\n2012-03-17 00:00:01:Cant write varlogmysq",
+       "output_or_expected": "2012-03-17 00:00:00"
+      },
+      {
+       "id": "q510",
+       "input_or_args": "3 4\n1 2 1\n2 3 2\n3 1 3\n1 3 1",
+       "output_or_expected": "1\n2\n1"
+      },
+      {
+       "id": "q1463",
+       "input_or_args": "3\nGovernment clg Berhampore\nSeRaMporE textile college\nGirls college Kolkata",
+       "output_or_expected": "GCETTB\nGCETTS\nOthers"
+      },
+      {
+       "id": "q516",
+       "input_or_args": "3\n2\n3\n4",
+       "output_or_expected": "2\n3\n3"
+      },
+      {
+       "id": "q2237",
+       "input_or_args": "5 3\n00011\n3\n1 2 3\n1\n4\n3\n3 4 5",
+       "output_or_expected": "1\n1\n1\n1\n1"
+      },
+      {
+       "id": "q1101",
+       "input_or_args": "1\n2 2 1\n3 3 2",
+       "output_or_expected": "3"
+      },
+      {
+       "id": "q1157",
+       "input_or_args": "3\n1\n12\n-5",
+       "output_or_expected": "Thanks for helping Chef!\n-1\nThanks for helping Chef!"
+      },
+      {
+       "id": "q1510",
+       "input_or_args": "2 4\nG Y B R\nB G R Y\nG Y B R\nG R B Y\nB Y G R\nG B R Y\nB R G Y\nB R G Y",
+       "output_or_expected": "2"
+      },
+      {
+       "id": "q2075",
+       "input_or_args": "6 3\n4 3 4 3 2 5",
+       "output_or_expected": "3"
+      },
+      {
+       "id": "q2096",
+       "input_or_args": "8\n2 3 5 4 1 6 6 7",
+       "output_or_expected": "2\n2 3 7 8 1 6 6 7"
+      },
+      {
+       "id": "q1402",
+       "input_or_args": "7 50\n1 12 5 111 200 1000 10",
+       "output_or_expected": "4"
+      },
+      {
+       "id": "q966",
+       "input_or_args": "2\n10 2\n100 3",
+       "output_or_expected": "5 0\n33 1"
+      },
+      {
+       "id": "q2160",
+       "input_or_args": "2 2\n1 1\n2 10",
+       "output_or_expected": "10"
+      },
+      {
+       "id": "q2178",
+       "input_or_args": "7\n3 3 3 3 3 3 3",
+       "output_or_expected": "7"
+      },
+      {
+       "id": "q2135",
+       "input_or_args": "3\n1 2\n2 -1 1",
+       "output_or_expected": "-1"
+      },
+      {
+       "id": "q2210",
+       "input_or_args": "7\n1 2\n2 7\n3 4\n4 7\n5 6\n6 7",
+       "output_or_expected": "1 6"
+      },
+      {
+       "id": "q2197",
+       "input_or_args": "10 9\nabacadefgh",
+       "output_or_expected": "789"
+      }
+     ]
+    }
+   },
+   "O2_codecontests_train": {
+    "DIAG": {
+     "overall": {
+      "statements": 1223,
+      "stdin_statements": 1223,
+      "call_statements": 0,
+      "stdin": {
+       "precision": {
+        "value": 0.8903,
+        "ci95": [
+         0.873,
+         0.9088
+        ],
+        "num": 1453,
+        "den": 1632
+       },
+       "precision_token_level_diagnostic": {
+        "value": 0.8946,
+        "ci95": [
+         0.8775,
+         0.9123
+        ],
+        "num": 1460,
+        "den": 1632
+       },
+       "recall_capped": {
+        "value": 0.9699,
+        "ci95": [
+         0.9605,
+         0.979
+        ],
+        "num": 1452,
+        "den": 1497
+       },
+       "statements_with_visible_tests": 977,
+       "nothing_extracted_but_visible": 21,
+       "exact_set_rate": 0.9181,
+       "call_examples_on_stdin_problems": 3
+      }
+     },
+     "by_group": {
+      "aizu": {
+       "statements": 298,
+       "stdin_statements": 298,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.9683,
+         "ci95": [
+          0.946,
+          0.9865
+         ],
+         "num": 366,
+         "den": 378
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.9683,
+         "ci95": [
+          0.946,
+          0.9865
+         ],
+         "num": 366,
+         "den": 378
+        },
+        "recall_capped": {
+         "value": 0.9812,
+         "ci95": [
+          0.9644,
+          0.9947
+         ],
+         "num": 365,
+         "den": 372
+        },
+        "statements_with_visible_tests": 294,
+        "nothing_extracted_but_visible": 3,
+        "exact_set_rate": 0.9524,
+        "call_examples_on_stdin_problems": 0
+       }
+      },
+      "atcoder": {
+       "statements": 91,
+       "stdin_statements": 91,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 174,
+         "den": 174
+        },
+        "precision_token_level_diagnostic": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 174,
+         "den": 174
+        },
+        "recall_capped": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 174,
+         "den": 174
+        },
+        "statements_with_visible_tests": 91,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 1.0,
+        "call_examples_on_stdin_problems": 0
+       }
+      },
+      "codechef": {
+       "statements": 81,
+       "stdin_statements": 81,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.9452,
+         "ci95": [
+          0.8961,
+          0.9868
+         ],
+         "num": 69,
+         "den": 73
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.9452,
+         "ci95": [
+          0.8961,
+          0.9868
+         ],
+         "num": 69,
+         "den": 73
+        },
+        "recall_capped": {
+         "value": 0.8023,
+         "ci95": [
+          0.7093,
+          0.8929
+         ],
+         "num": 69,
+         "den": 86
+        },
+        "statements_with_visible_tests": 81,
+        "nothing_extracted_but_visible": 12,
+        "exact_set_rate": 0.8025,
+        "call_examples_on_stdin_problems": 1
+       }
+      },
+      "codeforces": {
+       "statements": 575,
+       "stdin_statements": 575,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.863,
+         "ci95": [
+          0.8368,
+          0.888
+         ],
+         "num": 844,
+         "den": 978
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.8701,
+         "ci95": [
+          0.8443,
+          0.8944
+         ],
+         "num": 851,
+         "den": 978
+        },
+        "recall_capped": {
+         "value": 0.9791,
+         "ci95": [
+          0.9686,
+          0.9884
+         ],
+         "num": 844,
+         "den": 862
+        },
+        "statements_with_visible_tests": 508,
+        "nothing_extracted_but_visible": 3,
+        "exact_set_rate": 0.9075,
+        "call_examples_on_stdin_problems": 0
+       }
+      },
+      "hackerearth": {
+       "statements": 178,
+       "stdin_statements": 178,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ],
+         "num": 0,
+         "den": 29
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ],
+         "num": 0,
+         "den": 29
+        },
+        "recall_capped": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ],
+         "num": 0,
+         "den": 3
+        },
+        "statements_with_visible_tests": 3,
+        "nothing_extracted_but_visible": 3,
+        "exact_set_rate": 0.0,
+        "call_examples_on_stdin_problems": 2
+       }
+      }
+     }
+    },
+    "CONF": {
+     "overall": {
+      "statements": 1238,
+      "stdin_statements": 1238,
+      "call_statements": 0,
+      "stdin": {
+       "precision": {
+        "value": 0.9134,
+        "ci95": [
+         0.898,
+         0.9282
+        ],
+        "num": 1529,
+        "den": 1674
+       },
+       "precision_token_level_diagnostic": {
+        "value": 0.9164,
+        "ci95": [
+         0.9011,
+         0.9303
+        ],
+        "num": 1534,
+        "den": 1674
+       },
+       "recall_capped": {
+        "value": 0.9776,
+        "ci95": [
+         0.9697,
+         0.9849
+        ],
+        "num": 1527,
+        "den": 1562
+       },
+       "statements_with_visible_tests": 1005,
+       "nothing_extracted_but_visible": 8,
+       "exact_set_rate": 0.9333,
+       "call_examples_on_stdin_problems": 2
+      }
+     },
+     "by_group": {
+      "aizu": {
+       "statements": 307,
+       "stdin_statements": 307,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.9774,
+         "ci95": [
+          0.9616,
+          0.9901
+         ],
+         "num": 390,
+         "den": 399
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.9774,
+         "ci95": [
+          0.9616,
+          0.9901
+         ],
+         "num": 390,
+         "den": 399
+        },
+        "recall_capped": {
+         "value": 0.9873,
+         "ci95": [
+          0.9742,
+          0.9975
+         ],
+         "num": 388,
+         "den": 393
+        },
+        "statements_with_visible_tests": 304,
+        "nothing_extracted_but_visible": 1,
+        "exact_set_rate": 0.9605,
+        "call_examples_on_stdin_problems": 0
+       }
+      },
+      "atcoder": {
+       "statements": 105,
+       "stdin_statements": 105,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 203,
+         "den": 203
+        },
+        "precision_token_level_diagnostic": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 203,
+         "den": 203
+        },
+        "recall_capped": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 203,
+         "den": 203
+        },
+        "statements_with_visible_tests": 104,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 1.0,
+        "call_examples_on_stdin_problems": 0
+       }
+      },
+      "codechef": {
+       "statements": 80,
+       "stdin_statements": 80,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.8471,
+         "ci95": [
+          0.7683,
+          0.9195
+         ],
+         "num": 72,
+         "den": 85
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.8471,
+         "ci95": [
+          0.7683,
+          0.9195
+         ],
+         "num": 72,
+         "den": 85
+        },
+        "recall_capped": {
+         "value": 0.8372,
+         "ci95": [
+          0.75,
+          0.9101
+         ],
+         "num": 72,
+         "den": 86
+        },
+        "statements_with_visible_tests": 80,
+        "nothing_extracted_but_visible": 4,
+        "exact_set_rate": 0.7875,
+        "call_examples_on_stdin_problems": 0
+       }
+      },
+      "codeforces": {
+       "statements": 572,
+       "stdin_statements": 572,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.8898,
+         "ci95": [
+          0.8652,
+          0.9133
+         ],
+         "num": 864,
+         "den": 971
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.895,
+         "ci95": [
+          0.8706,
+          0.9174
+         ],
+         "num": 869,
+         "den": 971
+        },
+        "recall_capped": {
+         "value": 0.9818,
+         "ci95": [
+          0.9724,
+          0.9898
+         ],
+         "num": 864,
+         "den": 880
+        },
+        "statements_with_visible_tests": 517,
+        "nothing_extracted_but_visible": 3,
+        "exact_set_rate": 0.9265,
+        "call_examples_on_stdin_problems": 0
+       }
+      },
+      "hackerearth": {
+       "statements": 174,
+       "stdin_statements": 174,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ],
+         "num": 0,
+         "den": 16
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ],
+         "num": 0,
+         "den": 16
+        },
+        "recall_capped": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "statements_with_visible_tests": 0,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 0.0,
+        "call_examples_on_stdin_problems": 2
+       }
+      }
+     }
+    },
+    "audit": {
+     "unconfirmed_extractions": [
+      {
+       "id": "1148_E. Earth Wind and Fire",
+       "input_or_args": "5\n2 2 7 4 9\n5 4 5 5 5",
+       "output_or_expected": "YES\n4\n4 3 1\n2 3 1\n2 5 2\n1 5 2"
+      },
+      {
+       "id": "ranking-4",
+       "input_or_args": "1\n5\n98 68 74 21 74",
+       "output_or_expected": "1 4 2 5 2\nSAMPLE INPUT\n1\n5\n98 68 74 21 74\nSAMPLE OUTPUT\n1 4 2 5 2"
+      },
+      {
+       "id": "1019_D. Large Triangle",
+       "input_or_args": "4 3\n0 0\n2 0\n1 2\n1 3",
+       "output_or_expected": "Yes\n0 0\n1 3\n2 0"
+      },
+      {
+       "id": "1149_A. Prefix Sum Primes",
+       "input_or_args": "9\n1 1 2 1 1 1 2 1 1",
+       "output_or_expected": "1 1 1 2 1 1 1 2 1"
+      },
+      {
+       "id": "p00786 BUT We Need a Diagram",
+       "input_or_args": "a(A,b(B,C));\nx( y( y( z(z), v( s, t ) ) ), u ) ;\na( b( c,\nd(\ne(f),\ng\n)\n),\nh( i(\nj(\nk(k,k),\nl(l)\n),\nm(m)\n)\n)\n);\na(B(C),d(e(f(g(h(i(j,k),l),m),n),o),p))\n.",
+       "output_or_expected": "1:\nB C"
+      },
+      {
+       "id": "dummy-14",
+       "input_or_args": "First line of input will contain a number, t. It is the number of numbers the professor gives them both. Each of the next t lines would contain a number, N.",
+       "output_or_expected": "t lines, each of which contain the Nth Ramanujan Number."
+      },
+      {
+       "id": "329_C. Graph Reconstruction",
+       "input_or_args": "8 7\n1 2\n2 3\n4 5\n5 6\n6 8\n8 7\n7 4",
+       "output_or_expected": "1 4\n4 6\n1 6\n2 7\n7 5\n8 5\n2 8"
+      },
+      {
+       "id": "1173_F. Nauuo and Portals",
+       "input_or_args": "5\n3 1 5 4 2\n4 2 1 3 5",
+       "output_or_expected": "3\n1 1 3 4\n2 2 3 2\n2 3 5 1"
+      },
+      {
+       "id": "crypt05",
+       "input_or_args": "5\n99\n0",
+       "output_or_expected": "5\n218922995834555169026\nNote : The reference for this problem has been taken from : UVa online Judge"
+      },
+      {
+       "id": "142_E. Help Greg the Dwarf 2",
+       "input_or_args": "2 2\n1.0 0.0 0.0\n1.0 0.0 1.0",
+       "output_or_expected": "2.414213562"
+      },
+      {
+       "id": "1206_F. Almost All",
+       "input_or_args": "3\n2 3\n2 1",
+       "output_or_expected": "3 2 1\n1 2 2"
+      },
+      {
+       "id": "138_C. Mushroom Gnomes - 2",
+       "input_or_args": "2 1\n2 2 50 50\n4 2 50 50\n3 1",
+       "output_or_expected": "0.2500000000"
+      },
+      {
+       "id": "528_C. Data Center Drama",
+       "input_or_args": "3 4\n1 2\n2 3\n1 1\n3 3",
+       "output_or_expected": "6\n2 1\n2 3\n1 1\n3 3\n3 1\n1 1"
+      },
+      {
+       "id": "111_E. Petya and Rectangle",
+       "input_or_args": "4 4\n2 2\n3 3",
+       "output_or_expected": "15\n2 2\n1 2\n1 1\n2 1\n3 1\n4 1\n4 2\n4 3\n4 4\n3 4\n2 4\n1 4\n1 3\n2 3\n3 3"
+      },
+      {
+       "id": "1208_C. Magic Grid",
+       "input_or_args": "8",
+       "output_or_expected": "19 55 11 39 32 36 4 52\n51 7 35 31 12 48 28 20\n43 23 59 15 0 8 16 44\n3 47 27 63 24 40 60 56\n34 38 6 54 17 53 9 37\n14 50 30 22 49 5 33 29\n2 10 18 46 41 21 57 13\n26 42 62 58 1 45 25 61"
+      },
+      {
+       "id": "331_D2. Escaping on Beaveractor",
+       "input_or_args": "3 3\n0 0 0 1\n0 2 2 2\n3 3 2 3\n12\n0 0 L 0\n0 0 L 1\n0 0 L 2\n0 0 L 3\n0 0 L 4\n0 0 L 5\n0 0 L 6\n2 0 U 2\n2 0 U 3\n3 0 U 5\n1 3 D 2\n1 3 R 2",
+       "output_or_expected": "0 0\n0 1\n0 2\n1 2\n2 2\n3 2\n3 2\n2 2\n3 2\n1 3\n2 2\n1 3"
+      },
+      {
+       "id": "81_E. Pairs",
+       "input_or_args": "5\n5 2\n3 2\n5 1\n2 1\n4 2",
+       "output_or_expected": "2 2\n5 3\n4 2"
+      },
+      {
+       "id": "1236_C. Labs",
+       "input_or_args": "3",
+       "output_or_expected": "2 8 5\n9 3 4\n7 6 1"
+      },
+      {
+       "id": "506_E. Mr. Kitayuta's Gift",
+       "input_or_args": "revive\n1",
+       "output_or_expected": "1"
+      },
+      {
+       "id": "1325_A. EhAb AnD gCd",
+       "input_or_args": "2\n2\n14",
+       "output_or_expected": "1 1\n6 4"
+      },
+      {
+       "id": "132_D. Constants in the language of Shakespeare",
+       "input_or_args": "1010011",
+       "output_or_expected": "4\n+2^0\n+2^1\n+2^4\n+2^6"
+      },
+      {
+       "id": "720_C. Homework",
+       "input_or_args": "3\n3 3 4\n3 3 5\n3 3 3",
+       "output_or_expected": ".*.\n***\n.*.\n**.\n**.\n*..\n.*.\n***\n*.."
+      },
+      {
+       "id": "1186_F. Vus the Cossack and a Graph",
+       "input_or_args": "6 6\n1 2\n2 3\n3 4\n4 5\n5 3\n6 5",
+       "output_or_expected": "5\n2 1\n3 2\n5 3\n5 4\n6 5"
+      },
+      {
+       "id": "685_D. Kay and Eternity",
+       "input_or_args": "5 3\n4 5\n4 6\n5 5\n5 6\n7 7",
+       "output_or_expected": "10 8 1 4 0"
+      },
+      {
+       "id": "141_E. Clearing Up",
+       "input_or_args": "3 3\n1 2 S\n1 3 M\n2 3 S",
+       "output_or_expected": "2\n2 1"
+      },
+      {
+       "id": "764_E. Timofey and remoduling",
+       "input_or_args": "17 5\n0 2 4 13 15",
+       "output_or_expected": "13 2"
+      },
+      {
+       "id": "633_C. Spy Syndrome 2",
+       "input_or_args": "12\niherehtolleh\n5\nHI\nHo\nthere\nHeLLo\nhello",
+       "output_or_expected": "HI there HeLLo"
+      },
+      {
+       "id": "577_D. Invariance of Tree",
+       "input_or_args": "4\n4 3 2 1",
+       "output_or_expected": "YES\n4 1\n4 2\n1 3"
+      },
+      {
+       "id": "mprob",
+       "input_or_args": "2\n4 10 3\n4 10 11",
+       "output_or_expected": "0.1125\n0.8875\nNOTE: Your answer will be accepted if the absolute error is less than 10^-6."
+      },
+      {
+       "id": "197_E. Paint Tree",
+       "input_or_args": "4\n1 2\n2 3\n1 4\n-1 -2\n3 5\n-3 3\n2 0",
+       "output_or_expected": "4 2 1 3"
+      }
+     ],
+     "missed_visible_tests": [
+      {
+       "id": "p01605 Replace",
+       "input_or_args": "aaaa\n2 1 1\na .\na nothing",
+       "output_or_expected": "."
+      },
+      {
+       "id": "p02654 AtCoder Grand Contest 045 - Lamps and Buttons",
+       "input_or_args": "8 4",
+       "output_or_expected": "16776"
+      },
+      {
+       "id": "290_F. Greedy Petya",
+       "input_or_args": "10 20\n3 10\n4 6\n4 9\n7 5\n8 8\n3 10\n9 7\n5 2\n9 2\n10 6\n10 4\n1 1\n7 2\n8 4\n7 2\n1 8\n5 4\n10 2\n8 5\n5 2",
+       "output_or_expected": "No"
+      },
+      {
+       "id": "p01570 Usoperanto",
+       "input_or_args": "4\n1 -1\n1 0\n1 1\n1 0",
+       "output_or_expected": "1"
+      },
+      {
+       "id": "p03988 AtCoder Grand Contest 005 - Tree Restoring",
+       "input_or_args": "10\n1 1 2 2 2 2 2 2 2 2",
+       "output_or_expected": "Impossible"
+      },
+      {
+       "id": "453_C. Little Pony and Summer Sun Celebration",
+       "input_or_args": "2 0\n0 0",
+       "output_or_expected": "0"
+      },
+      {
+       "id": "p03150 KEYENCE Programming Contest 2019 - KEYENCE String",
+       "input_or_args": "ashlfyha",
+       "output_or_expected": "NO"
+      },
+      {
+       "id": "65_A. Harry Potter and Three Spells",
+       "input_or_args": "1 1 0 1 1 1",
+       "output_or_expected": "Ron"
+      },
+      {
+       "id": "p03445 AtCoder Petrozavodsk Contest 001 - Simple APSP Problem",
+       "input_or_args": "4 4\n4\n0 1\n1 1\n2 1\n2 2",
+       "output_or_expected": "268"
+      },
+      {
+       "id": "99_B. Help Chef Gerasim",
+       "input_or_args": "5\n270\n250\n249\n230\n250",
+       "output_or_expected": "Unrecoverable configuration."
+      },
+      {
+       "id": "995_F. Cowmpany Cowmpensation",
+       "input_or_args": "2 5\n1",
+       "output_or_expected": "15"
+      },
+      {
+       "id": "1070_C. Cloud Computing",
+       "input_or_args": "4 100 3\n3 3 2 5\n1 1 3 2\n2 4 4 4",
+       "output_or_expected": "64"
+      },
+      {
+       "id": "108_E. Arrangement",
+       "input_or_args": "3 2001 3\n1 2\n2 3\n3 1",
+       "output_or_expected": "The times have changed"
+      },
+      {
+       "id": "1469_F. Power Sockets",
+       "input_or_args": "3 5\n4 3 4",
+       "output_or_expected": "4"
+      },
+      {
+       "id": "p01422 Beautiful Currency",
+       "input_or_args": "3\n6 11 30",
+       "output_or_expected": "0.166666666667"
+      },
+      {
+       "id": "p03521 CODE FESTIVAL 2017 Exhibition (Parallel) - Awkward",
+       "input_or_args": "15\n1\n2\n3\n1\n4\n2\n7\n1\n8\n2\n8\n1\n8\n2",
+       "output_or_expected": "97193524"
+      },
+      {
+       "id": "p03189 AtCoder Grand Contest 030 - Inversion Sum",
+       "input_or_args": "9 5\n3\n1\n4\n1\n5\n9\n2\n6\n5\n3 5\n8 9\n7 9\n3 2\n3 8",
+       "output_or_expected": "425"
+      },
+      {
+       "id": "599_E. Sandy and Nuts",
+       "input_or_args": "3 1 0\n1 2",
+       "output_or_expected": "2"
+      },
+      {
+       "id": "insomb6",
+       "input_or_args": "4\nDivye\nRohit\nAkshat\nParth\nScorpio\nBMW\nFord\nChevrolet\n1 BMW\n1 Ford\n2 Scorpio Chevrolet\n1 Ford",
+       "output_or_expected": "No"
+      },
+      {
+       "id": "p01468 Closest Segment Pair",
+       "input_or_args": "6\n5 5 5 45\n7 45 19 45\n7 30 19 30\n21 34 21 44\n26 45 36 28\n45 45 26 5",
+       "output_or_expected": "0.83553169"
+      },
+      {
+       "id": "901_D. Weighting a Tree",
+       "input_or_args": "6 6\n3 5 5 5 1 5\n1 4\n3 2\n4 3\n4 5\n3 5\n5 6",
+       "output_or_expected": "YES\n3\n5\n3\n-1\n-3\n5"
+      },
+      {
+       "id": "p03843 AtCoder Grand Contest 008 - Black Radius",
+       "input_or_args": "6\n1 2\n1 3\n1 4\n2 5\n2 6\n100011",
+       "output_or_expected": "8"
+      },
+      {
+       "id": "45_I. TCMCF+++",
+       "input_or_args": "4\n-2 -2 -2 -2",
+       "output_or_expected": "-2 -2 -2 -2"
+      },
+      {
+       "id": "p00991 Grid",
+       "input_or_args": "500 500 0 0 200 200",
+       "output_or_expected": "34807775"
+      },
+      {
+       "id": "119_E. Alternative Reality",
+       "input_or_args": "2 1\n0 20 0\n0 0 0\n0 10 0",
+       "output_or_expected": "0.0000000000"
+      },
+      {
+       "id": "483_C. Diverse Permutation",
+       "input_or_args": "5 2",
+       "output_or_expected": "1 3 2 4 5"
+      },
+      {
+       "id": "354_B. Game with Strings",
+       "input_or_args": "3\naab\nbcb\nbac",
+       "output_or_expected": "DRAW"
+      },
+      {
+       "id": "p02878 AtCoder Grand Contest 040 - Two Pieces",
+       "input_or_args": "1000000 100000 200000",
+       "output_or_expected": "758840509"
+      },
+      {
+       "id": "p03692 AtCoder Grand Contest 016 - Games on DAG",
+       "input_or_args": "4 2\n1 3\n2 4",
+       "output_or_expected": "2"
+      },
+      {
+       "id": "1320_F. Blocks and Sensors",
+       "input_or_args": "1 1 1\n1337\n1337\n1337\n1337\n1337\n1337",
+       "output_or_expected": "1337"
+      }
+     ]
+    }
+   },
+   "negative_control": {
+    "O1_apps_train": {
+     "statements": 4805,
+     "stdin_statements": 1742,
+     "call_statements": 3063,
+     "stdin": {
+      "precision": {
+       "value": 0.0,
+       "ci95": [
+        0.0,
+        0.0
+       ],
+       "num": 0,
+       "den": 1801
+      },
+      "precision_token_level_diagnostic": {
+       "value": 0.0,
+       "ci95": [
+        0.0,
+        0.0
+       ],
+       "num": 0,
+       "den": 1801
+      },
+      "recall_capped": {
+       "value": 0.0,
+       "ci95": [
+        0.0,
+        0.0
+       ],
+       "num": 0,
+       "den": 3
+      },
+      "statements_with_visible_tests": 3,
+      "nothing_extracted_but_visible": 0,
+      "exact_set_rate": 0.0,
+      "call_examples_on_stdin_problems": 2
+     },
+     "call": {
+      "precision": {
+       "value": 0.0,
+       "ci95": [
+        0.0,
+        0.0
+       ],
+       "num": 0,
+       "den": 3442
+      },
+      "coverage_any_confirmed": 0.0,
+      "coverage_any_extracted": 0.3898,
+      "stdin_examples_on_call_problems": 26
+     }
+    },
+    "O2_codecontests_train": {
+     "statements": 2461,
+     "stdin_statements": 2461,
+     "call_statements": 0,
+     "stdin": {
+      "precision": {
+       "value": 0.0,
+       "ci95": [
+        0.0,
+        0.0
+       ],
+       "num": 0,
+       "den": 3306
+      },
+      "precision_token_level_diagnostic": {
+       "value": 0.0,
+       "ci95": [
+        0.0,
+        0.0
+       ],
+       "num": 0,
+       "den": 3306
+      },
+      "recall_capped": {
+       "value": 0.0,
+       "ci95": [
+        0.0,
+        0.0
+       ],
+       "num": 0,
+       "den": 4
+      },
+      "statements_with_visible_tests": 4,
+      "nothing_extracted_but_visible": 1,
+      "exact_set_rate": 0.0,
+      "call_examples_on_stdin_problems": 5
+     }
+    }
+   }
+  },
+  "uncapped": {
+   "settings": {
+    "call_style": true,
+    "extended_stdin": true,
+    "max_examples": 10
+   },
+   "O1_apps_train": {
+    "DIAG": {
+     "overall": {
+      "statements": 2461,
+      "stdin_statements": 891,
+      "call_statements": 1570,
+      "stdin": {
+       "precision": {
+        "value": 0.9224,
+        "ci95": [
+         0.9043,
+         0.9393
+        ],
+        "num": 904,
+        "den": 980
+       },
+       "precision_token_level_diagnostic": {
+        "value": 0.9224,
+        "ci95": [
+         0.9043,
+         0.9393
+        ],
+        "num": 904,
+        "den": 980
+       },
+       "recall_capped": {
+        "value": 0.9496,
+        "ci95": [
+         0.935,
+         0.9631
+        ],
+        "num": 904,
+        "den": 952
+       },
+       "statements_with_visible_tests": 787,
+       "nothing_extracted_but_visible": 21,
+       "exact_set_rate": 0.9365,
+       "call_examples_on_stdin_problems": 1
+      },
+      "call": {
+       "precision": {
+        "value": 0.4226,
+        "ci95": [
+         0.3896,
+         0.4579
+        ],
+        "num": 745,
+        "den": 1763
+       },
+       "coverage_any_confirmed": 0.2459,
+       "coverage_any_extracted": 0.3911,
+       "stdin_examples_on_call_problems": 19
+      }
+     },
+     "by_group": {
+      "competitive_stdin": {
+       "statements": 871,
+       "stdin_statements": 867,
+       "call_statements": 4,
+       "stdin": {
+        "precision": {
+         "value": 0.9228,
+         "ci95": [
+          0.9041,
+          0.9408
+         ],
+         "num": 897,
+         "den": 972
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.9228,
+         "ci95": [
+          0.9041,
+          0.9408
+         ],
+         "num": 897,
+         "den": 972
+        },
+        "recall_capped": {
+         "value": 0.9502,
+         "ci95": [
+          0.9353,
+          0.9644
+         ],
+         "num": 897,
+         "den": 944
+        },
+        "statements_with_visible_tests": 779,
+        "nothing_extracted_but_visible": 21,
+        "exact_set_rate": 0.9371,
+        "call_examples_on_stdin_problems": 0
+       },
+       "call": {
+        "precision": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ],
+         "num": 0,
+         "den": 3
+        },
+        "coverage_any_confirmed": 0.0,
+        "coverage_any_extracted": 0.25,
+        "stdin_examples_on_call_problems": 1
+       }
+      },
+      "kata_function": {
+       "statements": 1095,
+       "stdin_statements": 3,
+       "call_statements": 1092,
+       "stdin": {
+        "precision": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "precision_token_level_diagnostic": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "recall_capped": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "statements_with_visible_tests": 0,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 0.0,
+        "call_examples_on_stdin_problems": 0
+       },
+       "call": {
+        "precision": {
+         "value": 0.5881,
+         "ci95": [
+          0.5393,
+          0.6351
+         ],
+         "num": 591,
+         "den": 1005
+        },
+        "coverage_any_confirmed": 0.2198,
+        "coverage_any_extracted": 0.3178,
+        "stdin_examples_on_call_problems": 6
+       }
+      },
+      "leetcode_method": {
+       "statements": 294,
+       "stdin_statements": 3,
+       "call_statements": 291,
+       "stdin": {
+        "precision": {
+         "value": 0.6667,
+         "ci95": [
+          0.0,
+          1.0
+         ],
+         "num": 2,
+         "den": 3
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.6667,
+         "ci95": [
+          0.0,
+          1.0
+         ],
+         "num": 2,
+         "den": 3
+        },
+        "recall_capped": {
+         "value": 0.6667,
+         "ci95": [
+          0.0,
+          1.0
+         ],
+         "num": 2,
+         "den": 3
+        },
+        "statements_with_visible_tests": 3,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 0.6667,
+        "call_examples_on_stdin_problems": 1
+       },
+       "call": {
+        "precision": {
+         "value": 0.1943,
+         "ci95": [
+          0.1708,
+          0.2192
+         ],
+         "num": 144,
+         "den": 741
+        },
+        "coverage_any_confirmed": 0.4914,
+        "coverage_any_extracted": 0.8969,
+        "stdin_examples_on_call_problems": 10
+       }
+      },
+      "unknown": {
+       "statements": 201,
+       "stdin_statements": 18,
+       "call_statements": 183,
+       "stdin": {
+        "precision": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 5,
+         "den": 5
+        },
+        "precision_token_level_diagnostic": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 5,
+         "den": 5
+        },
+        "recall_capped": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 5,
+         "den": 5
+        },
+        "statements_with_visible_tests": 5,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 1.0,
+        "call_examples_on_stdin_problems": 0
+       },
+       "call": {
+        "precision": {
+         "value": 0.7143,
+         "ci95": [
+          0.0,
+          1.0
+         ],
+         "num": 10,
+         "den": 14
+        },
+        "coverage_any_confirmed": 0.0164,
+        "coverage_any_extracted": 0.0273,
+        "stdin_examples_on_call_problems": 2
+       }
+      }
+     }
+    },
+    "CONF": {
+     "overall": {
+      "statements": 2344,
+      "stdin_statements": 851,
+      "call_statements": 1493,
+      "stdin": {
+       "precision": {
+        "value": 0.9397,
+        "ci95": [
+         0.9216,
+         0.955
+        ],
+        "num": 888,
+        "den": 945
+       },
+       "precision_token_level_diagnostic": {
+        "value": 0.9397,
+        "ci95": [
+         0.9216,
+         0.955
+        ],
+        "num": 888,
+        "den": 945
+       },
+       "recall_capped": {
+        "value": 0.9663,
+        "ci95": [
+         0.9537,
+         0.9775
+        ],
+        "num": 888,
+        "den": 919
+       },
+       "statements_with_visible_tests": 750,
+       "nothing_extracted_but_visible": 12,
+       "exact_set_rate": 0.9547,
+       "call_examples_on_stdin_problems": 1
+      },
+      "call": {
+       "precision": {
+        "value": 0.4348,
+        "ci95": [
+         0.3999,
+         0.4704
+        ],
+        "num": 730,
+        "den": 1679
+       },
+       "coverage_any_confirmed": 0.2612,
+       "coverage_any_extracted": 0.3885,
+       "stdin_examples_on_call_problems": 8
+      }
+     },
+     "by_group": {
+      "competitive_stdin": {
+       "statements": 834,
+       "stdin_statements": 832,
+       "call_statements": 2,
+       "stdin": {
+        "precision": {
+         "value": 0.9436,
+         "ci95": [
+          0.9282,
+          0.9581
+         ],
+         "num": 886,
+         "den": 939
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.9436,
+         "ci95": [
+          0.9282,
+          0.9581
+         ],
+         "num": 886,
+         "den": 939
+        },
+        "recall_capped": {
+         "value": 0.9662,
+         "ci95": [
+          0.9529,
+          0.9778
+         ],
+         "num": 886,
+         "den": 917
+        },
+        "statements_with_visible_tests": 748,
+        "nothing_extracted_but_visible": 12,
+        "exact_set_rate": 0.9545,
+        "call_examples_on_stdin_problems": 1
+       },
+       "call": {
+        "precision": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "coverage_any_confirmed": 0.0,
+        "coverage_any_extracted": 0.0,
+        "stdin_examples_on_call_problems": 0
+       }
+      },
+      "kata_function": {
+       "statements": 1051,
+       "stdin_statements": 6,
+       "call_statements": 1045,
+       "stdin": {
+        "precision": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "precision_token_level_diagnostic": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "recall_capped": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "statements_with_visible_tests": 0,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 0.0,
+        "call_examples_on_stdin_problems": 0
+       },
+       "call": {
+        "precision": {
+         "value": 0.5876,
+         "ci95": [
+          0.539,
+          0.6313
+         ],
+         "num": 580,
+         "den": 987
+        },
+        "coverage_any_confirmed": 0.2335,
+        "coverage_any_extracted": 0.3225,
+        "stdin_examples_on_call_problems": 4
+       }
+      },
+      "leetcode_method": {
+       "statements": 264,
+       "stdin_statements": 3,
+       "call_statements": 261,
+       "stdin": {
+        "precision": {
+         "value": 0.4,
+         "ci95": [
+          0.0,
+          1.0
+         ],
+         "num": 2,
+         "den": 5
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.4,
+         "ci95": [
+          0.0,
+          1.0
+         ],
+         "num": 2,
+         "den": 5
+        },
+        "recall_capped": {
+         "value": 1.0,
+         "ci95": [
+          0.0,
+          1.0
+         ],
+         "num": 2,
+         "den": 2
+        },
+        "statements_with_visible_tests": 2,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 1.0,
+        "call_examples_on_stdin_problems": 0
+       },
+       "call": {
+        "precision": {
+         "value": 0.2107,
+         "ci95": [
+          0.1859,
+          0.2396
+         ],
+         "num": 142,
+         "den": 674
+        },
+        "coverage_any_confirmed": 0.5402,
+        "coverage_any_extracted": 0.9042,
+        "stdin_examples_on_call_problems": 3
+       }
+      },
+      "unknown": {
+       "statements": 195,
+       "stdin_statements": 10,
+       "call_statements": 185,
+       "stdin": {
+        "precision": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ],
+         "num": 0,
+         "den": 1
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ],
+         "num": 0,
+         "den": 1
+        },
+        "recall_capped": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "statements_with_visible_tests": 0,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 0.0,
+        "call_examples_on_stdin_problems": 0
+       },
+       "call": {
+        "precision": {
+         "value": 0.4444,
+         "ci95": [
+          0.1762,
+          0.75
+         ],
+         "num": 8,
+         "den": 18
+        },
+        "coverage_any_confirmed": 0.027,
+        "coverage_any_extracted": 0.0378,
+        "stdin_examples_on_call_problems": 1
+       }
+      }
+     }
+    },
+    "audit": {
+     "unconfirmed_extractions": [
+      {
+       "id": "q2518",
+       "input_or_args": "(25,)",
+       "output_or_expected": "1389537"
+      },
+      {
+       "id": "q3318",
+       "input_or_args": "('Kata',)",
+       "output_or_expected": "'\u03ba\u03b1\u03c4\u03b1'"
+      },
+      {
+       "id": "q1764",
+       "input_or_args": "(2,)",
+       "output_or_expected": "99"
+      },
+      {
+       "id": "q234",
+       "input_or_args": "([' /', ' '],)",
+       "output_or_expected": "1"
+      },
+      {
+       "id": "q4031",
+       "input_or_args": "('radix', 'tree')",
+       "output_or_expected": "{'radix': {}, 'tree': {}}"
+      },
+      {
+       "id": "q373",
+       "input_or_args": "('aa', 'a')",
+       "output_or_expected": "False"
+      },
+      {
+       "id": "q2537",
+       "input_or_args": "([2, 2, 2, 3, 3],)",
+       "output_or_expected": "-1"
+      },
+      {
+       "id": "q271",
+       "input_or_args": "(2, 7)",
+       "output_or_expected": "''"
+      },
+      {
+       "id": "q317",
+       "input_or_args": "('leetcodeleet',)",
+       "output_or_expected": "'leet'"
+      },
+      {
+       "id": "q285",
+       "input_or_args": "([100, 200], 150)",
+       "output_or_expected": "1"
+      },
+      {
+       "id": "q913",
+       "input_or_args": "1\n2 2\n1 2",
+       "output_or_expected": "1"
+      },
+      {
+       "id": "q428",
+       "input_or_args": "(2,)",
+       "output_or_expected": "6"
+      },
+      {
+       "id": "q493",
+       "input_or_args": "(1, 2)",
+       "output_or_expected": "'abb'"
+      },
+      {
+       "id": "q204",
+       "input_or_args": "(7, 3)",
+       "output_or_expected": "28"
+      },
+      {
+       "id": "q316",
+       "input_or_args": "('xx', 'yy')",
+       "output_or_expected": "1"
+      },
+      {
+       "id": "q444",
+       "input_or_args": "([2, 1, 3],)",
+       "output_or_expected": "0"
+      },
+      {
+       "id": "q500",
+       "input_or_args": "([1, 1, 1, 1],)",
+       "output_or_expected": "1"
+      },
+      {
+       "id": "q2474",
+       "input_or_args": "('j?qg??b',)",
+       "output_or_expected": "'jaqgacb'"
+      },
+      {
+       "id": "q309",
+       "input_or_args": "('<DIV>This is the first line <![CDATA[<div>]]></DIV>',)",
+       "output_or_expected": "True"
+      },
+      {
+       "id": "q2658",
+       "input_or_args": "('This Is A Test',)",
+       "output_or_expected": "'TIAT'"
+      },
+      {
+       "id": "q4955",
+       "input_or_args": "('.ad',)",
+       "output_or_expected": "True"
+      },
+      {
+       "id": "q194",
+       "input_or_args": "([7, 7, 7, 7, 7, 7],)",
+       "output_or_expected": "1"
+      },
+      {
+       "id": "q986",
+       "input_or_args": "9\n2\n3\n7\n8\n14\n39\n145\n76\n320",
+       "output_or_expected": "3"
+      },
+      {
+       "id": "q2491",
+       "input_or_args": "(1, 7)",
+       "output_or_expected": "7"
+      },
+      {
+       "id": "q212",
+       "input_or_args": "('aba',)",
+       "output_or_expected": "2"
+      },
+      {
+       "id": "q4638",
+       "input_or_args": "('1/2 tbsp of oregano',)",
+       "output_or_expected": "'1/2 tbsp (8g) of oregano'"
+      },
+      {
+       "id": "q34",
+       "input_or_args": "1\n4",
+       "output_or_expected": "2\n2 4\n3 3\n3 1"
+      },
+      {
+       "id": "q283",
+       "input_or_args": "([[1, 1, 1, 1], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0]], 6)",
+       "output_or_expected": "3"
+      },
+      {
+       "id": "q148",
+       "input_or_args": "(6, [2, 10, 3, 1, 5, 8], [5, 4, 3, 9, 7, 2], 3)",
+       "output_or_expected": "68"
+      },
+      {
+       "id": "q431",
+       "input_or_args": "('abc',)",
+       "output_or_expected": "7"
+      }
+     ],
+     "missed_visible_tests": [
+      {
+       "id": "q1411",
+       "input_or_args": "3\n10 10 5 3\n10 4 6 4\n3 2 2 1",
+       "output_or_expected": "1.000000\n0.000000\n0.500000"
+      },
+      {
+       "id": "q2360",
+       "input_or_args": "3 1 998244353",
+       "output_or_expected": "1\n3\n1"
+      },
+      {
+       "id": "q573",
+       "input_or_args": "3\n3 4 1\n5 2 1\n3 4 3",
+       "output_or_expected": "0\n2\n0"
+      },
+      {
+       "id": "q677",
+       "input_or_args": "2\n10\njohn berry berry thomas thomas john john berry thomas john\n4\nramesh suresh suresh ramesh",
+       "output_or_expected": "john\nramesh"
+      },
+      {
+       "id": "q1529",
+       "input_or_args": "3\n5 3\nH T T H T\n7 4\nH H T T T H H\n6 1\nT H T H T T",
+       "output_or_expected": "1\n2\n2"
+      },
+      {
+       "id": "q2302",
+       "input_or_args": "3 10\n10 10\n20 5\n4 3",
+       "output_or_expected": "10.0000000\n15.0000000\n13.2000000"
+      },
+      {
+       "id": "q2226",
+       "input_or_args": "2 2\n00\n01",
+       "output_or_expected": "Alice"
+      },
+      {
+       "id": "q966",
+       "input_or_args": "2\n10 2\n100 3",
+       "output_or_expected": "5 0\n33 1"
+      },
+      {
+       "id": "q537",
+       "input_or_args": "1\n5 8",
+       "output_or_expected": "1"
+      },
+      {
+       "id": "q2330",
+       "input_or_args": "5 3\n1 5 2 4 7\n7 9 6",
+       "output_or_expected": "4"
+      },
+      {
+       "id": "q635",
+       "input_or_args": "06454\nInput2:\nC0D3C43F",
+       "output_or_expected": "6454\nOutput2:\n3943"
+      },
+      {
+       "id": "q2062",
+       "input_or_args": "1\n3 2 2 2 2 1",
+       "output_or_expected": "4"
+      },
+      {
+       "id": "q1476",
+       "input_or_args": "cat is the act of tac\ncat",
+       "output_or_expected": "The antidote is found in 46."
+      },
+      {
+       "id": "q1503",
+       "input_or_args": "3\nabcd\n4\na b c d\naabbbcccdddd\n4\na b c d\nacd\n3\na b d",
+       "output_or_expected": "1\n1\n0"
+      },
+      {
+       "id": "q1581",
+       "input_or_args": "2\nThis is a sample piece of text to illustrate this\nproblem.",
+       "output_or_expected": "10\na\nillustrate\nis\nof\npiece\nproblem\nsample\ntext\nthis\nto"
+      },
+      {
+       "id": "q982",
+       "input_or_args": "1\n5\n4 9 1 32 13",
+       "output_or_expected": "3"
+      },
+      {
+       "id": "q1055",
+       "input_or_args": "3\na.ba\ncb.bc\na.b",
+       "output_or_expected": "abba\ncbabc\n-1"
+      },
+      {
+       "id": "q603",
+       "input_or_args": "Mai Hu Jiyaan",
+       "output_or_expected": "Hu Mai Hu Hu Hu Jiyaan Hu"
+      },
+      {
+       "id": "q1039",
+       "input_or_args": "2\n3\n4",
+       "output_or_expected": "1\n3"
+      },
+      {
+       "id": "q811",
+       "input_or_args": "1\n10 5\n1 3 5 4 5 6 7 8  4 5\n1 7\n1 3\n1 1\n0 2 7\n1 3",
+       "output_or_expected": "-1\n6\n5\n5"
+      },
+      {
+       "id": "q108",
+       "input_or_args": "2\n1 2 0 1\n0 1 0 0",
+       "output_or_expected": "Ya Ya Tidak Tidak\nTidak Ya Tidak Tidak"
+      },
+      {
+       "id": "q514",
+       "input_or_args": "10\n1 2 5 3 4 6 7 3 2 4\n1 2\n2 3\n3 4\n4 5\n3 6\n6 7\n1 8\n8 9\n9 10",
+       "output_or_expected": "1\n2\n3\n3\n4\n4\n5\n2\n2\n3"
+      },
+      {
+       "id": "q1676",
+       "input_or_args": "3\n2\n0 0\n0 1\n3\n0 0\n1 1\n2 2\n4\n0 0\n1 10\n1 5\n2 2",
+       "output_or_expected": "1.00\n2.83\n18.21\nFor the third test case above, the following is the path you must take:\n0,0 -> 1,10\n1,10 -> 1,5\n1,5 -> 2,2\n= 18.21"
+      },
+      {
+       "id": "q2264",
+       "input_or_args": "abc",
+       "output_or_expected": "3"
+      },
+      {
+       "id": "q2271",
+       "input_or_args": "3 5 7 5",
+       "output_or_expected": "1"
+      },
+      {
+       "id": "q2352",
+       "input_or_args": "3\n5 12\n1 0 2 0 4 0 5 0\n5 12\n3 30 4 0 5 0 6 0\n5 12\n3 0 4 0 5 0 6 0",
+       "output_or_expected": "1:20.56\n-1\n3:26.43"
+      },
+      {
+       "id": "q1692",
+       "input_or_args": "3 3 10\n4\n0\n3\n1\n6",
+       "output_or_expected": "1 1 2 1 2 1 3\n1 3 3 1 3 1 1\n1 3 3 1 3 2 2\n1 1 2 3 3 1 1\n2 3 3 1 3\n3\n2 2 1\n2 2 1\n2 2 2"
+      },
+      {
+       "id": "q1390",
+       "input_or_args": "2\nThis is a sample piece of text to illustrate this\nproblem.  If you are smart you will solve this right.",
+       "output_or_expected": "right this solve will you smart are you If problem\nthis illustrate to text of piece sample a is This"
+      },
+      {
+       "id": "q2308",
+       "input_or_args": "4 2 5\n1 2 5 7",
+       "output_or_expected": "11"
+      },
+      {
+       "id": "q2233",
+       "input_or_args": "2",
+       "output_or_expected": "2\n17"
+      }
+     ]
+    }
+   },
+   "O2_codecontests_train": {
+    "DIAG": {
+     "overall": {
+      "statements": 1223,
+      "stdin_statements": 1223,
+      "call_statements": 0,
+      "stdin": {
+       "precision": {
+        "value": 0.8428,
+        "ci95": [
+         0.8243,
+         0.8613
+        ],
+        "num": 1844,
+        "den": 2188
+       },
+       "precision_token_level_diagnostic": {
+        "value": 0.846,
+        "ci95": [
+         0.828,
+         0.8642
+        ],
+        "num": 1851,
+        "den": 2188
+       },
+       "recall_capped": {
+        "value": 0.985,
+        "ci95": [
+         0.978,
+         0.9914
+        ],
+        "num": 1842,
+        "den": 1870
+       },
+       "statements_with_visible_tests": 977,
+       "nothing_extracted_but_visible": 12,
+       "exact_set_rate": 0.9212,
+       "call_examples_on_stdin_problems": 3
+      }
+     },
+     "by_group": {
+      "aizu": {
+       "statements": 298,
+       "stdin_statements": 298,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.973,
+         "ci95": [
+          0.9533,
+          0.9885
+         ],
+         "num": 433,
+         "den": 445
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.973,
+         "ci95": [
+          0.9533,
+          0.9885
+         ],
+         "num": 433,
+         "den": 445
+        },
+        "recall_capped": {
+         "value": 0.9841,
+         "ci95": [
+          0.9696,
+          0.9955
+         ],
+         "num": 432,
+         "den": 439
+        },
+        "statements_with_visible_tests": 294,
+        "nothing_extracted_but_visible": 3,
+        "exact_set_rate": 0.9524,
+        "call_examples_on_stdin_problems": 0
+       }
+      },
+      "atcoder": {
+       "statements": 91,
+       "stdin_statements": 91,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 267,
+         "den": 267
+        },
+        "precision_token_level_diagnostic": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 267,
+         "den": 267
+        },
+        "recall_capped": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 267,
+         "den": 267
+        },
+        "statements_with_visible_tests": 91,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 1.0,
+        "call_examples_on_stdin_problems": 0
+       }
+      },
+      "codechef": {
+       "statements": 81,
+       "stdin_statements": 81,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.9494,
+         "ci95": [
+          0.9024,
+          0.9878
+         ],
+         "num": 75,
+         "den": 79
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.9494,
+         "ci95": [
+          0.9024,
+          0.9878
+         ],
+         "num": 75,
+         "den": 79
+        },
+        "recall_capped": {
+         "value": 0.8621,
+         "ci95": [
+          0.7667,
+          0.9524
+         ],
+         "num": 75,
+         "den": 87
+        },
+        "statements_with_visible_tests": 81,
+        "nothing_extracted_but_visible": 6,
+        "exact_set_rate": 0.8765,
+        "call_examples_on_stdin_problems": 1
+       }
+      },
+      "codeforces": {
+       "statements": 575,
+       "stdin_statements": 575,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.8687,
+         "ci95": [
+          0.8424,
+          0.8938
+         ],
+         "num": 1065,
+         "den": 1226
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.8744,
+         "ci95": [
+          0.8489,
+          0.8983
+         ],
+         "num": 1072,
+         "den": 1226
+        },
+        "recall_capped": {
+         "value": 0.9916,
+         "ci95": [
+          0.9836,
+          0.9981
+         ],
+         "num": 1065,
+         "den": 1074
+        },
+        "statements_with_visible_tests": 508,
+        "nothing_extracted_but_visible": 3,
+        "exact_set_rate": 0.8976,
+        "call_examples_on_stdin_problems": 0
+       }
+      },
+      "hackerearth": {
+       "statements": 178,
+       "stdin_statements": 178,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.0234,
+         "ci95": [
+          0.0,
+          0.052
+         ],
+         "num": 4,
+         "den": 171
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.0234,
+         "ci95": [
+          0.0,
+          0.052
+         ],
+         "num": 4,
+         "den": 171
+        },
+        "recall_capped": {
+         "value": 1.0,
+         "ci95": [
+          0.0,
+          1.0
+         ],
+         "num": 3,
+         "den": 3
+        },
+        "statements_with_visible_tests": 3,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 0.6667,
+        "call_examples_on_stdin_problems": 2
+       }
+      }
+     }
+    },
+    "CONF": {
+     "overall": {
+      "statements": 1238,
+      "stdin_statements": 1238,
+      "call_statements": 0,
+      "stdin": {
+       "precision": {
+        "value": 0.8578,
+        "ci95": [
+         0.8413,
+         0.8751
+        ],
+        "num": 1907,
+        "den": 2223
+       },
+       "precision_token_level_diagnostic": {
+        "value": 0.8605,
+        "ci95": [
+         0.8439,
+         0.8777
+        ],
+        "num": 1913,
+        "den": 2223
+       },
+       "recall_capped": {
+        "value": 0.9891,
+        "ci95": [
+         0.984,
+         0.9937
+        ],
+        "num": 1905,
+        "den": 1926
+       },
+       "statements_with_visible_tests": 1005,
+       "nothing_extracted_but_visible": 6,
+       "exact_set_rate": 0.9313,
+       "call_examples_on_stdin_problems": 2
+      }
+     },
+     "by_group": {
+      "aizu": {
+       "statements": 307,
+       "stdin_statements": 307,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.9812,
+         "ci95": [
+          0.9676,
+          0.9919
+         ],
+         "num": 470,
+         "den": 479
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.9812,
+         "ci95": [
+          0.9676,
+          0.9919
+         ],
+         "num": 470,
+         "den": 479
+        },
+        "recall_capped": {
+         "value": 0.9894,
+         "ci95": [
+          0.9784,
+          0.9979
+         ],
+         "num": 468,
+         "den": 473
+        },
+        "statements_with_visible_tests": 304,
+        "nothing_extracted_but_visible": 1,
+        "exact_set_rate": 0.9605,
+        "call_examples_on_stdin_problems": 0
+       }
+      },
+      "atcoder": {
+       "statements": 105,
+       "stdin_statements": 105,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 306,
+         "den": 306
+        },
+        "precision_token_level_diagnostic": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 306,
+         "den": 306
+        },
+        "recall_capped": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ],
+         "num": 306,
+         "den": 306
+        },
+        "statements_with_visible_tests": 104,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 1.0,
+        "call_examples_on_stdin_problems": 0
+       }
+      },
+      "codechef": {
+       "statements": 80,
+       "stdin_statements": 80,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.8506,
+         "ci95": [
+          0.7738,
+          0.9213
+         ],
+         "num": 74,
+         "den": 87
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.8506,
+         "ci95": [
+          0.7738,
+          0.9213
+         ],
+         "num": 74,
+         "den": 87
+        },
+        "recall_capped": {
+         "value": 0.8605,
+         "ci95": [
+          0.7791,
+          0.9318
+         ],
+         "num": 74,
+         "den": 86
+        },
+        "statements_with_visible_tests": 80,
+        "nothing_extracted_but_visible": 2,
+        "exact_set_rate": 0.8125,
+        "call_examples_on_stdin_problems": 0
+       }
+      },
+      "codeforces": {
+       "statements": 572,
+       "stdin_statements": 572,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.8942,
+         "ci95": [
+          0.869,
+          0.9177
+         ],
+         "num": 1057,
+         "den": 1182
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.8993,
+         "ci95": [
+          0.8744,
+          0.9225
+         ],
+         "num": 1063,
+         "den": 1182
+        },
+        "recall_capped": {
+         "value": 0.9962,
+         "ci95": [
+          0.9923,
+          0.9991
+         ],
+         "num": 1057,
+         "den": 1061
+        },
+        "statements_with_visible_tests": 517,
+        "nothing_extracted_but_visible": 3,
+        "exact_set_rate": 0.9188,
+        "call_examples_on_stdin_problems": 0
+       }
+      },
+      "hackerearth": {
+       "statements": 174,
+       "stdin_statements": 174,
+       "call_statements": 0,
+       "stdin": {
+        "precision": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ],
+         "num": 0,
+         "den": 169
+        },
+        "precision_token_level_diagnostic": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ],
+         "num": 0,
+         "den": 169
+        },
+        "recall_capped": {
+         "value": null,
+         "num": 0,
+         "den": 0
+        },
+        "statements_with_visible_tests": 0,
+        "nothing_extracted_but_visible": 0,
+        "exact_set_rate": 0.0,
+        "call_examples_on_stdin_problems": 2
+       }
+      }
+     }
+    },
+    "audit": {
+     "unconfirmed_extractions": [
+      {
+       "id": "defective-trophy-1",
+       "input_or_args": "4\n2\n4\n8\n16",
+       "output_or_expected": "1\n2\n2\n3"
+      },
+      {
+       "id": "1208_C. Magic Grid",
+       "input_or_args": "4",
+       "output_or_expected": "8 9 1 13\n3 12 7 5\n0 2 4 11\n6 10 15 14"
+      },
+      {
+       "id": "subtraction-game-theory",
+       "input_or_args": "3\n1\n2\n3",
+       "output_or_expected": "0"
+      },
+      {
+       "id": "gudi-trapped-in-the-room-july-easy",
+       "input_or_args": "2\n31\n4 1\n160\n9 2",
+       "output_or_expected": "11\n000"
+      },
+      {
+       "id": "578_E. Walking!",
+       "input_or_args": "RRLRL",
+       "output_or_expected": "1\n2 5 1 3 4"
+      },
+      {
+       "id": "fuck-this-problem",
+       "input_or_args": "Vhaveplanted bomb @allthe location intheCITY.\n8",
+       "output_or_expected": "Vhavepla\nnted bom\nb @allth\ne locati\non inthe\nCITY."
+      },
+      {
+       "id": "53_D. Physical Education",
+       "input_or_args": "4\n1 2 3 2\n3 2 1 2",
+       "output_or_expected": "4\n2 3\n1 2\n3 4\n2 3"
+      },
+      {
+       "id": "raghu-vs-sayan",
+       "input_or_args": "3\n15 20 3\n10 5 4\n3 10 2\n4 7\n10 8 3\n4 5 5",
+       "output_or_expected": "Sayan Won\nSayan Won\nRaghu Won"
+      },
+      {
+       "id": "848_A. From Y to Y",
+       "input_or_args": "3",
+       "output_or_expected": "codeforces"
+      },
+      {
+       "id": "a-team",
+       "input_or_args": "2\n1 1 2 2 3 3\n2 2 3 3 1 1",
+       "output_or_expected": "NO\nYES"
+      },
+      {
+       "id": "life-the-universe-and-everything",
+       "input_or_args": "1\n2\n88\n42\n99",
+       "output_or_expected": "1\n2\n88"
+      },
+      {
+       "id": "223_D. Spider",
+       "input_or_args": "5\n0 0\n5 0\n1 4\n0 2\n2 1\n3 1",
+       "output_or_expected": "5.650281539872884700e+000"
+      },
+      {
+       "id": "1446_F. Line Distance",
+       "input_or_args": "4 3\n2 1\n-2 -1\n0 -1\n-2 4",
+       "output_or_expected": "0.707106780737"
+      },
+      {
+       "id": "44_I. Toys",
+       "input_or_args": "3",
+       "output_or_expected": "5\n{1,2,3}\n{1,2},{3}\n{1},{2,3}\n{1},{2},{3}\n{1,3},{2}"
+      },
+      {
+       "id": "xenny-and",
+       "input_or_args": "10 1",
+       "output_or_expected": "2 1\n5 1"
+      },
+      {
+       "id": "matrix-symmetry",
+       "input_or_args": "First line contains t,the number of test cases. First line of each test case\ncontains n the size of matrix. Each of next n lines contain n characters.",
+       "output_or_expected": "Output t lines, answer for each test case.\nPrint \"HORIZONTAL\" if symmetric about horizontal axis.\nPrint \"VERTICAL\" if symmetric about vertical axis.\nPrint \"BOTH\" if symmetric about both axes.\nprint \"NO\" if it is not symmetric."
+      },
+      {
+       "id": "280_E. Sequence Transformation",
+       "input_or_args": "10 100000 8714 9344\n3378 14705 17588 22672 32405 34309 37446 51327 81228 94982",
+       "output_or_expected": "1.000000 8715.000000 17429.000000 26143.000000 34857.000000 43571.000000 52285.000000 61629.000000 70973.000000 80317.000000\n797708674.000000"
+      },
+      {
+       "id": "chandu-and-his-girlfriend-returns",
+       "input_or_args": "1\n4 5\n9 7 5 3\n8 6 4 2 0",
+       "output_or_expected": "9 8 7 6 5 4 3 2 0"
+      },
+      {
+       "id": "diedie",
+       "input_or_args": "1\n3",
+       "output_or_expected": "250000002"
+      },
+      {
+       "id": "460_D. Little Victor and Set",
+       "input_or_args": "8 30 7",
+       "output_or_expected": "0\n5\n14 9 28 11 16"
+      },
+      {
+       "id": "528_C. Data Center Drama",
+       "input_or_args": "4 6\n1 2\n2 3\n3 4\n4 1\n1 3\n1 3",
+       "output_or_expected": "6\n1 2\n3 4\n1 4\n3 2\n1 3\n1 3"
+      },
+      {
+       "id": "97_B. Superset",
+       "input_or_args": "2\n1 1\n2 2",
+       "output_or_expected": "3\n1 1\n2 2\n1 2"
+      },
+      {
+       "id": "63_D. Dividing Island",
+       "input_or_args": "3 2 1 4 4\n1 2 3 4",
+       "output_or_expected": "YES\nabbd\ncccd\n...d\n...d"
+      },
+      {
+       "id": "chacha-chaudhary-and-sabu",
+       "input_or_args": "1\n2 1 2 2 15",
+       "output_or_expected": "1"
+      },
+      {
+       "id": "friendless-dr-sheldon-cooper-14",
+       "input_or_args": "1\n3 3\n1 2\n2 3\n1 3",
+       "output_or_expected": "2"
+      },
+      {
+       "id": "choclate-weight",
+       "input_or_args": "5\n5 2 3 4 1\n4\n10\n4\n2\n12",
+       "output_or_expected": "I Hate You\nI Like You\nI Like You\nI Hate You"
+      },
+      {
+       "id": "1075_D. Intersecting Subtrees",
+       "input_or_args": "2\n6\n1 2\n1 3\n1 4\n4 5\n4 6\n4\n1 3 4 5\n3\n3 5 2\n3\n6\n1 2\n1 3\n1 4\n4 5\n4 6\n3\n1 2 3\n3\n4 1 6\n5",
+       "output_or_expected": "B 2\nC 1\nA 1\nC -1"
+      },
+      {
+       "id": "game-of-numbers-7",
+       "input_or_args": "1\n1 10",
+       "output_or_expected": "7"
+      },
+      {
+       "id": "446_D. DZY Loves Games",
+       "input_or_args": "5 5 3\n0 0 1 0 1\n1 2\n2 3\n3 4\n4 5\n1 2",
+       "output_or_expected": "0.25000000"
+      },
+      {
+       "id": "bhavesh-and-colors",
+       "input_or_args": "1\n4\n1 2 1 2",
+       "output_or_expected": "2"
+      }
+     ],
+     "missed_visible_tests": [
+      {
+       "id": "arraytrm",
+       "input_or_args": "3\n2 1\n10 10\n3 2\n1 2 2\n3 2\n1 2 3",
+       "output_or_expected": "YES\nYES\nNO"
+      },
+      {
+       "id": "stablemp",
+       "input_or_args": "2\n4\n1 4 3 1 2\n2 2 1 3 4\n3 1 3 4 2\n4 4 3 1 2\n1 3 2 4 1\n2 2 3 1 4\n3 3 1 2 4\n4 3 2 4 1\n7\n1 3 4 2 1 6 7 5\n2 6 4 2 3 5 1 7\n3 6 3 5 7 2 4 1\n4 1 6 3 2 4 7 5\n5 1 6 5 3 4 7 2\n6 1 7 3 4 5 6 2\n7 5 6 2 4 3 7 1\n1 4 5 3 7 2 6 1\n2 5 6 4 7 3 2 1\n3 1 6 5 4 3 7 2\n4 3 5 6 7 2 4 1\n5 1 7 6 4 3 5 2\n6 6 3 7 5 2 4 1\n7 1 7 ",
+       "output_or_expected": "1 3\n2 2\n3 1\n4 4\n1 4\n2 5\n3 1\n4 3\n5 7\n6 6\n7 2"
+      },
+      {
+       "id": "ynoutput",
+       "input_or_args": "2\nNO\nNO\nNO\nYES",
+       "output_or_expected": "NO\nYES"
+      },
+      {
+       "id": "crypt05",
+       "input_or_args": "5\n99\n0",
+       "output_or_expected": "5\n218922995834555169026"
+      },
+      {
+       "id": "skyscr",
+       "input_or_args": "1\n2 3",
+       "output_or_expected": "1"
+      },
+      {
+       "id": "tree",
+       "input_or_args": "1 2",
+       "output_or_expected": "0"
+      },
+      {
+       "id": "p00017 Caesar Cipher",
+       "input_or_args": "xlmw mw xli tmgxyvi xlex m xsso mr xli xvmt.",
+       "output_or_expected": "this is the picture that i took in the trip."
+      },
+      {
+       "id": "p00804 e-market",
+       "input_or_args": "3\nPERLIS SELL A 300\nWILKES BUY A 200\nHAMMING SELL A 100\n4\nBACKUS SELL A 10\nFLOYD BUY A 20\nIVERSON SELL B 30\nBACKUS BUY B 40\n7\nWILKINSON SELL A 500\nMCCARTHY BUY C 300\nWILKINSON SELL C 200\nDIJKSTRA SELL B 100\nBACHMAN BUY A 400\nDIJKSTRA BUY A 600\nWILKINSON SELL A 300\n2\nABCD SELL X 10\nABC BUY X 15\n2\nA S",
+       "output_or_expected": "A 150 150 150\n--\nHAMMING 0 150\nPERLIS 0 0\nWILKES 150 0\n----------\nA 15 15 15\nB 35 35 35\n--\nBACKUS 35 15\nFLOYD 15 0\nIVERSON 0 35\n----------\nA 350 450 550\nC 250 250 250\n--\nBACHMAN 350 0\nDIJKSTRA 550 0\nMCCARTHY 250 0\nWILKINSON 0 1150\n----------\nX 12 12 12\n--\nABC 12 0\nABCD 0 12\n----------\n--\nA 0 0\n-----"
+      },
+      {
+       "id": "mprob",
+       "input_or_args": "2\n4 10 3\n4 10 11",
+       "output_or_expected": "0.1125\n0.8875"
+      },
+      {
+       "id": "prime1",
+       "input_or_args": "2\n1 10\n3 5",
+       "output_or_expected": "2\n3\n5\n7\n3\n5"
+      },
+      {
+       "id": "p01290 Queen's Case",
+       "input_or_args": "2 2\nQE\nEA\n3 1\nQAE\n3 1\nAQE\n5 5\n..E..\n.###.\nA###Q\n.###.\n..E..\n5 1\nA.E.Q\n5 5\nA....\n####.\n..E..\n.####\n....Q\n0 0",
+       "output_or_expected": "Queen can not escape and Army can not catch Queen.\nArmy can catch Queen.\nQueen can escape.\nQueen can not escape and Army can not catch Queen.\nArmy can catch Queen.\nArmy can catch Queen."
+      },
+      {
+       "id": "ds7",
+       "input_or_args": "2\n5\ntoioynnkpheleaigshareconhtomesnlewx\n3\nttyohhieneesiaabss",
+       "output_or_expected": "theresnoplacelikehomeonasnowynightx\nthisistheeasyoneab"
+      },
+      {
+       "id": "1081_F. Tricky Interactor",
+       "input_or_args": "4 2\n2\n2\n0",
+       "output_or_expected": "? 1 1\n? 1 1\n? 3 4\n! 0011"
+      },
+      {
+       "id": "coins",
+       "input_or_args": "12\n2",
+       "output_or_expected": "13\n2"
+      },
+      {
+       "id": "p01290 Queen's Case",
+       "input_or_args": "2 2\nQE\nEA\n3 1\nQAE\n3 1\nAQE\n5 5\n..E..\n.###.\nA###Q\n.###.\n..E..\n5 1\nA.E.Q\n5 5\nA....\n.\n..E..\n.####\n....Q\n0 0",
+       "output_or_expected": "Queen can not escape and Army can not catch Queen.\nArmy can catch Queen.\nQueen can escape.\nQueen can not escape and Army can not catch Queen.\nArmy can catch Queen.\nArmy can catch Queen."
+      },
+      {
+       "id": "633_C. Spy Syndrome 2",
+       "input_or_args": "30\nariksihsidlihcdnaehsetahgnisol\n10\nKira\nhates\nis\nhe\nlosing\ndeath\nchildish\nL\nand\nNote",
+       "output_or_expected": "Kira is childish and he hates losing"
+      },
+      {
+       "id": "1534_D. Lost Tree",
+       "input_or_args": "4\n0 1 2 2\n1 0 1 1",
+       "output_or_expected": "? 1\n? 2\n!\n4 2\n1 2\n2 3"
+      },
+      {
+       "id": "71_D. Solitaire",
+       "input_or_args": "4 6\n2S 3S 4S 7S 8S AS\n5H 6H 7H QC TC AC\n8H 9H TH 7C 8C 9C\n2D 2C 3C 4C 5C 6C",
+       "output_or_expected": "Solution exists.\nThere are no jokers.\nPut the first square to (1, 1).\nPut the second square to (2, 4)."
+      },
+      {
+       "id": "1007_C. Guess two numbers",
+       "input_or_args": "5\n3\n3\n2\n1\n0",
+       "output_or_expected": "4 3\n3 4\n3 3\n1 5\n2 4"
+      },
+      {
+       "id": "ksum",
+       "input_or_args": "3 3\n10 2 7",
+       "output_or_expected": "19 12 10"
+      },
+      {
+       "id": "j7",
+       "input_or_args": "2\n20 14\n20 16",
+       "output_or_expected": "3.00\n4.15"
+      },
+      {
+       "id": "108_E. Arrangement",
+       "input_or_args": "10 3630801 0",
+       "output_or_expected": "The times have changed"
+      },
+      {
+       "id": "p00101 Aizu PR",
+       "input_or_args": "3\nHoshino\nHashino\nMasayuki Hoshino was the grandson of Ieyasu Tokugawa.",
+       "output_or_expected": "Hoshina\nHashino\nMasayuki Hoshina was the grandson of Ieyasu Tokugawa."
+      },
+      {
+       "id": "galactik",
+       "input_or_args": "6 6\n1 2\n2 3\n1 3\n4 5\n5 6\n4 6\n1\n3\n5\n2\n4\n6",
+       "output_or_expected": "3"
+      },
+      {
+       "id": "ism1",
+       "input_or_args": "3\ncan you meet me outside ccd today\na\nthis year hard kaur is coming to entertain us",
+       "output_or_expected": "nac uoy teem em edistuo dcc yadot\na\nsiht raey drah ruak si gnimoc ot niatretne su"
+      },
+      {
+       "id": "p00791 Trapezoids",
+       "input_or_args": "7\n********\n*      *\n* ***  *\n* * *  *\n* ***  *\n*      *\n********\n9\n***\n*  *\n*****     *****\n*   *\n***   *****\n* *\n* *\n***\n11\n****                                      *******************\n*   *  *********                          *                  *\n******  *       *    ****                 *  *****",
+       "output_or_expected": "9 1\n56 1\n----------\n12 2\n15 1\n----------\n9 3\n12 2\n15 2\n63 1\n105 1\n264 1"
+      },
+      {
+       "id": "108_E. Arrangement",
+       "input_or_args": "3 2001 3\n1 2\n2 3\n3 1",
+       "output_or_expected": "The times have changed"
+      },
+      {
+       "id": "1534_D. Lost Tree",
+       "input_or_args": "5\n2 2 1 1 0",
+       "output_or_expected": "? 5\n!\n4 5\n3 5\n2 4\n1 3"
+      },
+      {
+       "id": "p00786 BUT We Need a Diagram",
+       "input_or_args": "a(A,b(B,C));\nx( y( y( z(z), v( s, t ) ) ), u ) ;\na( b( c,\nd(\ne(f),\ng\n)\n),\nh( i(\nj(\nk(k,k),\nl(l)\n),\nm(m)\n)\n)\n);\na(B(C),d(e(f(g(h(i(j,k),l),m),n),o),p))\n.",
+       "output_or_expected": "1:\nB C\n---\nA b\n---\na\n2:\nz s t\n- ---\nz  v\n----\ny\n-\ny u\n---\nx\n3:\nk k l\n--- -\nf  k  l m\n-  ---- -\ne g j   m\n--- -----\nc d    i\n---    -\nb     h\n-------\na\n4:\nj k\n---\ni l\n---\nh m\n---\ng n\n---\nf o\n---\nC e p\n- ---\nB  d\n----\na"
+      },
+      {
+       "id": "p00127 Pocket Pager Input",
+       "input_or_args": "341143514535\n314\n143565553551655311343411652235654535651124615163\n551544654451431564\n4\n3411\n6363636363\n153414",
+       "output_or_expected": "naruto\nNA\ndo you wanna go to aizu?\nyes sure!\nNA\nna\n?????\nend"
+      }
+     ]
+    }
+   },
+   "negative_control": {
+    "O1_apps_train": {
+     "statements": 4805,
+     "stdin_statements": 1742,
+     "call_statements": 3063,
+     "stdin": {
+      "precision": {
+       "value": 0.0,
+       "ci95": [
+        0.0,
+        0.0
+       ],
+       "num": 0,
+       "den": 1925
+      },
+      "precision_token_level_diagnostic": {
+       "value": 0.0,
+       "ci95": [
+        0.0,
+        0.0
+       ],
+       "num": 0,
+       "den": 1925
+      },
+      "recall_capped": {
+       "value": 0.0,
+       "ci95": [
+        0.0,
+        0.0
+       ],
+       "num": 0,
+       "den": 3
+      },
+      "statements_with_visible_tests": 3,
+      "nothing_extracted_but_visible": 0,
+      "exact_set_rate": 0.0,
+      "call_examples_on_stdin_problems": 2
+     },
+     "call": {
+      "precision": {
+       "value": 0.0,
+       "ci95": [
+        0.0,
+        0.0
+       ],
+       "num": 0,
+       "den": 3442
+      },
+      "coverage_any_confirmed": 0.0,
+      "coverage_any_extracted": 0.3898,
+      "stdin_examples_on_call_problems": 27
+     }
+    },
+    "O2_codecontests_train": {
+     "statements": 2461,
+     "stdin_statements": 2461,
+     "call_statements": 0,
+     "stdin": {
+      "precision": {
+       "value": 0.0002,
+       "ci95": [
+        0.0,
+        0.0007
+       ],
+       "num": 1,
+       "den": 4411
+      },
+      "precision_token_level_diagnostic": {
+       "value": 0.0002,
+       "ci95": [
+        0.0,
+        0.0007
+       ],
+       "num": 1,
+       "den": 4411
+      },
+      "recall_capped": {
+       "value": 0.25,
+       "ci95": [
+        0.0,
+        1.0
+       ],
+       "num": 1,
+       "den": 4
+      },
+      "statements_with_visible_tests": 4,
+      "nothing_extracted_but_visible": 0,
+      "exact_set_rate": 0.25,
+      "call_examples_on_stdin_problems": 5
+     }
+    }
+   }
+  }
+ }
+}

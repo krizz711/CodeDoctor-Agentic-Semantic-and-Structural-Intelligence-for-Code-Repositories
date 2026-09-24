@@ -66,7 +66,7 @@ verified here; **J** = judgment.
 - **EXT-dev has fed E3, E8, R1 and R2,** so it is no longer a clean held-out set.
 - **EXT-lockbox (109 statements) is untouched.** It is the only valid final check on non-APPS data, used once after the configuration is frozen.
 
-## F7. The parser failure is robust (V; S7)
+## F7. The parser misses the pre-registered bar, but mostly because the oracle's labels are wrong (V; S7 + a post-hoc breakdown)
 - **Precision on the confirmation half:**
   - CodeContests CONF 0.910;
   - without HackerEarth (malformed labels, 16 extractions) 0.919;
@@ -74,6 +74,13 @@ verified here; **J** = judgment.
   - All below the pre-registered 0.95.
 - **By source:** Codeforces 0.885 (n = 980 extractions), CodeChef 0.847, Aizu 0.977, AtCoder 1.000.
 - **Call-style:** the APPS-based oracle is uninformative (official tests often omit the statement's examples). A different labelled source is needed.
+- **Revised after a post-hoc breakdown.** "Robust" was premature. On CodeContests CONF, 117 of the 151 unconfirmed extractions have exactly the public test's *input* and the statement's own *output*: a valid answer that differs from DeepMind's stored one (multi-answer problems, float formatting).
+  - Counted as correct, precision is 0.980 (CONF) and 0.968 (DIAG).
+  - The oracle's assumption that "public tests = statement examples" fails on multi-answer problems. This was not anticipated when the oracle was pre-registered.
+- **What remains real.** Interactive statements, and a few examples missing from the public tests or mis-split. HackerEarth prose and HTML artefacts do not occur in APPS at all.
+- **Fixes (V3b).** Interactive statements are skipped, behind a default-off switch. Brace arrays are read as lists (F11).
+  - Measured once on CONF: precision 0.9103 → 0.9134; recall 0.9795 → 0.9776, inside the pre-registered tolerance.
+  - Details in `V3_parser_gold/prereg_fixes.md`.
 
 ## F8. Measurement gaps (V)
 - **Timeout sensitivity.** Outcome stores recorded before 2026-09-24 have no per-run durations, so it can't be measured on them.
@@ -99,7 +106,9 @@ verified here; **J** = judgment.
   - The argument has the wrong type, and it loses order and duplicates.
   - The sandbox child re-evaluates the set under its own random hash seed, so a candidate's verdict on such a statement can change from run to run.
 - **Scope:** 7 of 1,333 call-style statements in APPS train (0.5%): q1865, q4407, q4659, q206, q2927, q3095, q4905.
-- **Fix:** step 9 of the round-2 plan (parser), with its own pre-registration and regression test.
+- **Fixed (V3b).** Brace displays are read as lists in source order, so parsing no longer depends on the hash seed.
+  - Regression tests in `tests/test_parser_fixes.py`, including a 5-seed determinism check.
+  - The stores were not re-recorded for these 9 statements. Their effect is bounded by 9/2,500 per half.
 
 ## The independent reviewer's claims, re-checked in code (V)
 All confirmed:

@@ -198,6 +198,8 @@ class ExecutionConfig:
     #: measured +0.0033 (DEV) / +0.0026 (TUNE) NDCG@10 over call-style
     #: verification at half the executions of an ungated top-20.
     deepen_to: int = 0
+    #: Skip statements whose sample is a judge interaction transcript.
+    skip_interactive: bool = False
     #: Judge outputs by the statement's own rules: its stated float tolerance,
     #: case-insensitive verdicts when it says so, and -- when it accepts any of
     #: several answers -- the same tokens in any order.  Each only relaxes the
@@ -1027,11 +1029,17 @@ def call_verification_promotable(result: CallVerification, facts, config: Execut
     )
 
 
+#: An interactive statement's sample is a judge transcript, not stdin.
+_INTERACTIVE = re.compile(r"interaction with the judge|this is an interactive (?:problem|task)", re.I)
+
+
 def _statement_examples(query_text: str, config: ExecutionConfig):
     """``(stdin_examples, call_facts)`` for a statement under ``config``.
 
-    With both new flags off this is exactly ``parse_worked_examples``.
+    With the new flags off this is exactly ``parse_worked_examples``.
     """
+    if config.skip_interactive and _INTERACTIVE.search(query_text):
+        return [], None
     stdin_examples = parse_worked_examples(query_text, limit=config.max_examples)
     if not (config.call_style or config.extended_stdin):
         return stdin_examples, None

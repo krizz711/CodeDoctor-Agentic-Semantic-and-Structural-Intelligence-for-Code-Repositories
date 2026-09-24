@@ -366,7 +366,9 @@ Pre-registration: `V3_parser_gold/prereg_oracle.md`. Result: `V3_parser_gold/res
 - **HackerEarth 0.0.** Its labels carry a "SAMPLE" artefact and are unusable, and the parser also takes its input-format prose as samples.
 - **Without HackerEarth:** 0.919.
 - **Call-style:** this oracle is uninformative (APPS official tests often omit the statement's examples).
-- **Fixes:** only from DIAG failures, judged once on CONF; that is a separate pre-registration.
+- **Post-hoc breakdown: most "errors" are the oracle's.** 117 of 151 unconfirmed CONF extractions are the statement's own valid output where DeepMind stored a different valid one (multi-answer, float formatting). Counted as correct: 0.980 CONF, 0.968 DIAG.
+- **Fixes (V3b, `V3_parser_gold/prereg_fixes.md`).** Interactive statements are skipped (default-off switch, on in the candidate), and brace arrays are read as lists (STRESS_TEST F11). CONF precision 0.9103 → 0.9134; recall −0.0019, inside the tolerance.
+- **Not fixed:** HackerEarth prose and HTML artefacts. They occur 0 times in APPS, and fixing them would be CodeContests-specific engineering (FAQ 4).
 
 ## Stress test (summary; details in `STRESS_TEST.md`)
 - **Sparse effects.** Every effect rests on few statements: 23 of 2,500 for call-style, 6–10 for deepening + gate. Decisions now report a sign-flip permutation test and the number of changed statements alongside the bootstrap.
