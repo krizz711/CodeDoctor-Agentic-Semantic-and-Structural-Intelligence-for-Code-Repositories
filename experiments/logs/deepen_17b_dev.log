@@ -1,0 +1,2 @@
+2500 statements; deepening 848 with nothing verified in the first 20: 25,440 extra runs
+wrote data\outcomes\f2llm17b_all_dev_deep50.jsonl.gz (25,440 runs in 479s)

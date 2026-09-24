@@ -51,3 +51,9 @@ all-family DEV half of the APPS train split; the APPS test split is not used.
   F2LLM, because more golds sit below rank 1 for execution to lift.
 - Reported, not shipped: it measures whether the pipeline's value depends on
   contamination.
+
+## Correction (2026-09-24, from the stress test)
+E7's title says UniXcoder "predates APPS". That is false: APPS appeared in
+May 2021, UniXcoder in March 2022. The control is still valid for a different
+reason: UniXcoder was pre-trained on C4 and CodeSearchNet (its paper, §4),
+with no APPS or competitive-programming data. Nothing measured under E7 changes.

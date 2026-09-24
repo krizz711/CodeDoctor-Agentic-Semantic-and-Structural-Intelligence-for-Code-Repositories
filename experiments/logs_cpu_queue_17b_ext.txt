@@ -1,0 +1,7 @@
+[12:12:09] rec_17b_ext_dev
+[12:13:34] rec_17b_ext_dev done
+[12:13:34] deepen_17b_ext_dev
+[12:13:58] deepen_17b_ext_dev done
+[12:13:58] rec_17b_versions
+[12:15:27] rec_17b_versions done
+[12:15:28] cpu queue 17b ext complete

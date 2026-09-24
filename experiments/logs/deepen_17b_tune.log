@@ -1,0 +1,2 @@
+2500 statements; deepening 839 with nothing verified in the first 20: 25,170 extra runs
+wrote data\outcomes\f2llm17b_all_tune_deep50.jsonl.gz (25,170 runs in 480s)

@@ -1,0 +1,14 @@
+{
+ "store": "data\\outcomes\\f2llm17b_all_dev_deep50.jsonl.gz",
+ "n": 150,
+ "arms": {
+  "call-style": {
+   "identical": 150,
+   "mismatches": []
+  },
+  "call-style+deep50": {
+   "identical": 150,
+   "mismatches": []
+  }
+ }
+}

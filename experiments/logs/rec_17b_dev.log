@@ -1,0 +1,17 @@
+5000 eligible queries (all families), TUNE=2500 DEV=2500 seed=20260919  -> recording dev: 2500 queries
+executing 29,740 (query, candidate) pairs with 6 workers ...
+  2,000/29,740 in 41s
+  4,000/29,740 in 68s
+  6,000/29,740 in 105s
+  8,000/29,740 in 150s
+  10,000/29,740 in 196s
+  12,000/29,740 in 245s
+  14,000/29,740 in 291s
+  16,000/29,740 in 340s
+  18,000/29,740 in 391s
+  20,000/29,740 in 505s
+  22,000/29,740 in 574s
+  24,000/29,740 in 612s
+  26,000/29,740 in 647s
+  28,000/29,740 in 684s
+recorded 29,740 pairs over 2500 queries in 717s -> C:\Users\Asus\manish\CodeDoctor\data\outcomes\f2llm17b_all_dev.jsonl.gz

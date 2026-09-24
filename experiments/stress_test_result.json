@@ -1,0 +1,242 @@
+{
+ "S1_bootstrap_stability_f2llm17b": {
+  "dev: call-style - legacy+numeric1e-6": {
+   "mean": 0.0041,
+   "lower_range": [
+    0.00211,
+    0.00214
+   ],
+   "upper_range": [
+    0.00634,
+    0.00639
+   ],
+   "sign_flip_p": 0.0,
+   "statements_changed": 23
+  },
+  "dev: call-style+deep50+gate0.2 - call-style": {
+   "mean": -0.00035,
+   "lower_range": [
+    -0.00194,
+    -0.00191
+   ],
+   "upper_range": [
+    0.0011,
+    0.0011
+   ],
+   "sign_flip_p": 0.717,
+   "statements_changed": 6
+  },
+  "dev: call-style+gate0.2 - call-style": {
+   "mean": -0.00075,
+   "lower_range": [
+    -0.0022,
+    -0.00218
+   ],
+   "upper_range": [
+    0.00034,
+    0.00035
+   ],
+   "sign_flip_p": 0.3108,
+   "statements_changed": 5
+  },
+  "dev: call-style+deep50 - call-style": {
+   "mean": 0.0007,
+   "lower_range": [
+    -0.00064,
+    -0.00059
+   ],
+   "upper_range": [
+    0.0023,
+    0.0023
+   ],
+   "sign_flip_p": 0.3442,
+   "statements_changed": 6
+  },
+  "tune: call-style - legacy+numeric1e-6": {
+   "mean": 0.00318,
+   "lower_range": [
+    0.00152,
+    0.00154
+   ],
+   "upper_range": [
+    0.005,
+    0.00504
+   ],
+   "sign_flip_p": 0.0003,
+   "statements_changed": 23
+  },
+  "tune: call-style+deep50+gate0.2 - call-style": {
+   "mean": 0.0018,
+   "lower_range": [
+    5e-05,
+    0.0001
+   ],
+   "upper_range": [
+    0.00375,
+    0.00379
+   ],
+   "sign_flip_p": 0.0614,
+   "statements_changed": 10
+  },
+  "tune: call-style+gate0.2 - call-style": {
+   "mean": 0.0002,
+   "lower_range": [
+    -0.0009,
+    -0.00085
+   ],
+   "upper_range": [
+    0.00109,
+    0.0011
+   ],
+   "sign_flip_p": 0.8413,
+   "statements_changed": 6
+  },
+  "tune: call-style+deep50 - call-style": {
+   "mean": 0.00156,
+   "lower_range": [
+    -9e-05,
+    -4e-05
+   ],
+   "upper_range": [
+    0.00356,
+    0.00356
+   ],
+   "sign_flip_p": 0.0995,
+   "statements_changed": 8
+  }
+ },
+ "S12_split_sensitivity_f2llm17b": {
+  "call-style - legacy+numeric1e-6": {
+   "pooled_mean": 0.00364,
+   "half_mean_range": [
+    0.00194,
+    0.00543
+   ],
+   "share_mean_at_least_0.003": 0.86,
+   "share_lower_above_-0.002": 1.0,
+   "share_lower_above_0": 1.0,
+   "method": "normal approximation per half"
+  },
+  "call-style+deep50+gate0.2 - call-style": {
+   "pooled_mean": 0.00072,
+   "half_mean_range": [
+    -0.0006,
+    0.0023
+   ],
+   "share_mean_at_least_0.003": 0.0,
+   "share_lower_above_-0.002": 0.975,
+   "share_lower_above_0": 0.05,
+   "method": "normal approximation per half"
+  },
+  "call-style+gate0.2 - call-style": {
+   "pooled_mean": -0.00028,
+   "half_mean_range": [
+    -0.00139,
+    0.00064
+   ],
+   "share_mean_at_least_0.003": 0.0,
+   "share_lower_above_-0.002": 0.815,
+   "share_lower_above_0": 0.03,
+   "method": "normal approximation per half"
+  },
+  "call-style+deep50 - call-style": {
+   "pooled_mean": 0.00113,
+   "half_mean_range": [
+    -0.00054,
+    0.0025
+   ],
+   "share_mean_at_least_0.003": 0.0,
+   "share_lower_above_-0.002": 1.0,
+   "share_lower_above_0": 0.105,
+   "method": "normal approximation per half"
+  }
+ },
+ "S2_gate_gold_exclusion": {
+  "f2llm06b": {
+   "apps_dev": [
+    1,
+    1439
+   ],
+   "ext_dev": [
+    4,
+    107
+   ],
+   "fisher_p": 0.00010301028084556583
+  },
+  "f2llm17b": {
+   "apps_dev": [
+    3,
+    1455
+   ],
+   "ext_dev": [
+    4,
+    107
+   ],
+   "fisher_p": 0.0006212421881139297
+  }
+ },
+ "S3_ext_by_source_split": {
+  "f2llm06b valid": {
+   "n": 47,
+   "dense": 0.6596,
+   "execution": 0.7361,
+   "gate_minus_execution": -0.004,
+   "statements_changed_by_gate": 2
+  },
+  "f2llm06b test": {
+   "n": 61,
+   "dense": 0.7415,
+   "execution": 0.7586,
+   "gate_minus_execution": -0.0117,
+   "statements_changed_by_gate": 2
+  },
+  "f2llm17b valid": {
+   "n": 47,
+   "dense": 0.701,
+   "execution": 0.7426,
+   "gate_minus_execution": 0.0004,
+   "statements_changed_by_gate": 1
+  },
+  "f2llm17b test": {
+   "n": 61,
+   "dense": 0.7358,
+   "execution": 0.7633,
+   "gate_minus_execution": -0.0105,
+   "statements_changed_by_gate": 2
+  }
+ },
+ "S6_ext_dev_max_jaccard_vs_apps": {
+  "<0.1": 107,
+  "0.1-0.3": 1
+ },
+ "S7_parser_precision_by_source_conf": {
+  "per_source": {
+   "aizu": {
+    "precision": 0.9774,
+    "extracted": 399,
+    "statements_with_visible_tests": 304
+   },
+   "atcoder": {
+    "precision": 1.0,
+    "extracted": 203,
+    "statements_with_visible_tests": 104
+   },
+   "codechef": {
+    "precision": 0.8471,
+    "extracted": 85,
+    "statements_with_visible_tests": 80
+   },
+   "codeforces": {
+    "precision": 0.8847,
+    "extracted": 980,
+    "statements_with_visible_tests": 517
+   },
+   "hackerearth": {
+    "precision": 0.0,
+    "extracted": 16,
+    "statements_with_visible_tests": 0
+   }
+  },
+  "without_hackerearth": 0.919
+ }
+}
