@@ -20,3 +20,6 @@ artifacts/
 .hypothesis/
 predictions/
 .claude/
+
+# per-checkout Claude Code notes (hardware, accounts, local paths)
+CLAUDE.local.md

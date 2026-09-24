@@ -47,12 +47,17 @@ def get_default_config_path() -> Path:
 
 
 def _read_config(path: Path) -> dict:
+    """The YAML config at ``path``.
+
+    A missing or malformed config used to become ``{}``, which silently turned
+    execution verification off; both are now errors.
+    """
     if not path.exists():
-        return {}
+        raise FileNotFoundError(f"config not found: {path}")
     try:
         return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return {}
+    except (yaml.YAMLError, UnicodeDecodeError) as error:
+        raise ValueError(f"config {path} is not valid YAML: {error}") from error
 
 
 def get_default_model(config_path: Path | None = None) -> str:
@@ -110,8 +115,21 @@ def load_hubness_bank(path_value):
 
 
 def resolve_workers(requested: int) -> int:
-    """``0`` means one worker per logical CPU."""
-    return requested if requested > 0 else (os.cpu_count() or 1)
+    """``0`` means one worker per physical core.
+
+    Sandbox runs are CPU-bound and their wall-clock timeouts are load-sensitive
+    (experiments/RESULTS.md, "Timeouts are load-dependent"), so hyperthreads do
+    not count.  Falls back to the logical count when psutil cannot tell.
+    """
+    if requested > 0:
+        return requested
+    try:
+        import psutil
+
+        physical = psutil.cpu_count(logical=False)
+    except ImportError:
+        physical = None
+    return physical or os.cpu_count() or 1
 
 
 def get_tier_model(tier: str, config_path: Path | None = None) -> tuple[str | None, str | None]:

@@ -34,7 +34,9 @@ def test_the_frozen_submission_keeps_every_new_switch_off():
 def test_the_candidate_turns_on_only_what_passed():
     config = get_pipeline_config(CANDIDATE)
     assert config["execution_call_style"] is True
-    assert config["execution_max_dense_gap"] == 0.20
+    # The 0.20 dense gate was switched off after it excluded golds ~20x more
+    # often on CodeContests than on APPS (experiments/STRESS_TEST.md, F4).
+    assert config["execution_max_dense_gap"] is None
     assert config["execution_timeout_mode"] == "cpu"
     assert config["execution_deepen_to"] == 50
     # measured and below the bar: stay off

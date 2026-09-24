@@ -1,35 +1,36 @@
 # CANDIDATE v2 configuration -- NOT the submitted one.
 #
 # config/frozen.yaml still describes the run behind appsretrieval_results.json
-# (0.96558).  This file differs from it ONLY in the pipeline switches below,
-# each of which met its pre-registered rule on APPS-train DEV/TUNE with
-# F2LLM-v2-0.6B pools (experiments/RESULTS.md).  Adopting it means ONE new
-# test-split run with the 1.7B encoder, logged, and the README/deck numbers
-# replaced by that run's -- the DEV numbers are not transferable as-is.
+# (0.96558).  This file differs from it ONLY in the pipeline switches below.
+# Evidence: experiments/RESULTS.md (round 1, F2LLM-v2-0.6B pools) and
+# experiments/R1_17b (re-measured with the shipped 1.7B encoder), stress-tested
+# in experiments/STRESS_TEST.md.  Adopting it means ONE new logged test-split
+# run; STRESS_TEST.md F5 estimates ~0 change on that split (it is ~99% stdin).
 #
-#   execution_call_style: true     E1 DEV +0.0071 [+0.0047, +0.0098], TUNE +0.0053
-#                                  [+0.0033, +0.0073]; gains only in the Codewars and
-#                                  LeetCode families; promotion precision 81-87%.
-#                                  Expected effect on the APPS test split is small
-#                                  (98.4% stdin statements); it matters for an unseen
-#                                  set that looks like APPS as a whole.
-#   execution_max_dense_gap: 0.20  cost lever: non-inferior on all families
-#                                  (DEV +0.0001 [-0.0006, +0.0007], TUNE -0.0003
-#                                  [-0.0011, +0.0004]) at ~38% of the executions.
-#   execution_deepen_to: 50        adaptive deepening: when nothing in the top 20
-#                                  verifies, execute ranks 21-50 (inside the gate).
-#                                  With the gate: DEV +0.0033 [+0.0012, +0.0057],
-#                                  TUNE +0.0026 [+0.0006, +0.0048] over call-style,
-#                                  at ~half the executions of an ungated top-20.
+#   execution_call_style: true     1.7B: DEV +0.0041 [+0.0022, +0.0064], TUNE +0.0032
+#                                  [+0.0016, +0.0049] vs the submitted rule; gains only
+#                                  in the Codewars/LeetCode families; positive in 100%
+#                                  of 200 re-splits (0.6B: DEV +0.0071, TUNE +0.0053).
+#   execution_max_dense_gap: null  the 0.20 gate is OFF.  It keeps the correct
+#                                  solution out of execution 20x more often on
+#                                  CodeContests than on APPS (4/107 vs 1-3/~1450,
+#                                  Fisher p 1e-4 / 6e-4): an APPS-tuned constant
+#                                  (FAQ 4).  A post-hoc decision -- at 1.7B the gate
+#                                  met the letter of R1's EXT rule; see F4.
+#   execution_deepen_to: 50        when nothing in the top 20 verifies, execute ranks
+#                                  21-50.  1.7B: neutral (DEV +0.0007, TUNE +0.0016,
+#                                  both n.s.; non-inferior in 100% of re-splits);
+#                                  0.6B +0.0047, UniXcoder +0.0120.  Kept for weaker
+#                                  first passes, as R1's prereg allows; not a claimed
+#                                  APPS gain.  Final say: R2 (encoder choice).
 #   execution_timeout_mode: cpu    CPU-time limits (POSIX; wall clock elsewhere):
 #                                  wall-clock verdicts depend on machine load.
-#   execution_workers: 0           one per logical CPU; prefer <= physical cores
-#                                  (override with --execution-workers).
+#   execution_workers: 0           one per physical core (override with
+#                                  --execution-workers).
 #
-# Deliberately OFF (measured, below the +0.003 minimum or not yet measured):
-# judge_rules (+0.0021), extended_stdin (0 on APPS), learned fusion (-0.0021),
-# cascade (-0.0076), metamorphic tests (+0.0002), hubness (dense-only result;
-# interaction with execution pending).
+# Deliberately OFF (measured, below the +0.003 minimum): judge_rules (+0.0021 at
+# 0.6B, +0.0004 at 1.7B), extended_stdin (0), learned fusion (-0.0021), cascade
+# (-0.0076), metamorphic tests (+0.0002), hubness (did not replicate on TUNE).
 
 encoder:
   production_model: codefuse-ai/F2LLM-v2-1.7B
@@ -58,7 +59,7 @@ pipeline:
   execution_timeout_seconds: 2.0
   execution_numeric_tolerance: 1.0e-06
   execution_call_style: true
-  execution_max_dense_gap: 0.2
+  execution_max_dense_gap: null
   execution_timeout_mode: cpu
   execution_workers: 0
   execution_extended_stdin: false

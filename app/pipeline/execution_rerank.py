@@ -47,6 +47,7 @@ import sys
 import tempfile
 import threading
 import time
+import warnings
 from dataclasses import dataclass, field, replace
 
 logger = logging.getLogger(__name__)
@@ -615,6 +616,8 @@ class ExecutionOutcome:
     #: resolution)`` per example, ``status`` in ``ok|error|unresolved``.
     call_results: list | None = None
     detail: str = ""
+    #: Wall-clock seconds from process start to exit (``None`` if it never started).
+    seconds: float | None = None
 
     @property
     def ok(self) -> bool:
@@ -630,6 +633,30 @@ class ExecutionOutcome:
             return "output cap exceeded"
         suffix = f" ({self.exception})" if self.exception else ""
         return f"exit {self.returncode}{suffix}"
+
+
+_SPAWN_FAILURES = 0
+_SPAWN_LOCK = threading.Lock()
+
+
+def _record_spawn_failure(error: BaseException) -> None:
+    """A sandbox that cannot start processes turns every candidate into a
+    silent non-match, i.e. dense-only ranking.  Count it and say so."""
+    global _SPAWN_FAILURES
+    with _SPAWN_LOCK:
+        _SPAWN_FAILURES += 1
+    warnings.warn(
+        f"execution sandbox could not start a process ({error}); "
+        "candidates are not being verified",
+        RuntimeWarning,
+        stacklevel=3,
+    )
+
+
+def spawn_failures() -> int:
+    """Process-wide count of sandbox runs that could not start."""
+    with _SPAWN_LOCK:
+        return _SPAWN_FAILURES
 
 
 def _run_capped(
@@ -786,6 +813,7 @@ def execute_candidate(
         if call_spec is not None:
             argv += ["call", spec_path]
             stdin = ""
+        started = time.perf_counter()
         try:
             status, returncode, out, err = _run_capped(
                 argv,
@@ -796,7 +824,9 @@ def execute_candidate(
                 env=environment,
             )
         except (OSError, ValueError, subprocess.SubprocessError) as error:
+            _record_spawn_failure(error)
             return ExecutionOutcome(status="spawn_failed", detail=f"spawn failed: {error}")
+        elapsed = time.perf_counter() - started
 
         stats: dict = {}
         try:
@@ -821,6 +851,7 @@ def execute_candidate(
         stdin_chars_read=stats.get("chars_read") if tracked else None,
         stdin_eof_hit=stats.get("eof_hit") if tracked else None,
         call_results=stats.get("call_results") if call_spec is not None else None,
+        seconds=round(elapsed, 4),
     )
 
 

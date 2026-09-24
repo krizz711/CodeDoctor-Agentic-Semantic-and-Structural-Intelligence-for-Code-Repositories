@@ -158,7 +158,7 @@ def candidate_tier(record: dict, entry: dict, policy: Policy) -> str:
     runs = record.get("stdin_runs") or []
     use_stdin = entry["legacy_examples"] > 0 or policy.extended_stdin
     if runs and use_stdin:
-        limit = policy.stdin_examples if entry["legacy_examples"] > 0 else policy.stdin_examples
+        limit = policy.stdin_examples
         chosen = list(zip(runs, entry["stdin_examples"]))[:limit]
         verdicts = [stdin_verdict(r, e["expected"], entry["rules"], policy) for r, e in chosen]
         if verdicts and all(v == "strong" for v in verdicts):
@@ -208,6 +208,28 @@ def rerank(entry: dict, policy: Policy) -> list[str]:
     return [pool[j] for j in order]
 
 
+def executions(entry: dict, policy: Policy) -> int:
+    """Candidate executions the policy pays for on this statement: the first
+    window minus gated ranks, plus the deep window when nothing verified."""
+
+    def used(record: dict) -> bool:
+        stdin = bool(record.get("stdin_runs")) and (entry["legacy_examples"] > 0 or policy.extended_stdin)
+        call = policy.call_style and record.get("call_run") is not None
+        return stdin or call
+
+    first = [r for r in entry["candidates"] if r["j"] < policy.exec_depth and not _gated(entry, r["j"], policy)]
+    count = sum(used(r) for r in first)
+    if policy.deepen_to > policy.exec_depth and not any(
+        candidate_tier(r, entry, policy) == "strong" for r in first
+    ):
+        count += sum(
+            used(r)
+            for r in entry["candidates"]
+            if policy.exec_depth <= r["j"] < policy.deepen_to and not _gated(entry, r["j"], policy)
+        )
+    return count
+
+
 def metrics(ranking: list[str], gold: str) -> tuple[float, float, float, float]:
     try:
         rank = ranking.index(gold) + 1
@@ -241,6 +263,11 @@ POLICIES = [
            any_answer_multiset=True, call_style=True, extended_stdin=True),
     Policy("call-style+deep50", numeric_tolerance=1e-6, call_style=True, deepen_to=50),
     Policy("call-style+deep50-soft", numeric_tolerance=1e-6, call_style=True, deepen_to=50, deep_soft=True),
+    # the cost gate (candidates more than 0.20 below the row's best are never
+    # executed), alone and with deepening: the configuration in candidate_v2.yaml
+    Policy("call-style+gate0.2", numeric_tolerance=1e-6, call_style=True, max_dense_gap=0.2),
+    Policy("call-style+deep50+gate0.2", numeric_tolerance=1e-6, call_style=True, deepen_to=50,
+           max_dense_gap=0.2),
 ]
 
 
@@ -364,18 +391,30 @@ def main(argv: list[str] | None = None) -> int:
 
     dense_rows = np.array([metrics(e["pool"], gold[e["qid"]]) for e in entries])
     results = {"dense": dense_rows}
+    runs = {"dense": 0}
     for policy in POLICIES:
         results[policy.name] = np.array([metrics(rerank(e, policy), gold[e["qid"]]) for e in entries])
+        runs[policy.name] = sum(executions(e, policy) for e in entries)
+    # Upper bounds, not policies: the gold moved to rank 1 whenever it is in the
+    # top ``depth`` of the dense pool -- what perfect post-processing could reach.
+    for depth in (20, 50):
+        name = f"ceiling@{depth}"
+        results[name] = np.array([
+            metrics([gold[e["qid"]]] + [d for d in e["pool"] if d != gold[e["qid"]]]
+                    if gold[e["qid"]] in e["pool"][:depth] else e["pool"], gold[e["qid"]])
+            for e in entries
+        ])
+        runs[name] = 0
 
     families = sorted({e["family"] for e in entries})
     control = results[args.control]
     report = {"header": header, "policies": {}}
     print(f"\n{'policy':24s} {'NDCG@10':>8s} {'MRR@10':>8s} {'R@1':>7s} {'R@10':>7s}   "
-          f"Δ NDCG vs {args.control} [95% CI]  p")
+          f"{'runs':>7s}   Δ NDCG vs {args.control} [95% CI]  p")
     for name, rows in results.items():
         mean = rows.mean(axis=0)
-        line = f"{name:24s} {mean[0]:8.5f} {mean[1]:8.5f} {mean[2]:7.4f} {mean[3]:7.4f}"
-        entry = {"ndcg10": mean[0], "mrr10": mean[1], "r1": mean[2], "r10": mean[3]}
+        line = f"{name:26s} {mean[0]:8.5f} {mean[1]:8.5f} {mean[2]:7.4f} {mean[3]:7.4f} {runs[name]:7d}"
+        entry = {"ndcg10": mean[0], "mrr10": mean[1], "r1": mean[2], "r10": mean[3], "executions": runs[name]}
         if name != args.control:
             d, lo, hi, p = paired_bootstrap(control[:, 0], rows[:, 0])
             line += f"   {d:+.5f} [{lo:+.5f}, {hi:+.5f}]  {p:.3f}"

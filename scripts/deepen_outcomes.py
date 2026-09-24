@@ -79,7 +79,8 @@ def main(argv: list[str] | None = None) -> int:
                          for c in entry["call_examples"]])
             outcome = execute_candidate(code, "", config, call_spec=spec)
             record["call_run"] = {"status": outcome.status, "exc": outcome.exception,
-                                  "results": outcome.call_results, "detail": outcome.detail or None}
+                                  "results": outcome.call_results, "detail": outcome.detail or None,
+                                  "secs": outcome.seconds}
         return position, record
 
     started = time.time()

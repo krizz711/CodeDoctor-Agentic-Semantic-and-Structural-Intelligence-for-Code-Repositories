@@ -66,6 +66,7 @@ def _stdin_record(outcome) -> dict:
         "read": outcome.stdin_chars_read,
         "eof": outcome.stdin_eof_hit,
         "detail": outcome.detail or None,
+        "secs": outcome.seconds,
     }
 
 
@@ -217,6 +218,7 @@ def main(argv: list[str] | None = None) -> int:
                 "exc": outcome.exception,
                 "results": outcome.call_results,
                 "detail": outcome.detail or None,
+                "secs": outcome.seconds,
             }
         return position, record
 

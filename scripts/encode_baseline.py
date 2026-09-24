@@ -4,8 +4,9 @@
 
 The jury will neutralise contamination with an unseen dataset and said model
 choice should not matter much -- pre/post-processing is what is judged.  So
-every gate is also run with an encoder whose training predates CoIR/APPS
-(UniXcoder, 2022, CodeSearchNet-era data, MIT licence).  Its absolute scores
+every gate is also run with an encoder not trained on APPS (UniXcoder, 2022:
+pre-trained on C4 and CodeSearchNet per its paper; it does *not* predate APPS,
+which appeared in 2021).  Its absolute scores
 will be low; what matters is whether the pipeline's *gain over the encoder*
 survives when the encoder's APPS familiarity is gone.
 

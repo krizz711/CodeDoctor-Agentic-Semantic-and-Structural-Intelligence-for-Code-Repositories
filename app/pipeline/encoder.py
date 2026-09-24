@@ -36,6 +36,7 @@ from app.pipeline.execution_rerank import (
     ExecutionConfig,
     apply_execution_rerank,
     has_executable_examples,
+    spawn_failures,
 )
 from app.pipeline.features import CorpusStatistics, FeatureExtractor
 from app.pipeline.query_analysis import QueryFacts, analyze_query
@@ -260,9 +261,10 @@ class PrePostPipelineEncoder:
         fired = executed = verified = 0
         out = scores.copy()
         started = time.time()
+        failures_before = spawn_failures()
         if top_n <= 0:
             self.execution_audit = {"queries_with_examples": 0, "candidates_executed": 0,
-                                    "candidates_verified": 0, "seconds": 0.0}
+                                    "candidates_verified": 0, "spawn_failures": 0, "seconds": 0.0}
             return out
 
         # Rows are independent; running them concurrently changes nothing but
@@ -315,9 +317,13 @@ class PrePostPipelineEncoder:
             "queries_with_examples": fired,
             "candidates_executed": executed,
             "candidates_verified": verified,
+            "spawn_failures": spawn_failures() - failures_before,
             "seconds": round(time.time() - started, 1),
         }
         logger.info("pipeline: execution pass %s", self.execution_audit)
+        if self.execution_audit["spawn_failures"]:
+            logger.warning("pipeline: %d sandbox runs could not start; those candidates were not verified",
+                           self.execution_audit["spawn_failures"])
         return out
 
     def _reranker_for_current_corpus(self) -> Reranker:
