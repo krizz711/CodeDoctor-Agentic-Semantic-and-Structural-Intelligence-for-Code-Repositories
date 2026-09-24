@@ -47,7 +47,7 @@ flowchart LR
     direction TB
     S1["CoIR AppsRetrieval<br/>8,765 programs · 3,765 queries"]
     S2["one correct answer per query"]
-    S3["accuracy is everything<br/>latency is irrelevant"]
+    S3["accuracy decides the screen<br/>judges re-run it; time and<br/>resources are scored too"]
     S1 --> S2 --> S3
   end
   subgraph D["Demo half"]
@@ -284,6 +284,65 @@ against the extracted call/import edges, not a text match.
 - **Columns that would have leaked, refused.** `meta_information` is identical
   for 500/500 query–gold pairs and `partition` removes 57% of the candidate
   pool for free. Both documented, both unused.
+
+### Disclosures added after the Samsung FAQ
+
+The jury's clarifications (GPU only offline, CPU at retrieval, time and
+resources scored, contamination documented, no overfitting to APPS) exposed
+claims in this repository that were wrong or incomplete. Stated plainly:
+
+- **The scored run used a GPU for queries, not only for the corpus.** The
+  0.96558 run encoded corpus *and* queries on a Kaggle T4. Documents can now be
+  served from a content-addressed cache built once offline
+  (`--corpus-cache`), so an evaluation encodes only queries, on CPU. The
+  per-query CPU cost of the 1.7B tier has **not** been measured yet and is not
+  claimed.
+- **"Latency is irrelevant for screening" was wrong.** The judges re-run this
+  evaluation and score time and resources. The dense gate at 0.20 (DEV: 39% of
+  executions, non-inferior) and parallel execution are now wired
+  (`execution_max_dense_gap`, `execution_workers`).
+- **Contamination.** The F2LLM encoder family is trained on data that includes
+  APPS ([C2LLM technical report](https://arxiv.org/html/2512.21332v1) lists APPS
+  among CodeFuse's code-retrieval training sets). The train/test parity check
+  in `docs/RETRIEVAL-PIPELINE.md` argues against memorisation of the scored
+  split, not against domain familiarity.
+- **Two configuration choices were made on the test split.** Execution depth
+  (10 vs 20) and the numeric comparison rule were both run on test before being
+  adopted; the audit log records it. "DEV chooses, test reports" did not hold
+  for those two.
+- **Numeric comparison is not an established gain.** Its DEV p = 0.017 came
+  from one of about seven arms, which does not survive a multiple-comparison
+  correction, and on test it was +0.00015 with an interval spanning zero.
+- **Brief axes 1–4 contribute nothing to the scored number.** Query and
+  snippet categorisation and the nine-feature reranker were measured and
+  rejected (identity weights); the scored gain over the encoder is execution
+  verification alone.
+- **Sandbox defects, fixed.** On macOS the `preexec_fn` resource limits raised
+  an uncaught `SubprocessError` that aborted the evaluation; on Windows stdin
+  was encoded with the locale codec, so any example with a non-ASCII character
+  failed. On Linux the rewritten sandbox gives identical verdicts
+  (0 differences in 1,844 train-split runs).
+- **One parser fix touches one test statement.** A bare `Note` heading leaked
+  into the last expected output of CodeContests-style statements; the fix was
+  found on train statements (40 of 41 changed extractions) and also changes
+  test statement `q7726`.
+
+### v2 pre/post-processing (branch `v2/prepost-architecture`)
+
+Measured on the APPS **train** split (DEV/TUNE halves, all families) and on a
+held-out CodeContests set; the test split was not used. Full numbers, nulls
+included: [`experiments/RESULTS.md`](experiments/RESULTS.md).
+
+| component | status | evidence |
+|---|---|---|
+| Call-style verification (LeetCode `Solution` methods, Codewars functions, doctests) | **ships in `config/candidate_v2.yaml`** | DEV +0.0071, TUNE +0.0053 NDCG@10; LeetCode family 0.886 → 0.912 |
+| Statement parser v2: judging rules, call examples, `Note` / `Example` heading fixes | parser fixes in code; rules off | the `Example` fix recovered 40/217 CodeContests statements whose *specification* was being run as input |
+| Sandbox runner (no `preexec_fn`, UTF-8 bytes, output cap, crash classes, CPU-time mode) | in code | 0 verdict changes on Linux; fixes macOS crash and Windows non-ASCII failures |
+| Adaptive deepening (ranks 21–50 when nothing verifies) + dense gate 0.20 | **ships in `config/candidate_v2.yaml`** | DEV +0.0033, TUNE +0.0026 over call-style, at half the executions |
+| Parallel execution, content-addressed corpus cache (`--corpus-cache`) | in code | parity tests; judges' re-run needs no GPU for documents |
+| Cross-version lineage ranking (Bonus) | in code (`app/indexing/lineage.py`) | correct version first 0.167 → 0.953 on single-edit mutants (upper bound) |
+| Hubness correction of the dense pass | wired, **off** | dense +0.005 (clean bank); with execution DEV +0.0052 but TUNE +0.0020, interval spans zero |
+| Judge-aware comparator, learned fusion, cascade, metamorphic tests | **rejected** (below the +0.003 bar or worse) | see RESULTS |
 
 ## 9 · Quick start
 
