@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -76,7 +77,41 @@ def get_pipeline_config(config_path: Path | None = None) -> dict:
             if block.get("execution_numeric_tolerance") in (None, "", False)
             else float(block["execution_numeric_tolerance"])
         ),
+        "execution_max_dense_gap": (
+            None
+            if block.get("execution_max_dense_gap") in (None, "", False)
+            else float(block["execution_max_dense_gap"])
+        ),
+        # 0 or absent means "one per CPU"; parallelism never changes a result.
+        "execution_workers": int(block.get("execution_workers", 0) or 0),
+        # v2 switches -- all default off, so config/frozen.yaml is unchanged.
+        "execution_call_style": bool(block.get("execution_call_style", False)),
+        "execution_extended_stdin": bool(block.get("execution_extended_stdin", False)),
+        "execution_judge_rules": bool(block.get("execution_judge_rules", False)),
+        "execution_timeout_mode": str(block.get("execution_timeout_mode", "wall")),
+        "execution_deepen_to": int(block.get("execution_deepen_to", 0) or 0),
+        # PRE-5 hubness correction: off unless a bank is configured.
+        "hubness_bank": block.get("hubness_bank") or None,
+        "hubness_beta": float(block.get("hubness_beta", 0.3)),
+        "hubness_k": int(block.get("hubness_k", 10)),
     }
+
+
+def load_hubness_bank(path_value):
+    """The configured bank as an array, or ``None``; relative paths are repo-relative."""
+    if not path_value:
+        return None
+    path = Path(path_value)
+    if not path.is_absolute():
+        path = REPO_ROOT / path
+    if not path.exists():
+        raise SystemExit(f"hubness bank {path} not found: build it with scripts/build_hubness_bank.py")
+    return np.load(path).astype(np.float32)
+
+
+def resolve_workers(requested: int) -> int:
+    """``0`` means one worker per logical CPU."""
+    return requested if requested > 0 else (os.cpu_count() or 1)
 
 
 def get_tier_model(tier: str, config_path: Path | None = None) -> tuple[str | None, str | None]:
@@ -146,11 +181,22 @@ def main() -> None:
     )
     parser.add_argument("--execution-candidates", type=int, default=None)
     parser.add_argument("--execution-timeout", type=float, default=None)
+    parser.add_argument("--execution-workers", type=int, default=None,
+                        help="concurrent sandbox runs (0 = one per CPU); never changes a result")
+    parser.add_argument("--execution-max-dense-gap", type=float, default=None,
+                        help="skip candidates scoring more than this below the row's best")
     parser.add_argument("--hubness", type=Path, default=None, help="reference hub profile .npz")
     parser.add_argument("--output", type=Path, default=Path("appsretrieval_results.json"))
     parser.add_argument("--predictions", type=Path, default=None, help="also write ranked CSVs here")
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto")
+    parser.add_argument(
+        "--corpus-cache",
+        type=Path,
+        default=None,
+        help="content-addressed SQLite store of DOCUMENT vectors: filled on first use "
+             "(offline, GPU allowed), reused afterwards so only queries are encoded",
+    )
     args = parser.parse_args()
 
     try:
@@ -199,17 +245,47 @@ def main() -> None:
         max_candidates=args.execution_candidates or pipeline_defaults["execution_candidates"],
         timeout_seconds=args.execution_timeout or pipeline_defaults["execution_timeout_seconds"],
         numeric_tolerance=pipeline_defaults["execution_numeric_tolerance"],
+        max_dense_gap=(
+            args.execution_max_dense_gap
+            if args.execution_max_dense_gap is not None
+            else pipeline_defaults["execution_max_dense_gap"]
+        ),
+        workers=resolve_workers(
+            args.execution_workers
+            if args.execution_workers is not None
+            else pipeline_defaults["execution_workers"]
+        ),
+        call_style=pipeline_defaults["execution_call_style"],
+        extended_stdin=pipeline_defaults["execution_extended_stdin"],
+        judge_rules=pipeline_defaults["execution_judge_rules"],
+        timeout_mode=pipeline_defaults["execution_timeout_mode"],
+        deepen_to=pipeline_defaults["execution_deepen_to"],
     )
     if execution_config.enabled:
         print(f"Execution pass  : ON (top {execution_config.max_candidates}, "
-              f"{execution_config.timeout_seconds}s timeout)")
+              f"{execution_config.timeout_seconds}s timeout, "
+              f"dense gap {execution_config.max_dense_gap}, "
+              f"{execution_config.workers} workers)")
         print("                  This RUNS PYTHON FROM THE DATASET in a sandboxed")
         print("                  subprocess. Pass --no-execution to disable it.")
     else:
         print("Execution pass  : off")
 
+    corpus_cache = None
+    if args.corpus_cache is not None:
+        from app.indexing.cache import EmbeddingCache
+
+        args.corpus_cache.parent.mkdir(parents=True, exist_ok=True)
+        corpus_cache = EmbeddingCache(args.corpus_cache)
+        print(f"Corpus cache    : {args.corpus_cache} ({corpus_cache.count()} vectors)")
+    hubness_bank = load_hubness_bank(pipeline_defaults["hubness_bank"])
+    if hubness_bank is not None:
+        print(f"Hubness bank    : {pipeline_defaults['hubness_bank']} ({len(hubness_bank)} statements, "
+              f"beta {pipeline_defaults['hubness_beta']}, k {pipeline_defaults['hubness_k']})")
     pipeline = PrePostPipelineEncoder(
-        encoder, reranker_config, execution_config=execution_config
+        encoder, reranker_config, execution_config=execution_config, corpus_cache=corpus_cache,
+        hubness_bank=hubness_bank, hubness_beta=pipeline_defaults["hubness_beta"],
+        hubness_k=pipeline_defaults["hubness_k"],
     )
     if args.hubness and args.hubness.exists():
         pipeline.hub_profile_path = args.hubness
@@ -277,6 +353,7 @@ def main() -> None:
                 "execution_rerank": execution_config.enabled,
                 "execution_candidates": execution_config.max_candidates,
                 "execution_numeric_tolerance": execution_config.numeric_tolerance,
+                "execution_max_dense_gap": execution_config.max_dense_gap,
                 "enforced": False,
             },
         )

@@ -86,6 +86,26 @@ def main() -> int:
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     parser.add_argument("--texts-only", action="store_true", help="skip encoding")
     parser.add_argument("--limit", type=int, default=0, help="encode only the first N of each split")
+    parser.add_argument(
+        "--splits",
+        default="corpus,qtrain,qtest",
+        help="comma-separated subset of corpus,qtrain,qtest (development work needs no qtest)",
+    )
+    parser.add_argument(
+        "--attention-budget",
+        type=int,
+        default=None,
+        help="override the padded-attention-cell budget per batch; the frozen value is sized "
+             "for a 16 GB T4 and fails on a 4 GB card. Batching never changes a vector.",
+    )
+    parser.add_argument("--max-batch", type=int, default=None)
+    parser.add_argument(
+        "--model-name",
+        default=None,
+        help="another F2LLM-v2 size (e.g. codefuse-ai/F2LLM-v2-160M); the recipe -- prefix, "
+             "EOS, 8192 cap -- is unchanged, only the weights differ",
+    )
+    parser.add_argument("--revision", default=None, help="pin the --model-name revision")
     args = parser.parse_args()
 
     tag = args.tag or DEFAULT_TAGS[args.tier]
@@ -101,11 +121,18 @@ def main() -> int:
 
     device = _select_device(args.device)
     encoder = CodeEncoder(
+        model_name=args.model_name,
+        revision=args.revision,
         device=device,
         tier=args.tier,
         torch_dtype=select_dtype(device),
     )
-    print(f"Encoder: {encoder.model_name} on {device} (tier={args.tier}, tag={tag})")
+    if args.attention_budget:
+        encoder.attention_budget = int(args.attention_budget)
+    if args.max_batch:
+        encoder.max_batch = int(args.max_batch)
+    print(f"Encoder: {encoder.model_name} on {device} (tier={args.tier}, tag={tag}, "
+          f"attention budget {encoder.attention_budget:,}, max batch {encoder.max_batch})")
     print(f"  query prefix   : {encoder.query_prefix!r}")
     print(f"  max_seq_length : {encoder.max_seq_length}   add_eos_token: {encoder.add_eos_token}")
 
@@ -116,11 +143,14 @@ def main() -> int:
     manifest.setdefault("models", {})
     timings: dict[str, float] = {}
 
+    wanted = {name.strip() for name in args.splits.split(",") if name.strip()}
     for split, texts, mode in (
         ("corpus", corpus_texts, "document"),
         ("qtrain", train_texts, "query"),
         ("qtest", test_texts, "query"),
     ):
+        if split not in wanted:
+            continue
         started = time.time()
         embeddings = encoder.encode(texts, mode=mode, show_progress_bar=True)
         elapsed = time.time() - started

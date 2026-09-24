@@ -1,3 +1,5 @@
+import copy
+
 import yaml
 
 from app.retrieval.encode import CodeEncoder, FROZEN_CONFIG_PATH, DEFAULT_CONFIG_PATH
@@ -13,13 +15,17 @@ def test_submission_reads_frozen_config_not_live_config(tmp_path, monkeypatch):
     assert FROZEN_CONFIG_PATH.exists(), "config/frozen.yaml must exist as an I2 freeze artifact"
 
     frozen = yaml.safe_load(FROZEN_CONFIG_PATH.read_text(encoding="utf-8"))
-    live_backup = yaml.safe_load(DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"))
+    # Keep the exact bytes, not a re-dump: the restore must leave the file as
+    # it was.  (A shallow ``dict()`` copy here once mutated the backup too, and
+    # the "restore" committed the mutation to config/retrieval.yaml.)
+    live_bytes = DEFAULT_CONFIG_PATH.read_bytes()
+    live_backup = yaml.safe_load(live_bytes.decode("utf-8"))
 
     expected_production_model = frozen["encoder"]["production_model"]
 
     # Mutate retrieval.yaml
     try:
-        mutated_live = dict(live_backup)
+        mutated_live = copy.deepcopy(live_backup)
         mutated_live["encoder"]["production_model"] = "some-other-model-nobody-approved"
         DEFAULT_CONFIG_PATH.write_text(yaml.safe_dump(mutated_live), encoding="utf-8")
 
@@ -42,5 +48,6 @@ def test_submission_reads_frozen_config_not_live_config(tmp_path, monkeypatch):
         assert interactive.model_name == frozen["interactive_encoder"]["production_model"]
         assert interactive.config_path == FROZEN_CONFIG_PATH
     finally:
-        # Restore retrieval.yaml
-        DEFAULT_CONFIG_PATH.write_text(yaml.safe_dump(live_backup), encoding="utf-8")
+        # Restore retrieval.yaml byte for byte
+        DEFAULT_CONFIG_PATH.write_bytes(live_bytes)
+    assert DEFAULT_CONFIG_PATH.read_bytes() == live_bytes

@@ -1,0 +1,66 @@
+# CANDIDATE v2 configuration -- NOT the submitted one.
+#
+# config/frozen.yaml still describes the run behind appsretrieval_results.json
+# (0.96558).  This file differs from it ONLY in the pipeline switches below,
+# each of which met its pre-registered rule on APPS-train DEV/TUNE with
+# F2LLM-v2-0.6B pools (experiments/RESULTS.md).  Adopting it means ONE new
+# test-split run with the 1.7B encoder, logged, and the README/deck numbers
+# replaced by that run's -- the DEV numbers are not transferable as-is.
+#
+#   execution_call_style: true     E1 DEV +0.0071 [+0.0047, +0.0098], TUNE +0.0053
+#                                  [+0.0033, +0.0073]; gains only in the Codewars and
+#                                  LeetCode families; promotion precision 81-87%.
+#                                  Expected effect on the APPS test split is small
+#                                  (98.4% stdin statements); it matters for an unseen
+#                                  set that looks like APPS as a whole.
+#   execution_max_dense_gap: 0.20  cost lever: non-inferior on all families
+#                                  (DEV +0.0001 [-0.0006, +0.0007], TUNE -0.0003
+#                                  [-0.0011, +0.0004]) at ~38% of the executions.
+#   execution_deepen_to: 50        adaptive deepening: when nothing in the top 20
+#                                  verifies, execute ranks 21-50 (inside the gate).
+#                                  With the gate: DEV +0.0033 [+0.0012, +0.0057],
+#                                  TUNE +0.0026 [+0.0006, +0.0048] over call-style,
+#                                  at ~half the executions of an ungated top-20.
+#   execution_timeout_mode: cpu    CPU-time limits (POSIX; wall clock elsewhere):
+#                                  wall-clock verdicts depend on machine load.
+#   execution_workers: 0           one per logical CPU; prefer <= physical cores
+#                                  (override with --execution-workers).
+#
+# Deliberately OFF (measured, below the +0.003 minimum or not yet measured):
+# judge_rules (+0.0021), extended_stdin (0 on APPS), learned fusion (-0.0021),
+# cascade (-0.0076), metamorphic tests (+0.0002), hubness (dense-only result;
+# interaction with execution pending).
+
+encoder:
+  production_model: codefuse-ai/F2LLM-v2-1.7B
+  revision: 3766d46e7a68545ed6190c15330983f9b39ab718
+  similarity_metric: cosine
+  device: cpu
+  max_seq_length: 8192
+  query_max_seq_length: 8192
+  document_max_seq_length: 8192
+  query_prefix: 'Instruct: Retrieve the most relevant code snippet for the given query.
+
+    Query: '
+  document_prefix: ''
+  add_eos_token: true
+  normalize_embeddings: true
+  attention_budget: 67000000
+  max_batch: 64
+interactive_encoder:
+  production_model: codefuse-ai/F2LLM-v2-0.6B
+  revision: 54b4e2dc74e01be7126d4cf5f016af6b21edc563
+pipeline:
+  enabled: true
+  candidate_depth: 50
+  execution_rerank: true
+  execution_candidates: 20
+  execution_timeout_seconds: 2.0
+  execution_numeric_tolerance: 1.0e-06
+  execution_call_style: true
+  execution_max_dense_gap: 0.2
+  execution_timeout_mode: cpu
+  execution_workers: 0
+  execution_extended_stdin: false
+  execution_judge_rules: false
+  execution_deepen_to: 50

@@ -101,6 +101,33 @@ class EmbeddingCache:
         )
         self.conn.commit()
 
+    def get_many(self, cache_keys: list[str]) -> dict[str, np.ndarray]:
+        """Real vectors for whichever of ``cache_keys`` are present."""
+        found: dict[str, np.ndarray] = {}
+        for start in range(0, len(cache_keys), 500):
+            chunk = cache_keys[start : start + 500]
+            placeholders = ",".join("?" * len(chunk))
+            rows = self.conn.execute(
+                f"SELECT cache_key, vector, dim FROM embedding_cache "
+                f"WHERE is_real = 1 AND cache_key IN ({placeholders})",
+                chunk,
+            ).fetchall()
+            for row in rows:
+                found[row["cache_key"]] = np.frombuffer(row["vector"], dtype=np.float32).reshape(row["dim"])
+        return found
+
+    def put_many(self, items: list[tuple[str, np.ndarray]]) -> None:
+        """Insert many vectors in one transaction (one commit, not one per row)."""
+        rows = []
+        for cache_key, vector in items:
+            arr = np.asarray(vector, dtype=np.float32)
+            rows.append((cache_key, arr.size, arr.tobytes(), 1))
+        with self.conn:
+            self.conn.executemany(
+                "INSERT OR REPLACE INTO embedding_cache (cache_key, dim, vector, is_real) VALUES (?, ?, ?, ?)",
+                rows,
+            )
+
     def has(self, cache_key: str, real_only: bool = True) -> bool:
         if real_only:
             row = self.conn.execute(

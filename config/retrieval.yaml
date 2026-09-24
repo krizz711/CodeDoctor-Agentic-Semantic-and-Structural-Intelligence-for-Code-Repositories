@@ -6,7 +6,7 @@ encoder:
   max_batch: 64
   max_seq_length: 8192
   normalize_embeddings: true
-  production_model: some-other-model-nobody-approved
+  production_model: codefuse-ai/F2LLM-v2-0.6B
   query_prefix: 'Instruct: Retrieve the most relevant code snippet for the given query.
 
     Query: '

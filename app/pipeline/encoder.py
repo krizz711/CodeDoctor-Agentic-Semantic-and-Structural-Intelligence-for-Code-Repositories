@@ -35,7 +35,7 @@ import numpy as np
 from app.pipeline.execution_rerank import (
     ExecutionConfig,
     apply_execution_rerank,
-    parse_worked_examples,
+    has_executable_examples,
 )
 from app.pipeline.features import CorpusStatistics, FeatureExtractor
 from app.pipeline.query_analysis import QueryFacts, analyze_query
@@ -73,8 +73,30 @@ class PrePostPipelineEncoder:
         model_meta: Any = None,
         enable_rerank: bool = True,
         execution_config: ExecutionConfig | None = None,
+        corpus_cache: Any = None,
+        hubness_bank: np.ndarray | None = None,
+        hubness_beta: float = 0.3,
+        hubness_k: int = 10,
     ) -> None:
         self.encoder = encoder
+        #: PRE-5 hubness correction.  ``hubness_bank`` holds *query* embeddings
+        #: (same encoder, same prompt) of statements whose answers are NOT in
+        #: the corpus being searched -- otherwise the penalty also pushes down
+        #: documents that answer other queries, which is benchmark structure,
+        #: not hubness.  Each document's penalty is its mean top-k similarity
+        #: to the bank; computed once per corpus, subtracted at query time.
+        self.hubness_bank = None if hubness_bank is None else np.asarray(hubness_bank, dtype=np.float32)
+        self.hubness_beta = float(hubness_beta)
+        self.hubness_k = int(hubness_k)
+        self._hub_penalty: np.ndarray | None = None
+        self._hub_penalty_key: tuple | None = None
+        #: Optional content-addressed store of *document* vectors
+        #: (:class:`app.indexing.cache.EmbeddingCache`).  The corpus is encoded
+        #: once, offline, where the FAQ allows a GPU; every later run -- a
+        #: judge's re-run, a new corpus version -- encodes only what changed.
+        #: Queries never touch it: they are encoded at retrieval time, on CPU.
+        self.corpus_cache = corpus_cache
+        self.cache_stats: dict[str, int] = {"hits": 0, "misses": 0}
         self.mteb_model_meta = model_meta
         self.reranker_config = reranker_config or RerankerConfig()
         self.enable_rerank = enable_rerank and not self.reranker_config.is_identity
@@ -131,12 +153,58 @@ class PrePostPipelineEncoder:
             dimension = self.encoder.model.get_sentence_embedding_dimension()
             return np.empty((0, dimension), dtype=np.float32)
 
-        return self.encoder.encode(texts, mode=mode)
+        if is_query or self.corpus_cache is None:
+            return self.encoder.encode(texts, mode=mode)
+        return self._encode_documents_cached(texts)
+
+    def document_cache_key(self, text: str) -> str:
+        """Content address of one document vector under the current recipe.
+
+        Everything that changes the vector is in the key: model and revision,
+        the exact prompt string handed to the tokenizer, the sequence cap, EOS
+        and normalisation.  The ``document`` namespace means a query can never
+        be served from this cache even if its text equals a document's.
+        """
+        from app.indexing.cache import compute_embedding_key
+
+        enc = self.encoder
+        prompt = (
+            enc.get_prompt_text(text, "document")
+            if hasattr(enc, "get_prompt_text")
+            else f"{getattr(enc, 'document_prefix', '')}{text}"
+        )
+        return compute_embedding_key(
+            encoder_input="document\x00" + prompt,
+            encoder_revision=f"{getattr(enc, 'model_name', '?')}@{getattr(enc, 'revision', None)}",
+            tokenizer_revision=(
+                f"max{getattr(enc, 'max_seq_length', '?')}"
+                f"|eos{int(bool(getattr(enc, 'add_eos_token', True)))}"
+                f"|norm{int(bool(getattr(enc, 'normalize_embeddings', True)))}"
+            ),
+            template_revision=repr(getattr(enc, "document_prefix", "")),
+        )
+
+    def _encode_documents_cached(self, texts: list[str]) -> np.ndarray:
+        keys = [self.document_cache_key(t) for t in texts]
+        found = self.corpus_cache.get_many(list(dict.fromkeys(keys)))
+        missing = [i for i, k in enumerate(keys) if k not in found]
+        if missing:
+            fresh = np.asarray(self.encoder.encode([texts[i] for i in missing], mode="document"),
+                               dtype=np.float32)
+            self.corpus_cache.put_many([(keys[i], fresh[row]) for row, i in enumerate(missing)])
+            for row, i in enumerate(missing):
+                found[keys[i]] = fresh[row]
+        self.cache_stats["hits"] += len(texts) - len(missing)
+        self.cache_stats["misses"] += len(missing)
+        logger.info("pipeline: corpus cache %d hits, %d encoded", len(texts) - len(missing), len(missing))
+        return np.vstack([found[k] for k in keys]).astype(np.float32)
 
     def similarity(self, embeddings1: Any, embeddings2: Any) -> Any:
         query_embeddings = np.asarray(embeddings1, dtype=np.float32)
         document_embeddings = np.asarray(embeddings2, dtype=np.float32)
         scores = self.encoder.similarity(query_embeddings, document_embeddings)
+        if self.hubness_bank is not None and self.hubness_beta and document_embeddings.size:
+            scores = scores - self.hubness_beta * self._hub_penalty_for(document_embeddings)[None, :]
 
         if not self.enable_rerank and not self.execution_config.enabled:
             return scores
@@ -163,6 +231,21 @@ class PrePostPipelineEncoder:
 
     # -- internals ---------------------------------------------------------
 
+    def _hub_penalty_for(self, documents: np.ndarray) -> np.ndarray:
+        """Per-document hub score, cached for the corpus it was computed on."""
+        key = (documents.shape, float(documents[:, 0].sum()), float(documents[-1].sum()))
+        if self._hub_penalty is None or self._hub_penalty_key != key:
+            bank = self.hubness_bank
+            penalty = np.empty(documents.shape[0], dtype=np.float32)
+            k = min(self.hubness_k, bank.shape[0])
+            for start in range(0, documents.shape[0], 2048):
+                sims = documents[start : start + 2048] @ bank.T
+                penalty[start : start + 2048] = np.partition(sims, -k, axis=1)[:, -k:].mean(axis=1)
+            self._hub_penalty, self._hub_penalty_key = penalty, key
+            logger.info("pipeline: hubness penalty for %d documents (bank %d, k %d, beta %.2f)",
+                        documents.shape[0], bank.shape[0], k, self.hubness_beta)
+        return self._hub_penalty
+
     def _apply_execution(self, scores: np.ndarray) -> np.ndarray:
         """Third pass: promote candidates that reproduce a statement's examples.
 
@@ -170,33 +253,63 @@ class PrePostPipelineEncoder:
         verified candidate is lifted above everything else in that row.
         Nothing is ever demoted.
         """
-        top_n = self.execution_config.max_candidates
+        # A corpus (or an MTEB corpus chunk) smaller than the execution depth
+        # used to crash argpartition; clamp to what exists.
+        top_n = min(max(self.execution_config.max_candidates, self.execution_config.deepen_to),
+                    scores.shape[1])
         fired = executed = verified = 0
         out = scores.copy()
         started = time.time()
+        if top_n <= 0:
+            self.execution_audit = {"queries_with_examples": 0, "candidates_executed": 0,
+                                    "candidates_verified": 0, "seconds": 0.0}
+            return out
 
-        for row in range(scores.shape[0]):
+        # Rows are independent; running them concurrently changes nothing but
+        # the wall clock, because each row's result is written back to its own
+        # slot.  Within a row the pass stays sequential (workers=1), so the
+        # thread count is bounded by ``workers`` rather than squared.
+        row_config = replace(self.execution_config, workers=1)
+
+        def run_row(row: int):
             query_text = self._query_texts[row]
-            if not parse_worked_examples(query_text, limit=self.execution_config.max_examples):
-                continue
-            fired += 1
+            if not has_executable_examples(query_text, self.execution_config):
+                return row, None, None, None
             order = np.argpartition(-out[row], top_n - 1)[:top_n]
             order = order[np.argsort(-out[row][order], kind="stable")]
             # A verified candidate must outrank every document in the row, not
             # just the ones it was compared against.
             bonus = float(out[row].max() - out[row][order].min()) + 1.0
-            config = replace(self.execution_config, verified_bonus=bonus)
             adjusted, audit = apply_execution_rerank(
                 query_text,
                 [self._document_texts[i] for i in order],
                 [float(v) for v in out[row][order]],
-                config,
+                replace(row_config, verified_bonus=bonus),
             )
-            out[row][order] = adjusted
-            executed += int(audit["candidates_executed"])
-            verified += int(audit["candidates_verified"])
-            if fired % 250 == 0:
-                logger.info("pipeline: executed %d queries (%.0fs)", fired, time.time() - started)
+            return row, order, adjusted, audit
+
+        rows = range(scores.shape[0])
+        workers = max(1, int(self.execution_config.workers))
+        if workers == 1:
+            results = map(run_row, rows)
+        else:
+            from concurrent.futures import ThreadPoolExecutor
+
+            pool = ThreadPoolExecutor(max_workers=workers)
+            results = pool.map(run_row, rows)
+        try:
+            for row, order, adjusted, audit in results:
+                if order is None:
+                    continue
+                out[row][order] = adjusted
+                fired += 1
+                executed += int(audit["candidates_executed"])
+                verified += int(audit["candidates_verified"])
+                if fired % 250 == 0:
+                    logger.info("pipeline: executed %d queries (%.0fs)", fired, time.time() - started)
+        finally:
+            if workers > 1:
+                pool.shutdown(wait=True)
 
         self.execution_audit = {
             "queries_with_examples": fired,

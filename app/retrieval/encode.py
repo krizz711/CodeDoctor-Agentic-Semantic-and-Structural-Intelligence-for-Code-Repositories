@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from typing import Any, Sequence, Union
 
@@ -65,6 +66,44 @@ def select_dtype(device: str) -> str:
 
 
 _LOADED_MODELS: dict[tuple[str, str, str], Any] = {}
+
+
+def _keep_sdpa_off_the_math_kernel() -> bool:
+    """Stop grouped-query attention from forcing SDPA onto the math kernel.
+
+    F2LLM-v2 (Qwen3) uses grouped-query attention: 16 query heads, 8 key/value
+    heads.  For an *unpadded* batch -- which is exactly what ``plan_batches``
+    produces for a long document, isolated in a batch of one -- transformers
+    hands the unequal head counts to SDPA with ``enable_gqa=True``.  Only the
+    flash kernel accepts that; the memory-efficient kernel rejects it ("both
+    fused kernels require query, key and value to have the same num_heads").
+    Torch builds without flash attention (the Windows wheels) then fall back to
+    the math kernel, which materialises a 16 x L x L score matrix: 4 GiB for one
+    8k-token document, which is what killed the encode on a 4 GB GPU twice.
+
+    Expanding key/value heads first (``repeat_kv``, what transformers already
+    does whenever a padding mask is present) is the same attention, computed by
+    the memory-efficient kernel.  Applied only when this build has no flash
+    attention; where flash exists (the Linux T4 the scored run used) nothing
+    changes.  Returns whether the patch was applied.
+    """
+    backends = getattr(torch.backends, "cuda", None)
+    has_flash = getattr(backends, "is_flash_attention_available", lambda: True)()
+    if has_flash:
+        return False
+    try:
+        from transformers.integrations import sdpa_attention
+    except ImportError:  # pragma: no cover - transformers without the integration
+        return False
+    if getattr(sdpa_attention.use_gqa_in_sdpa, "_codedoctor_patched", False):
+        return True
+
+    def _never_gqa(attention_mask, key):  # noqa: ARG001 - signature mirrors transformers
+        return False
+
+    _never_gqa._codedoctor_patched = True
+    sdpa_attention.use_gqa_in_sdpa = _never_gqa
+    return True
 
 
 def plan_batches(
@@ -200,6 +239,8 @@ class CodeEncoder:
 
             from sentence_transformers import SentenceTransformer
 
+            if str(self.device).startswith("cuda"):
+                _keep_sdpa_off_the_math_kernel()
             torch.manual_seed(42)
             model_kwargs: dict[str, Any] = {
                 "torch_dtype": getattr(torch, self.torch_dtype),
@@ -312,12 +353,25 @@ class CodeEncoder:
 
         out: list[np.ndarray | None] = [None] * len(text_list)
         original_threads = torch.get_num_threads()
+        progress_every = max(1, len(batches) // 20) if show_progress_bar else 0
+        started = time.time()
+        done_texts = 0
         try:
             if self.device == "cpu":
                 torch.set_num_threads(os.cpu_count() or 1)
             torch.manual_seed(42)
             with torch.inference_mode():
-                for batch in batches:
+                for batch_number, batch in enumerate(batches, 1):
+                    done_texts += len(batch)
+                    if progress_every and (batch_number % progress_every == 0 or batch_number == len(batches)):
+                        peak = ""
+                        if str(self.device).startswith("cuda") and torch.cuda.is_available():
+                            peak = f", peak {torch.cuda.max_memory_allocated() / 2**30:.2f} GiB"
+                        print(
+                            f"    batch {batch_number}/{len(batches)}: {done_texts}/{len(text_list)} texts, "
+                            f"{time.time() - started:.0f}s{peak}",
+                            flush=True,
+                        )
                     embeddings = self.model.encode(
                         [text_list[i] for i in batch],
                         prompt=prompt or None,
