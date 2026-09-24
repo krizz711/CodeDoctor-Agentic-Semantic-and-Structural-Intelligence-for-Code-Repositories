@@ -298,14 +298,23 @@ claims in this repository that were wrong or incomplete. Stated plainly:
   per-query CPU cost of the 1.7B tier has **not** been measured yet and is not
   claimed.
 - **"Latency is irrelevant for screening" was wrong.** The judges re-run this
-  evaluation and score time and resources. The dense gate at 0.20 (DEV: 39% of
-  executions, non-inferior) and parallel execution are now wired
-  (`execution_max_dense_gap`, `execution_workers`).
-- **Contamination.** The F2LLM encoder family is trained on data that includes
-  APPS ([C2LLM technical report](https://arxiv.org/html/2512.21332v1) lists APPS
-  among CodeFuse's code-retrieval training sets). The train/test parity check
-  in `docs/RETRIEVAL-PIPELINE.md` argues against memorisation of the scored
-  split, not against domain familiarity.
+  evaluation and score time and resources. Parallel execution is wired
+  (`execution_workers`, one worker per physical core). A dense gate at 0.20
+  was wired too, then switched off: it kept the correct solution out of
+  execution about 20× more often on CodeContests than on APPS
+  ([`experiments/STRESS_TEST.md`](experiments/STRESS_TEST.md), F4).
+- **Contamination.** F2LLM-v2's training table ([arXiv 2603.19223](https://arxiv.org/abs/2603.19223),
+  Table 8) does not name APPS or CodeContests. It does include
+  OpenCodeReasoning-2 (16,632 samples), whose problems come from TACO, APPS
+  and CodeContests (train and valid splits), and xCodeEval NL2Code (Codeforces
+  problems). Exposure to APPS and CodeContests problems is therefore plausible;
+  per-problem exposure is unverified. An earlier version of this paragraph
+  attributed APPS training to F2LLM via the
+  [C2LLM report](https://arxiv.org/html/2512.21332v1), which lists APPS for
+  C2LLM, a different model. The train/test parity check in
+  `docs/RETRIEVAL-PIPELINE.md` argues against memorisation of the scored split,
+  not against domain familiarity. Our CodeContests replication set is only
+  partly protected: 47 of its 108 dev statements come from the valid split.
 - **Two configuration choices were made on the test split.** Execution depth
   (10 vs 20) and the numeric comparison rule were both run on test before being
   adopted; the audit log records it. "DEV chooses, test reports" did not hold
@@ -330,15 +339,19 @@ claims in this repository that were wrong or incomplete. Stated plainly:
 ### v2 pre/post-processing (branch `v2/prepost-architecture`)
 
 Measured on the APPS **train** split (DEV/TUNE halves, all families) and on a
-held-out CodeContests set; the test split was not used. Full numbers, nulls
-included: [`experiments/RESULTS.md`](experiments/RESULTS.md).
+CodeContests set that is separate from APPS but only partly protected from the
+encoder's training data; the test split was not used. Re-measured with the
+shipped 1.7B encoder, then stress-tested. Full numbers, nulls included:
+[`experiments/RESULTS.md`](experiments/RESULTS.md),
+[`experiments/STRESS_TEST.md`](experiments/STRESS_TEST.md).
 
 | component | status | evidence |
 |---|---|---|
-| Call-style verification (LeetCode `Solution` methods, Codewars functions, doctests) | **ships in `config/candidate_v2.yaml`** | DEV +0.0071, TUNE +0.0053 NDCG@10; LeetCode family 0.886 → 0.912 |
-| Statement parser v2: judging rules, call examples, `Note` / `Example` heading fixes | parser fixes in code; rules off | the `Example` fix recovered 40/217 CodeContests statements whose *specification* was being run as input |
+| Call-style verification (LeetCode `Solution` methods, Codewars functions, doctests) | **ships in `config/candidate_v2.yaml`** | 1.7B: DEV +0.0041, TUNE +0.0032 NDCG@10 (0.6B: +0.0071, +0.0053); only LeetCode/Codewars move, so ~0 expected on the ~99%-stdin test split |
+| Statement parser v2: judging rules, call examples, `Note` / `Example` heading fixes | parser fixes in code; rules off | the `Example` fix recovered 40/217 CodeContests statements. Against external labels the parser's example precision is 0.910 (CodeContests) and ≥ 0.938 (APPS), **below the 0.95 bar**; errors are Codeforces/CodeChef layouts |
 | Sandbox runner (no `preexec_fn`, UTF-8 bytes, output cap, crash classes, CPU-time mode) | in code | 0 verdict changes on Linux; fixes macOS crash and Windows non-ASCII failures |
-| Adaptive deepening (ranks 21–50 when nothing verifies) + dense gate 0.20 | **ships in `config/candidate_v2.yaml`** | DEV +0.0033, TUNE +0.0026 over call-style, at half the executions |
+| Adaptive deepening (ranks 21–50 when nothing verifies) | in `config/candidate_v2.yaml`; final say with the encoder choice (R2) | 0.6B +0.0047, UniXcoder +0.0120; neutral at 1.7B (not a claimed APPS gain) |
+| Dense gate 0.20 (skip candidates far below the best score) | **off** | excluded the correct solution ~20× more often on CodeContests than APPS (Fisher p ≤ 6e-4) |
 | Parallel execution, content-addressed corpus cache (`--corpus-cache`) | in code | parity tests; judges' re-run needs no GPU for documents |
 | Cross-version lineage ranking (Bonus) | in code (`app/indexing/lineage.py`) | correct version first 0.167 → 0.953 on single-edit mutants (upper bound) |
 | Hubness correction of the dense pass | wired, **off** | dense +0.005 (clean bank); with execution DEV +0.0052 but TUNE +0.0020, interval spans zero |
