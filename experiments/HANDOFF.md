@@ -94,13 +94,7 @@ When an item closes, strike it here and note the result in `RESULTS.md`.
    this machine already had credentials (account `munalsingh`); Claude pushes
    kernels and fetches outputs without reading them. The token pasted in chat
    was not used and should be revoked.
-3. **GitHub access — still open in this session.** The GitHub connector was
-   authorised on claude.ai (account `lifemeansfun`), but this session still
-   lists `plugin:engineering:github` as needing sign-in: open the session's
-   MCP servers (`/mcp`, or Connectors) and sign in there. Pushing works through
-   Git Credential Manager; reading CI and opening PRs/Releases need the
-   connector or `gh`. The CI result for `v2/prepost-architecture` is still
-   unseen.
+3. ~~**GitHub access.**~~ **Closed 2026-09-25.** The GitHub CLI is installed and logged in as `krizz711` (device login, approved in the built-in browser). The first look at CI showed that this round's pushes `463d747`, `8c4f7da` and `32e0852` had **failed** the main job. `1107297` fixed that (pytest collected a `*_test.py` script; pandas imported at module level). All 8 jobs are now green, including the sandbox on macOS/Windows/Ubuntu × Python 3.11/3.12.
 4. **Parser gold labels (V3) — replaced by external labels.** No teammate is
    available, and Claude's own labels would share the parser author's blind
    spots. `scripts/parser_oracle.py` scores the frozen parser against labels

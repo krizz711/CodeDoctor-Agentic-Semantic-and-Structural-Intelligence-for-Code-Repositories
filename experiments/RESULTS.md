@@ -314,7 +314,7 @@ and documented, to be switched on only if it clears the rule at 1.7B.
 | V3 parser gold set | replaced by external labels (APPS official tests, CodeContests public tests): fails the 0.95 bar; the 207-row human sheet stays for a non-author |
 | V5 clean-room reproduction, V8 red team | not done; need someone other than the author |
 | EXT-lockbox | sealed by design; reported once, after the freeze |
-| CI matrix (ubuntu / macOS / Windows) | workflow pushed; its result has not been observed from this machine |
+| CI matrix (ubuntu / macOS / Windows) | observed 2026-09-25: green on `1107297` (all 8 jobs). Three earlier round-2 pushes had failed unseen; see "Incident: red CI" |
 | 1.7B re-measurement | done (section R1) |
 | logged test-split run | not spent; F5 of the stress test estimates ~0 change on that split |
 
@@ -408,3 +408,19 @@ re-recorded under the same code as the 1.7B stores (`*_r2*`).
 - **Estimates, not measurements, for the 3,765 test queries on that 2-core machine:** query encoding ≈ 8.2 h (1.7B) and ≈ 2.9 h (0.6B), before execution.
 - **160M, descriptive only** (round-1 store; the fixed sequence stopped at 0.6B): DEV dense 0.699, call-style 0.777. Far below.
 - **Decision:** rule 4. The trade-off goes to the user: 0.6B costs −0.017 NDCG@10 (DEV pipeline) and is 2.8× faster with 2.2× less RAM than 1.7B.
+
+## Incident: red CI on three pushes (my error, fixed)
+Pushes `463d747`, `8c4f7da` and `32e0852` failed CI's main job at test
+collection, and nobody saw it: CI results were not visible from this machine
+until the GitHub CLI was set up. There were two causes.
+- pytest collected `scripts/stress_test.py` as a test module (`*_test.py`),
+  which imported pandas.
+- `tests/test_parser_oracle.py` reached pandas through
+  `scripts/build_external_set.py`.
+
+CI's main job installs only `requirements.txt` + CPU torch, while this machine
+has pandas, so every local run passed. The failure was reproduced in a
+pandas-free Linux environment and then fixed: the script was renamed to
+`stress_analysis.py`, `testpaths = tests` was set, and the import was made
+lazy. `1107297` is green on all 8 jobs. **Lesson:** a local green run does not
+reproduce CI's environment; check CI after every push (`CLAUDE.local.md`).
