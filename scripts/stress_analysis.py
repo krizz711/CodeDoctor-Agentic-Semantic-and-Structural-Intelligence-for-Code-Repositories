@@ -1,6 +1,6 @@
 """Methodological stress test of the round-1/R1 conclusions (read-only).
 
-    python scripts/stress_test.py --out experiments/stress_test_result.json
+    python scripts/stress_analysis.py --out experiments/stress_test_result.json
 
 Everything here reads recorded outcome stores and result files; nothing is
 executed or re-encoded.  Findings and their interpretation are in

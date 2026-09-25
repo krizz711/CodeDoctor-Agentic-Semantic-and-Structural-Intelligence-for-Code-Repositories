@@ -1,7 +1,7 @@
 # Methodological stress test (2026-09-24)
 
 A read-only attack on our own methods, run before the round-2 decisions were
-finalised. Numbers come from `scripts/stress_test.py` →
+finalised. Numbers come from `scripts/stress_analysis.py` →
 `experiments/stress_test_result.json`, unless a source is named. **V** =
 verified here; **J** = judgment.
 

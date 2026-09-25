@@ -46,7 +46,6 @@ from app.pipeline.execution_rerank import (  # noqa: E402
 )
 from app.pipeline.query_analysis import analyze_query  # noqa: E402
 from app.pipeline.statement import values_equal  # noqa: E402
-from scripts.build_external_set import _shingles  # noqa: E402
 
 SEED = 20260924
 PARSER_FILES = (
@@ -269,6 +268,10 @@ def load_apps(path: Path, coir_queries: Path) -> list[dict]:
 
 def load_codecontests(path: Path, apps_statements: list[str], threshold: float = 0.5) -> tuple[list[dict], int]:
     import pandas as pd
+
+    # imported here: build_external_set needs pandas, which the minimal CI
+    # environment (and tests of this module's matchers) do not install
+    from scripts.build_external_set import _shingles
 
     frame = pd.read_parquet(path)
     index: dict[int, list[int]] = defaultdict(list)
