@@ -154,3 +154,10 @@ recorded in the result.
   spawn-failure counting. Verdict logic is unchanged. The stress-test analysis
   (one core) ran during `rec_06b_dev_r2`. Timeout rates are compared before
   any comparison is trusted.
+
+## Outcome (2026-09-25)
+- **Rule 1 (0.6B vs 1.7B):** fails. DEV −0.0169 [−0.0218, −0.0120], TUNE −0.0134 [−0.0182, −0.0086]; 0% of 200 re-splits non-inferior. Rule 2 (160M) is therefore not run.
+- **Rule 3 (EXT veto):** not triggered (−0.0055 [−0.0357, +0.0257]).
+- **M2 (CPU cost, Kaggle CPU, 2 cores):** 1.7B 7.83 s/query and 8.5 GB; 0.6B 2.79 s and 3.9 GB; 160M 0.48 s and 2.1 GB.
+  - Benchmarks: the known number passes, fidelity passes for float32, and bfloat16 fails fidelity.
+- **Rule 4:** nothing switches automatically. The trade-off goes to the user.

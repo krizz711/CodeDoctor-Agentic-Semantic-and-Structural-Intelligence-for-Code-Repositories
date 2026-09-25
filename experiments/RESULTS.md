@@ -376,7 +376,7 @@ Pre-registration: `V3_parser_gold/prereg_oracle.md`. Result: `V3_parser_gold/res
 - **The gate is not.** Its gold exclusion depends on the dataset, so it is off.
 - **Contamination claims corrected (F1).** Neither the APPS nor the CodeContests exposure of F2LLM-v2 is known per problem.
 
-## R2 — encoder choice, quality side (latency pending)
+## R2 — encoder choice
 
 Pre-registration: `R2_encoder_choice/prereg.md`. Result: `R2_encoder_choice/result_quality.json`.
 Pipeline = call-style + deepening to 50, no gate. The 0.6B stores were
@@ -392,4 +392,19 @@ re-recorded under the same code as the 1.7B stores (`*_r2*`).
 - **Post-processing narrows the gap from −0.027 to −0.017** but does not close it.
 - **CodeContests EXT-dev:** −0.0055 [−0.0357, +0.0257], so no veto. Recall@50: 0.991 vs 1.000.
 - **Confound check.** Examples differ on 3 statements, and only in the ordering of Python sets (STRESS_TEST F11). Timeout rates: 0.55% vs 0.51% (DEV) and 0.65% vs 0.54% (TUNE).
-- **Decision:** under rule 4, the measured trade-off goes to the user once the CPU latency (Kaggle CPU machine) is in.
+- **CPU cost.** Measured on a Kaggle CPU machine (2 physical cores, torch 2 threads, 33.7 GB RAM): 100 seeded TUNE statements, batch 1, float32. Result in `R2_encoder_choice/cpu_latency.json`.
+
+| encoder | seconds per query, mean (p95) | peak RAM | CPU vectors vs stored GPU vectors (median cosine) |
+|---|---|---|---|
+| 160M | 0.48 (1.0) | 2.1 GB | 0.99992 |
+| 0.6B | 2.79 (5.7) | 3.9 GB | 0.9994 |
+| 1.7B | 7.83 (15.7) | 8.5 GB | 0.99998 |
+| 1.7B bfloat16 | 39.4 (83) | 4.6 GB | 0.99889 (fails the 0.999 bar; not an operating point) |
+
+- **Benchmarks.** The known-number check passes (0.6B 2.79 s vs the repo's earlier ~2.9 s). Fidelity is ≥ 0.999 for all float32 runs. The stop rule never fired.
+- **Batching is slower than batch 1 on this CPU**, e.g. 15.3 s vs 7.8 s per query at 1.7B.
+- **This laptop cannot run 1.7B on CPU at all** (8.5 GB peak vs 7.7 GiB of RAM).
+- **Execution cost.** 13.0 candidate executions per DEV statement on average; sandbox runs average 0.156 s (median 0.140 s; 16,372 timed runs, local Windows).
+- **Estimates, not measurements, for the 3,765 test queries on that 2-core machine:** query encoding ≈ 8.2 h (1.7B) and ≈ 2.9 h (0.6B), before execution.
+- **160M, descriptive only** (round-1 store; the fixed sequence stopped at 0.6B): DEV dense 0.699, call-style 0.777. Far below.
+- **Decision:** rule 4. The trade-off goes to the user: 0.6B costs −0.017 NDCG@10 (DEV pipeline) and is 2.8× faster with 2.2× less RAM than 1.7B.
