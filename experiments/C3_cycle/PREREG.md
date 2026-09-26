@@ -404,3 +404,20 @@ No P1 timing is claimed for the 1.7B screening encoder, and a Kaggle 1.7B rate n
 **E1 arm B:** implemented and checked on DEV (`E1_armB_dev.json`):
 - 83 idiom-using candidates re-run; 0 statements change.
 - On in `candidate_v2`, pending the three-platform CI run of `tests/test_judge_like_io.py`.
+
+## Addendum A3 (2026-09-26): E2 kernel A, run 1, is VOID (S2)
+- **What failed.** S2 requires REF (1.7B, torch float32) within ±25% of R2's 7.83 s. Run 1 measured **10.70 s** mean (T1 block) and 10.84 s (T1b block), +37%, so the run is void.
+- **Cause, written down.**
+  - Kaggle assigned an **Intel Xeon @ 2.20 GHz** (AVX2, FMA; no AVX-512, VNNI or AMX). The smoke runs got an AMD EPYC 7B12.
+  - R2 never recorded its CPU model, so the reference machine is unknown. Kaggle's CPU class is heterogeneous, and the plan did not anticipate that.
+  - No code change can pin the hardware.
+- **Seen in the void run (disclosed, not a result):**
+  - Both int8 configurations fail the TUNE gate on fidelity: T1 (per-channel) median cosine 0.982, min 0.971; T1b median 0.991, min 0.985. The bar is median ≥ 0.995 and min ≥ 0.98.
+  - Both are also slower than float32 in the same session: ratios 1.43 and 1.31.
+  - Peak RSS: T1 5.1 GB, T1b 7.4 GB, REF 11.5 GB.
+  - S1 (C0 cosine 0.99998), S3, S6 and NEG (0.13) all passed.
+  - Output kept as `E2_runs/e2_A_run1_VOID.json`.
+- **Repeat (the one permitted).**
+  - The same kernel code is re-pushed: a re-draw of hardware, with nothing changed.
+  - The first non-void attempt is the result, whatever it shows. If the repeat is also void, E2 stops and reports the hardware blocker.
+  - The fidelity half of the gate does not depend on machine speed, so the gate is expected to fail again (estimate). The repeat's value is a **valid** single-machine end-to-end cost measurement.
