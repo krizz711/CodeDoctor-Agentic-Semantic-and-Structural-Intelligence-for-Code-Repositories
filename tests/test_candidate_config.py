@@ -29,6 +29,7 @@ def test_the_frozen_submission_keeps_every_new_switch_off():
     assert config["execution_max_dense_gap"] is None
     assert config["execution_deepen_to"] == 0
     assert config["execution_skip_interactive"] is False
+    assert config["execution_blank_line_fallback"] is False
     assert config["hubness_bank"] is None
 
 
@@ -41,6 +42,8 @@ def test_the_candidate_turns_on_only_what_passed():
     assert config["execution_timeout_mode"] == "cpu"
     assert config["execution_deepen_to"] == 50
     assert config["execution_skip_interactive"] is True
+    # cycle 3 E1: pre-registered, DEV stdin +0.0078, placebo/retry controls 0
+    assert config["execution_blank_line_fallback"] is True
     # measured and below the bar: stay off
     assert config["execution_judge_rules"] is False
     assert config["execution_extended_stdin"] is False

@@ -152,6 +152,7 @@ def main() -> None:
         timeout_mode=defaults["execution_timeout_mode"],
         deepen_to=defaults["execution_deepen_to"],
         skip_interactive=defaults["execution_skip_interactive"],
+        blank_line_fallback=defaults["execution_blank_line_fallback"],
     )
     print(f"Execution pass  : {'ON' if execution_config.enabled else 'off'} "
           f"(top {execution_config.max_candidates})")

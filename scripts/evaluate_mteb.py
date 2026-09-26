@@ -96,6 +96,7 @@ def get_pipeline_config(config_path: Path | None = None) -> dict:
         "execution_timeout_mode": str(block.get("execution_timeout_mode", "wall")),
         "execution_deepen_to": int(block.get("execution_deepen_to", 0) or 0),
         "execution_skip_interactive": bool(block.get("execution_skip_interactive", False)),
+        "execution_blank_line_fallback": bool(block.get("execution_blank_line_fallback", False)),
         # PRE-5 hubness correction: off unless a bank is configured.
         "hubness_bank": block.get("hubness_bank") or None,
         "hubness_beta": float(block.get("hubness_beta", 0.3)),
@@ -280,6 +281,7 @@ def main() -> None:
         timeout_mode=pipeline_defaults["execution_timeout_mode"],
         deepen_to=pipeline_defaults["execution_deepen_to"],
         skip_interactive=pipeline_defaults["execution_skip_interactive"],
+        blank_line_fallback=pipeline_defaults["execution_blank_line_fallback"],
     )
     if execution_config.enabled:
         print(f"Execution pass  : ON (top {execution_config.max_candidates}, "

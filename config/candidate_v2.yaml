@@ -26,6 +26,15 @@
 #   execution_skip_interactive: true  a judge-interaction transcript is not stdin
 #                                  (2 of 5,000 APPS train statements; correctness,
 #                                  no score claim; V3_parser_gold/prereg_fixes.md).
+#   execution_blank_line_fallback: true  a stdin sample rendered with blank lines
+#                                  (APPS's CodeChef statements) gets one re-run of a
+#                                  failed candidate on the input without them, counted
+#                                  only if the program read all of it.  1.7B DEV stdin
+#                                  +0.0078 [+0.0031, +0.0131], exact sign-flip p 0.001,
+#                                  11 up / 1 down (all families +0.0028); placebo and
+#                                  plain-retry controls 0.  Pre-registered:
+#                                  experiments/C3_cycle (E1).  No screening gain is
+#                                  projected: its test-split prevalence is unknown.
 #   execution_timeout_mode: cpu    CPU-time limits (POSIX; wall clock elsewhere):
 #                                  wall-clock verdicts depend on machine load.
 #   execution_workers: 0           one per physical core (override with
@@ -69,3 +78,4 @@ pipeline:
   execution_judge_rules: false
   execution_deepen_to: 50
   execution_skip_interactive: true
+  execution_blank_line_fallback: true
