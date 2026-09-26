@@ -9,6 +9,10 @@ unchanged.  These tests run on every CI platform.
 
 from __future__ import annotations
 
+import sys
+
+import pytest
+
 from app.pipeline.execution_rerank import ExecutionConfig, WorkedExample, execute_candidate, verify_candidate
 
 FAST_IO = "import os\ndata = os.read(0, os.fstat(0).st_size)\nprint(sum(map(int, data.split())))\n"
@@ -21,10 +25,17 @@ def config(**kw) -> ExecutionConfig:
     return ExecutionConfig(enabled=True, timeout_seconds=10.0, **kw)
 
 
-def test_fast_io_idiom_reads_the_real_input_only_from_a_file():
+def test_fast_io_idiom_reads_the_real_input_from_a_file():
+    example = WorkedExample(stdin="1 2 3\n", expected_stdout="6\n")
+    assert verify_candidate(FAST_IO, [example], config(judge_like_io=True))
+
+
+@pytest.mark.skipif(sys.platform == "darwin", reason=(
+    "macOS fstat on a pipe reports the bytes already buffered (CI, 2026-09-26), so the idiom "
+    "can pass through a pipe there; Linux and Windows report 0"))
+def test_a_pipe_hides_the_input_size_from_the_fast_io_idiom():
     example = WorkedExample(stdin="1 2 3\n", expected_stdout="6\n")
     assert not verify_candidate(FAST_IO, [example], config())
-    assert verify_candidate(FAST_IO, [example], config(judge_like_io=True))
 
 
 def test_bare_exit_exits_cleanly_like_cpython():
