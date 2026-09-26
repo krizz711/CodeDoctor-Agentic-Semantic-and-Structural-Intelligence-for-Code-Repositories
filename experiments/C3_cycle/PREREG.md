@@ -377,3 +377,30 @@ No P1 timing is claimed for the 1.7B screening encoder, and a Kaggle 1.7B rate n
   - Pins held (S6); nncf present.
   - Version 1 stopped silently after the environment probe. The driver now records any traceback into its result file.
 - **Inputs.** A private Kaggle dataset, `munalsingh/codedoctor-c3-e2-inputs`. Its `MANIFEST.json` (committed below as `E2_dataset_manifest.json`) lists every file with its sha256 and states what is excluded: qrels, APPS test-split queries and EXT-lockbox statements.
+
+## Addendum A2 (2026-09-26, before kernel A is pushed; no 1.7B E2 output exists)
+
+**Smoke runs of the mechanics** (`codedoctor-e2-smoke`, the F2LLM-v2-160M proxy, 6 queries; nothing here is an E2 result):
+- **Group-32 int8 is not possible.** nncf 3.4 rejects it: "INT8 modes require per-channel quantization of all layers in 8 bit". The pre-registered substitution therefore applies: **T1 = INT8_SYM per-channel**, and **T1b keeps per-channel**, with `down_proj` and `v_proj` ignored.
+- **Mechanics that work:**
+  - S1 (C0 cosine 0.99992);
+  - S3 (single terminal EOS);
+  - S6 (pins held);
+  - NEG (cosine 0.36, fails as required);
+  - the sandbox on Kaggle Linux (0 spawn failures);
+  - dense search (3 ms at 2048-d).
+- **Seen and disclosed before the real run.** On the 160M proxy and this AVX2-only CPU, per-channel int8 OpenVINO was **slower** than torch float32: ratio 1.46 on 6 queries. At 160M the model is small and dispatch-bound, so this does not predict 1.7B, but it was seen.
+
+**Driver changes after A1:**
+- T1b uses per-channel after the substitution;
+- the IR-layout reader uses OpenVINO type names;
+- the OpenVINO property reader handles `request` being a `CompiledModel`;
+- the gate loop stops if the T1b export fails;
+- the kernel finds its mounted inputs under `/kaggle/input`, since the dataset is not mounted at the slug path;
+- crashes are written into the result file.
+
+**Nothing in the gate, the thresholds or the decision rules changed.**
+
+**E1 arm B:** implemented and checked on DEV (`E1_armB_dev.json`):
+- 83 idiom-using candidates re-run; 0 statements change.
+- On in `candidate_v2`, pending the three-platform CI run of `tests/test_judge_like_io.py`.
