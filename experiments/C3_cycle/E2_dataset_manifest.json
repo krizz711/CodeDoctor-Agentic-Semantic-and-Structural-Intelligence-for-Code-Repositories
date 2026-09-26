@@ -1,0 +1,55 @@
+{
+ "purpose": "CodeDoctor cycle-3 E2 inputs (experiments/C3_cycle/PREREG.md)",
+ "contains": "APPS train query texts (DEV half + 100 TUNE), APPS corpus texts, stored F2LLM vectors, CodeContests EXT-dev statement texts, recorded top-50 pools of 100 TUNE statements",
+ "excludes": "qrels of any split, APPS test-split queries, EXT-lockbox statements",
+ "files": {
+  "dev_texts.json": {
+   "bytes": 3322932,
+   "sha256": "abc0ed6878a4befadd42933366ad024c6f1e0689db8b29636085d4cfef2f6520"
+  },
+  "dev_timing100.json": {
+   "bytes": 118315,
+   "sha256": "eacaa1d159d55d917aab354dfb8702410faeeb67f16ee29c667930abe4c0919e"
+  },
+  "docs100.json": {
+   "bytes": 51600,
+   "sha256": "25cc1114c549fd8cf66dbbc4be3a4d5735e5d402cb276e4fb14cc2b79ef37815"
+  },
+  "emb_f2llm06b_corpus.npy": {
+   "bytes": 17950848,
+   "sha256": "4ea018cc19c1307e32373c0d44b340eb0e1e8e4e55d47a1a1c26ed60046fd726"
+  },
+  "emb_f2llm17b_corpus.npy": {
+   "bytes": 35901568,
+   "sha256": "2d2b8938b80a4699887c3c839137d846c8d3e10e7bd533ad8bf71405efb2f99c"
+  },
+  "extdev_texts.json": {
+   "bytes": 242185,
+   "sha256": "9471961fbbd53e63ec7a6f5a735a8c07ddc1eda2b40cea9c81014099abcafdbe"
+  },
+  "texts_corpus.jsonl": {
+   "bytes": 5569316,
+   "sha256": "ef6f0d37871c19d7a4ccc58ac9e97cf90ed593f16f51d53505205bb98188d522"
+  },
+  "tune100.json": {
+   "bytes": 129807,
+   "sha256": "6b32d69332aaba4b3f34709ada9d680d4ba41306ae2f27291a28e4d54eec8912"
+  },
+  "tune100_f2llm06b.npy": {
+   "bytes": 204928,
+   "sha256": "227ba673a3ec1d2596e22b23e5ec5d5aa93b08a7e549569b3ba8210b83a33307"
+  },
+  "tune100_f2llm160m.npy": {
+   "bytes": 128128,
+   "sha256": "94f96df1d04b2823b126fb5fb91cf72714549b99dae6da53b30c5c8edbfdaf41"
+  },
+  "tune100_f2llm17b.npy": {
+   "bytes": 409728,
+   "sha256": "0a84c2964cc10cbf183e0b7d0d0f306f4ffdd0e46c9cfea054f461016ef0a3d2"
+  },
+  "tune100_pools.json": {
+   "bytes": 96907,
+   "sha256": "4b339416c8e150e81b2149a41485bd02b53ec09a16b83d19b2c8205a67a8b95e"
+  }
+ }
+}

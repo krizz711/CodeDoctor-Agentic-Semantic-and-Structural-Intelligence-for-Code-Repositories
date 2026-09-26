@@ -341,3 +341,39 @@ No P1 timing is claimed for the 1.7B screening encoder, and a Kaggle 1.7B rate n
 - the mixed-origin effect (GPU bf16 seed vectors plus CPU fp32 updates; skeptic, TUNE: top-10 order identity 0.9716, ΔNDCG@10 +3.9e-6);
 - batch 1 vs the workbench's windows of 8;
 - the 1.7B per-document CPU rate from E2's kernel, machine-labelled.
+
+---
+
+## Addendum A1 (2026-09-26, before any E2 output is read)
+
+**E2 code written after the plan commit, committed with this addendum:**
+- `scripts/e2_ov_kernel.py`: the kernel driver.
+- `scripts/build_e2_kernels.py`: the dataset and kernel builder.
+- `scripts/exp_e2_replay.py`: the local DEV/EXT-dev scoring.
+- `CodeEncoder(backend="openvino", ov_path=...)` in `app/retrieval/encode.py`: default torch. `_LOADED_MODELS` is now keyed on backend and IR path, with a test.
+
+**E2 implementation choices, fixed here:**
+- **Export.** The model is snapshotted at its pinned revision, then exported by sentence-transformers `backend="openvino"` with `model_kwargs` passed to optimum-intel:
+  - C0: `load_in_8bit=False`;
+  - T1: `OVWeightQuantizationConfig(bits=8, sym=True, group_size=32)`;
+  - T1b: T1 with `ignored_scope` patterns `.*down_proj.*` and `.*v_proj.*`;
+  - the per-channel substitution (`group_size=-1`) applies only if the T1 export raises.
+
+  The IR's int8 constant layout (grouped vs per-channel) is read back and reported.
+- **Timing.**
+  - 4 blocks of 25 queries. Arm order alternates [REF06, T, REF] and [REF, T, REF06].
+  - Each (arm, block) is its own subprocess.
+  - A fixed warm-up text, not one of the measured queries, is encoded first and discarded.
+  - OpenVINO runs with `PERFORMANCE_HINT: LATENCY`; the other settings are the plugin defaults, recorded.
+- **NEG** strips the final token (the EOS) inside sentence-transformers' `tokenize`.
+- **C0's IR** (float32, ~7 GB) is deleted after S1.
+- **The end-to-end execution pass** runs candidate_v2 live on the recorded pools of the 100 TUNE statements, once with the blank fallback off (as registered) and once on (E1 adopted it), both labelled.
+- **Scoring (`exp_e2_replay.py`):**
+  - `fill_missing` executes only pairs the policy uses: all unrecorded top-20 pairs, and ranks 21–50 only where nothing in the top 20 verifies.
+  - The fidelity check draws 100 recorded pairs from the statements that needed filling (all of them if none did): up to 50 recorded timeouts, the rest at random, seed 20260926.
+  - **Known-answer control, run already:** the stored 1.7B DEV and EXT-dev query vectors fed through the script give Δ = 0.00000 on both, with 0 pairs filled, S5 exact, and fidelity 99/100.
+- **Mechanics-only smoke kernel** (`codedoctor-e2-smoke`: the 160M model, 6 queries; no result is taken from it).
+  - Kaggle's CPU is an **AMD EPYC 7B12: AVX2 and FMA, no AVX-512, no VNNI, no AMX**, 2 physical / 4 logical cores, 33.7 GB.
+  - Pins held (S6); nncf present.
+  - Version 1 stopped silently after the environment probe. The driver now records any traceback into its result file.
+- **Inputs.** A private Kaggle dataset, `munalsingh/codedoctor-c3-e2-inputs`. Its `MANIFEST.json` (committed below as `E2_dataset_manifest.json`) lists every file with its sha256 and states what is excluded: qrels, APPS test-split queries and EXT-lockbox statements.

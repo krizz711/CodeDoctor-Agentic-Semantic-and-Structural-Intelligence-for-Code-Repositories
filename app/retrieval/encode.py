@@ -65,7 +65,9 @@ def select_dtype(device: str) -> str:
     return "bfloat16" if major >= 8 else "float16"
 
 
-_LOADED_MODELS: dict[tuple[str, str, str], Any] = {}
+#: keyed on (model, device, dtype, backend, OpenVINO path): an int8 query model
+#: must never be handed to a caller that asked for the torch document model
+_LOADED_MODELS: dict[tuple, Any] = {}
 
 
 def _keep_sdpa_off_the_math_kernel() -> bool:
@@ -163,6 +165,8 @@ class CodeEncoder:
         revision: str | None = None,
         torch_dtype: str | None = None,
         tier: str = "interactive",
+        backend: str = "torch",
+        ov_path: str | Path | None = None,
     ) -> None:
         if config_path is not None:
             self.config_path = config_path
@@ -206,6 +210,16 @@ class CodeEncoder:
         )
         self.attention_budget = int(config.get("attention_budget", DEFAULT_ATTENTION_BUDGET))
         self.max_batch = int(config.get("max_batch", DEFAULT_MAX_BATCH))
+        # ``openvino`` runs a saved OpenVINO IR of the same model (cycle 3, E2:
+        # an int8 query tower on CPU).  Same tokenizer, prompt, EOS, pooling and
+        # normalisation; only the transformer forward pass changes.  Never used
+        # for documents: the document cache key has no backend in it.
+        if backend not in ("torch", "openvino"):
+            raise ValueError(f"backend must be 'torch' or 'openvino', got {backend!r}")
+        if backend == "openvino" and not ov_path:
+            raise ValueError("backend='openvino' needs ov_path (a saved sentence-transformers OpenVINO folder)")
+        self.backend = backend
+        self.ov_path = str(ov_path) if ov_path else None
 
         self._model = None
 
@@ -231,13 +245,28 @@ class CodeEncoder:
     @property
     def model(self):
         if self._model is None:
-            cache_key = (self.model_name, self.device, self.torch_dtype)
+            cache_key = (self.model_name, self.device, self.torch_dtype, self.backend, self.ov_path)
             cached = _LOADED_MODELS.get(cache_key)
             if cached is not None:
                 self._model = cached
                 return self._model
 
             from sentence_transformers import SentenceTransformer
+
+            if self.backend == "openvino":
+                model = SentenceTransformer(
+                    self.ov_path,
+                    backend="openvino",
+                    device="cpu",
+                    model_kwargs={"ov_config": {"PERFORMANCE_HINT": "LATENCY"}},
+                    tokenizer_kwargs={"add_eos_token": self.add_eos_token,
+                                      "model_max_length": self.max_seq_length},
+                )
+                model.max_seq_length = self.max_seq_length
+                self._verify_recipe_applied(model)
+                _LOADED_MODELS[cache_key] = model
+                self._model = model
+                return self._model
 
             if str(self.device).startswith("cuda"):
                 _keep_sdpa_off_the_math_kernel()
