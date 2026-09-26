@@ -205,6 +205,16 @@ class ExecutionConfig:
     #: several answers -- the same tokens in any order.  Each only relaxes the
     #: comparison, and only for statements that grant it.
     judge_rules: bool = False
+    #: When a stdin sample contains blank lines and a candidate's run on it does
+    #: not match, run it once more on the sample with the blank lines removed.
+    #: Some scraped statements (APPS's CodeChef problems) render every line of a
+    #: sample with a blank line after it; the official judge inputs have none,
+    #: so a correct program that calls ``input()`` per line crashes on the
+    #: sample as shown.  A fallback match counts only when the program read
+    #: every non-blank character (when reading is tracked), so a program that
+    #: prints a lucky constant without reading the input cannot use it.  Raw
+    #: matches are never removed.  Experiment: experiments/C3_cycle (E1).
+    blank_line_fallback: bool = False
     #: Filled in per statement by :func:`apply_execution_rerank`; not a setting.
     statement_rules: object | None = None
     provenance: dict[str, object] = field(default_factory=dict)
@@ -924,12 +934,44 @@ def run_candidate(
     return True, verdict
 
 
+def has_internal_blank_line(stdin: str) -> bool:
+    """A whitespace-only line strictly inside the sample input."""
+    return any(not line.strip() for line in stdin.strip("\n").split("\n"))
+
+
+def collapse_blank_lines(stdin: str) -> str:
+    """The sample input with every whitespace-only line removed."""
+    return "\n".join(line for line in stdin.split("\n") if line.strip()) + "\n"
+
+
+def consumed_all(outcome_read: int | None, tracked: bool, stdin: str) -> bool | None:
+    """Did the run read every non-blank character of ``stdin``?  ``None`` = untracked."""
+    if not tracked:
+        return None
+    return len(stdin.rstrip()) <= (outcome_read or 0)
+
+
+def run_blank_line_fallback(code: str, example: WorkedExample, config: ExecutionConfig) -> bool:
+    """The E1 fallback run: the collapsed sample, accepted only if fully read."""
+    collapsed = collapse_blank_lines(example.stdin)
+    outcome = execute_candidate(code, collapsed, config, track_input=True)
+    if not outcome.ok or compare_output(outcome.stdout, example.expected_stdout, config) is None:
+        return False
+    return consumed_all(outcome.stdin_chars_read, outcome.stdin_tracked, collapsed) is not False
+
+
 def verify_candidate(code: str, examples: list[WorkedExample], config: ExecutionConfig) -> bool:
     """``True`` only when every supplied example is reproduced exactly."""
     if not examples:
         return False
     for example in examples:
         matched, _ = run_candidate(code, example, config)
+        if (
+            not matched
+            and config.blank_line_fallback
+            and has_internal_blank_line(example.stdin)
+        ):
+            matched = run_blank_line_fallback(code, example, config)
         if not matched:
             return False
     return True

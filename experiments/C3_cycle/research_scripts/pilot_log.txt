@@ -1,0 +1,29 @@
+{
+  "statements_studied": 21,
+  "runs": 2574,
+  "seconds": 71.6,
+  "mutants_total": 529,
+  "sample_pass": 161,
+  "sample_pass_rate": 0.30434782608695654,
+  "near_miss": 48,
+  "equivalent_on_official": 113,
+  "statements_with_near_miss": 13,
+  "lineage_sizes": {
+    "3": 2,
+    "2": 3,
+    "4": 8
+  },
+  "near_miss_exposed_by_generated_inputs": 0.6451612903225806,
+  "near_miss_exposed_by_official_inputs": 1.0,
+  "n_near_miss_in_lineages": 31,
+  "gold_first_chance": 0.32051282051282054,
+  "gold_first_mbr_generated": 0.46794871794871795,
+  "gold_first_mbr_official_inputs": 0.5256410256410257,
+  "gold_first_mbr_both": 0.6217948717948718,
+  "gold_first_fewest_crashes_generated": 0.46153846153846156,
+  "k>=3: n": 10,
+  "k>=3: chance": 0.26666666666666666,
+  "k>=3: mbr_generated": 0.4583333333333333,
+  "k>=3: mbr_official": 0.5333333333333333,
+  "gen_inputs_per_statement_mean": 9.846153846153847
+}

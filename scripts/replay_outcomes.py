@@ -66,6 +66,13 @@ class Policy:
     #: cost gate: candidates more than this below the row's best dense score
     #: are never executed (``ExecutionConfig.max_dense_gap``)
     max_dense_gap: float | None = None
+    #: E1 (experiments/C3_cycle): a used stdin example with blank lines that the
+    #: raw run did not match gets the recorded collapsed-input run, accepted
+    #: only if it read every non-blank character (untracked runs are accepted).
+    #: Needs a sidecar merged by :func:`attach_fallback`.
+    blank_fallback: bool = False
+    #: sensitivity arm: reject fallback matches whose input reading was not tracked
+    fallback_untracked_ok: bool = True
 
 
 # -- comparators -------------------------------------------------------------
@@ -154,6 +161,34 @@ def call_verdict(record: dict, entry: dict, policy: Policy) -> str:
     return "none"
 
 
+def fallback_verdict(record: dict, entry: dict, index: int, expected: str, policy: Policy) -> bool:
+    """E1: does the recorded collapsed-input run for example ``index`` count as a match?"""
+    run = (record.get("stdin_runs_fallback") or {}).get(str(index))
+    fed = (entry.get("fallback_inputs") or {}).get(str(index))
+    if run is None or fed is None:
+        return False
+    if stdin_verdict(run, expected, entry["rules"], policy) != "strong":
+        return False
+    consumed = _consumed_exactly(run, fed)
+    return policy.fallback_untracked_ok if consumed is None else consumed
+
+
+def attach_fallback(entries: list[dict], sidecar: Path) -> dict:
+    """Merge a ``record_blank_fallback`` sidecar into store entries (in place)."""
+    with gzip.open(sidecar, "rt", encoding="utf-8") as handle:
+        header = json.loads(handle.readline())
+        rows = {r["qid"]: r for r in map(json.loads, handle)}
+    for entry in entries:
+        row = rows.get(entry["qid"])
+        if row is None:
+            continue
+        entry["fallback_inputs"] = row["inputs"]
+        for record in entry["candidates"]:
+            if record["doc"] in row["runs"]:
+                record["stdin_runs_fallback"] = row["runs"][record["doc"]]
+    return header
+
+
 def candidate_tier(record: dict, entry: dict, policy: Policy) -> str:
     runs = record.get("stdin_runs") or []
     use_stdin = entry["legacy_examples"] > 0 or policy.extended_stdin
@@ -161,6 +196,11 @@ def candidate_tier(record: dict, entry: dict, policy: Policy) -> str:
         limit = policy.stdin_examples
         chosen = list(zip(runs, entry["stdin_examples"]))[:limit]
         verdicts = [stdin_verdict(r, e["expected"], entry["rules"], policy) for r, e in chosen]
+        if policy.blank_fallback:
+            verdicts = [
+                "strong" if v != "strong" and fallback_verdict(record, entry, i, e["expected"], policy) else v
+                for i, (v, (_, e)) in enumerate(zip(verdicts, chosen))
+            ]
         if verdicts and all(v == "strong" for v in verdicts):
             return "strong"
         stdin_weak = bool(verdicts) and all(v in ("strong", "weak") for v in verdicts)

@@ -1,0 +1,264 @@
+{
+ "split": "tune",
+ "store": {
+  "_header": true,
+  "model": "f2llm17b",
+  "split": "tune",
+  "family": "all",
+  "seed": 20260919,
+  "depth": 50,
+  "exec_depth": 20,
+  "timeout": 2.0,
+  "workers": 6,
+  "seconds": 699.9,
+  "pairs": 29120,
+  "deepened_to": 50,
+  "deep_runs": 25170,
+  "deep_seconds": 477.5
+ },
+ "S1_reproduced": [
+  0.95849,
+  0.96362
+ ],
+ "S1_expected": [
+  0.95849,
+  0.96362
+ ],
+ "S1_pass": true,
+ "sidecar": {
+  "_header": true,
+  "store": "f2llm17b_all_tune_deep50.jsonl.gz",
+  "placebo": false,
+  "seed": 20260926,
+  "timeout": 2.0,
+  "workers": 6,
+  "runs": 1680,
+  "seconds": 47.8,
+  "spawn_failures": 0
+ },
+ "primary_stdin_ndcg10": {
+  "control": 0.96362,
+  "treatment": 0.96882,
+  "delta": 0.0052,
+  "ci95": [
+   0.00196,
+   0.00933
+  ],
+  "sign_flip_p": 0.00391,
+  "sign_flip": "exact",
+  "up": 9,
+  "down": 0,
+  "n": 825
+ },
+ "stdin_mrr10": {
+  "control": 0.95542,
+  "treatment": 0.96194,
+  "delta": 0.00653,
+  "ci95": [
+   0.00248,
+   0.01141
+  ],
+  "sign_flip_p": 0.00391,
+  "sign_flip": "exact",
+  "up": 9,
+  "down": 0,
+  "n": 825
+ },
+ "all_family_ndcg10": {
+  "control": 0.95849,
+  "treatment": 0.9602,
+  "delta": 0.00172,
+  "ci95": [
+   0.00069,
+   0.00308
+  ],
+  "sign_flip_p": 0.00391,
+  "sign_flip": "exact",
+  "up": 9,
+  "down": 0,
+  "n": 2500
+ },
+ "all_family_mrr10": {
+  "control": 0.94981,
+  "treatment": 0.95197,
+  "delta": 0.00215,
+  "ci95": [
+   0.00089,
+   0.00377
+  ],
+  "sign_flip_p": 0.00391,
+  "sign_flip": "exact",
+  "up": 9,
+  "down": 0,
+  "n": 2500
+ },
+ "changed_statements": {
+  "q585": 1.0,
+  "q614": 0.3691,
+  "q645": 0.5,
+  "q711": 0.5,
+  "q904": 0.3691,
+  "q927": 0.3691,
+  "q1061": 0.3691,
+  "q1234": 0.2441,
+  "q1401": 0.5693
+ },
+ "mechanism": {
+  "gold_recoveries": 28,
+  "nongold_fallback_verifications": 9,
+  "untracked_fallback_accepted": 0,
+  "statements_with_fallback_verification": [
+   "q1042",
+   "q1061",
+   "q1086",
+   "q1144",
+   "q1151",
+   "q1204",
+   "q1216",
+   "q1234",
+   "q1401",
+   "q1481",
+   "q1499",
+   "q1543",
+   "q1570",
+   "q585",
+   "q614",
+   "q645",
+   "q651",
+   "q663",
+   "q711",
+   "q760",
+   "q793",
+   "q865",
+   "q877",
+   "q894",
+   "q904",
+   "q913",
+   "q927",
+   "q974"
+  ]
+ },
+ "rule6_rank1_gold_displaced": [],
+ "cost": {
+  "affected_statements": 35,
+  "fallback_runs_total": 895,
+  "fallback_runs_per_affected_mean": 25.57
+ },
+ "sensitivity_untracked_rejected_stdin": {
+  "control": 0.96362,
+  "treatment": 0.96882,
+  "delta": 0.0052,
+  "ci95": [
+   0.00196,
+   0.00933
+  ],
+  "sign_flip_p": 0.00391,
+  "sign_flip": "exact",
+  "up": 9,
+  "down": 0,
+  "n": 825
+ },
+ "descriptive_frozen_rule_stdin": {
+  "control": 0.95922,
+  "treatment": 0.96442,
+  "delta": 0.0052,
+  "ci95": [
+   0.00196,
+   0.00933
+  ],
+  "sign_flip_p": 0.00391,
+  "sign_flip": "exact",
+  "up": 9,
+  "down": 0,
+  "n": 825
+ },
+ "meaningful_blank_line_statements": [
+  {
+   "qid": "q1676",
+   "baseline": 1.0,
+   "treated": 1.0
+  }
+ ],
+ "negative_control_sidecar": {
+  "_header": true,
+  "store": "f2llm17b_all_tune_deep50.jsonl.gz",
+  "placebo": true,
+  "seed": 20260926,
+  "timeout": 2.0,
+  "workers": 6,
+  "runs": 1680,
+  "seconds": 48.9,
+  "spawn_failures": 0
+ },
+ "negative_control_stdin": {
+  "control": 0.96362,
+  "treatment": 0.96362,
+  "delta": 0.0,
+  "ci95": [
+   0.0,
+   0.0
+  ],
+  "sign_flip_p": 1.0,
+  "sign_flip": "exact",
+  "up": 0,
+  "down": 0,
+  "n": 825
+ },
+ "negative_control_mechanism": {
+  "gold_recoveries": 0,
+  "nongold_fallback_verifications": 1,
+  "untracked_fallback_accepted": 0,
+  "statements_with_fallback_verification": [
+   "q1481"
+  ]
+ },
+ "negative_control_moved": {
+  "q1481": -0.3691
+ },
+ "retry_control_sidecar": {
+  "_header": true,
+  "store": "f2llm17b_all_tune_deep50.jsonl.gz",
+  "placebo": false,
+  "mode": "retry",
+  "seed": 20260926,
+  "timeout": 2.0,
+  "workers": 6,
+  "runs": 1680,
+  "seconds": 43.0,
+  "spawn_failures": 0
+ },
+ "retry_control_stdin": {
+  "control": 0.96362,
+  "treatment": 0.96362,
+  "delta": 0.0,
+  "ci95": [
+   0.0,
+   0.0
+  ],
+  "sign_flip_p": 1.0,
+  "sign_flip": "exact",
+  "up": 0,
+  "down": 0,
+  "n": 825
+ },
+ "retry_control_mechanism": {
+  "gold_recoveries": 0,
+  "nongold_fallback_verifications": 0,
+  "untracked_fallback_accepted": 0,
+  "statements_with_fallback_verification": []
+ },
+ "retry_control_moved": {},
+ "decision_rules": {
+  "1_delta_ge_0.003": true,
+  "2_ci_excludes_0": true,
+  "3_sign_flip_p_lt_0.05": true,
+  "4_at_least_6_changed": true,
+  "5_all_family_delta_ge_0": true,
+  "6_at_most_1_rank1_displacement": true
+ },
+ "negative_control_fails_as_required": true,
+ "sanity": {
+  "S1": true
+ },
+ "adopt": true
+}
