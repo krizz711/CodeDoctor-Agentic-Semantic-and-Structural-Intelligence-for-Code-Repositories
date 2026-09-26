@@ -58,4 +58,19 @@
 - `config/candidate_v2.yaml`: `execution_blank_line_fallback: true`.
 - `config/frozen.yaml` is untouched; the screening number stays 0.96558.
 - Using this in the submission needs a logged test-split run of the whole candidate configuration. That is a final decision for the team.
-- Arm B (judge-like stdin and `exit`) is a separate fidelity fix. It is not done in this cycle; it is listed as open in `SUMMARY.md`.
+## Arm B: judge-like I/O (a fidelity fix, no score claim)
+- **What it does:**
+  - stdin is a file handle, not a pipe;
+  - `exit` and `quit` are bound to `sys.exit`, as `site` would do.
+- **Behaviour matches plain CPython:** `exit('msg')` gives rc 1 with `msg` on stderr; `from __future__` files and input tracking still work.
+- **DEV acceptance condition** (`E1_armB_dev.json`):
+  - The 83 DEV candidates that use the idioms and did not verify were re-run.
+  - **0 statements change** (Δ 0.00000), and 0 are newly verified.
+- **EXT-dev, in-sample and descriptive only:**
+  - +0.0069 [−0.0075, +0.0227], 5 up / 3 down, p 0.41.
+  - Golds that use the fast-IO idiom now verify. So do some incorrect same-problem submissions, as they would under a real judge (the known near-miss limit).
+- **CI acceptance condition:**
+  - The first run failed on macOS, which exposed an error in *my test*, not in arm B. On macOS, `fstat` on a pipe reports the bytes already buffered, so the idiom can pass even through a pipe.
+  - The skeptic's claim that "the pipe failure shows up on every platform" is therefore **refuted for macOS**. It holds on Linux and Windows.
+  - The test now asserts arm B's behaviour on every platform, and the pipe failure only where it was measured.
+- **Status: accepted.** CI is green on all 8 jobs, ubuntu, macOS and Windows (edf2808), and it is on in `candidate_v2` (`execution_judge_like_io: true`).
