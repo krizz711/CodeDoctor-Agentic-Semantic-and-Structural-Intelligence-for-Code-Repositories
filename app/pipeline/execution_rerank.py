@@ -215,6 +215,14 @@ class ExecutionConfig:
     #: prints a lucky constant without reading the input cannot use it.  Raw
     #: matches are never removed.  Experiment: experiments/C3_cycle (E1).
     blank_line_fallback: bool = False
+    #: Run candidates the way a judge does: stdin is a *file* (judges redirect
+    #: one), so ``os.fstat(0).st_size`` -- the common fast-IO idiom
+    #: ``os.read(0, os.fstat(0).st_size)`` -- sees the real size instead of a
+    #: pipe's 0; and ``exit``/``quit``, which ``-S`` removes along with
+    #: ``site``, are bound to ``sys.exit`` as CPython's ``site`` would.
+    #: Return codes and output match plain CPython (checked by tests).
+    #: Experiment: experiments/C3_cycle (E1 arm B; a fidelity fix, no score claim).
+    judge_like_io: bool = False
     #: Filled in per statement by :func:`apply_execution_rerank`; not a setting.
     statement_rules: object | None = None
     provenance: dict[str, object] = field(default_factory=dict)
@@ -539,8 +547,12 @@ def _run_call(script, spec_path, stats, side_path):
 def _main():
     limits_arg, track, side_path, script = sys.argv[1:5]
     mode = sys.argv[5] if len(sys.argv) > 5 else "stdin"
-    memory_limit_mb, _, cpu_seconds = limits_arg.partition(":")
+    memory_limit_mb, _, rest = limits_arg.partition(":")
+    cpu_seconds, _, bind_exit = rest.partition(":")
     _apply_limits(int(memory_limit_mb), int(cpu_seconds or 0))
+    if bind_exit == "1":
+        import builtins
+        builtins.exit = builtins.quit = sys.exit
     if mode == "call":
         _run_call(script, sys.argv[6], {"exception": None}, side_path)
         return
@@ -679,26 +691,38 @@ def _run_capped(
     max_output_bytes: int,
     cwd: str,
     env: dict[str, str],
+    stdin_path: str | None = None,
 ) -> tuple[str, int | None, bytes, bytes]:
     """``subprocess.run`` with a byte cap on stdout.
 
     Returns ``(status, returncode, stdout, stderr)`` with ``status`` one of
     ``completed``, ``timeout`` or ``output_cap``.  Raises only what
-    ``Popen`` itself raises when the process cannot be started.
+    ``Popen`` itself raises when the process cannot be started.  With
+    ``stdin_path`` the child reads that file as its stdin (as under a judge's
+    redirect) instead of a pipe fed by a thread.
     """
-    process = subprocess.Popen(
-        argv,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd=cwd,
-        env=env,
-    )
+    if stdin_path is not None:
+        with open(stdin_path, "rb") as stdin_file:
+            process = subprocess.Popen(
+                argv, stdin=stdin_file, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env,
+            )
+        stdin_bytes = b""
+    else:
+        process = subprocess.Popen(
+            argv,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=cwd,
+            env=env,
+        )
     stdout_chunks: list[bytes] = []
     stderr_chunks: list[bytes] = []
     overflow = threading.Event()
 
     def feed() -> None:
+        if process.stdin is None:  # stdin is a file (judge-like I/O)
+            return
         try:
             if stdin_bytes:
                 process.stdin.write(stdin_bytes)
@@ -818,6 +842,8 @@ def execute_candidate(
         if cpu_mode:
             limits_arg += f":{max(1, math.ceil(config.timeout_seconds))}"
             wall_timeout = config.timeout_seconds * config.wall_backstop_factor
+        if config.judge_like_io:
+            limits_arg += (":" if cpu_mode else ":0:") + "1"
         argv = [
             sys.executable, "-I", "-S", runner,
             limits_arg, "1" if track_input else "0", side_channel, script,
@@ -825,6 +851,14 @@ def execute_candidate(
         if call_spec is not None:
             argv += ["call", spec_path]
             stdin = ""
+        stdin_path = None
+        if config.judge_like_io and call_spec is None:
+            stdin_path = os.path.join(workdir, "_stdin.txt")
+            try:
+                with open(stdin_path, "wb") as handle:
+                    handle.write(stdin.encode("utf-8"))
+            except OSError as error:
+                return ExecutionOutcome(status="refused", detail=f"write failed: {error}")
         started = time.perf_counter()
         try:
             status, returncode, out, err = _run_capped(
@@ -834,6 +868,7 @@ def execute_candidate(
                 max_output_bytes=config.max_output_bytes,
                 cwd=workdir,
                 env=environment,
+                stdin_path=stdin_path,
             )
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             _record_spawn_failure(error)

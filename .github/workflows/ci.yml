@@ -118,6 +118,8 @@ jobs:
           tests/test_parallel_execution.py
           tests/test_replay_outcomes.py
           tests/test_corpus_cache.py
+          tests/test_judge_like_io.py
+          tests/test_blank_line_fallback.py
 
   registry:
     name: Frozen recipe vs MTEB's own registry

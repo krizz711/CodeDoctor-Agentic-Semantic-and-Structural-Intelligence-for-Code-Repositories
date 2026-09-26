@@ -35,6 +35,11 @@
 #                                  plain-retry controls 0.  Pre-registered:
 #                                  experiments/C3_cycle (E1).  No screening gain is
 #                                  projected: its test-split prevalence is unknown.
+#   execution_judge_like_io: true  stdin is a file and exit/quit exist, as under a judge
+#                                  (fast-IO idiom os.read(0, os.fstat(0).st_size); bare
+#                                  exit()).  A fidelity fix, no score claim: DEV 0 changes
+#                                  (83 candidates re-run); CodeContests EXT-dev +0.0069
+#                                  n.s., 5 up / 3 down, in-sample.  experiments/C3_cycle.
 #   execution_timeout_mode: cpu    CPU-time limits (POSIX; wall clock elsewhere):
 #                                  wall-clock verdicts depend on machine load.
 #   execution_workers: 0           one per physical core (override with
@@ -79,3 +84,4 @@ pipeline:
   execution_deepen_to: 50
   execution_skip_interactive: true
   execution_blank_line_fallback: true
+  execution_judge_like_io: true

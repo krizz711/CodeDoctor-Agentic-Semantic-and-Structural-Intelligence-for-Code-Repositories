@@ -112,7 +112,14 @@ WORK = "/kaggle/working/codedoctor"
 os.makedirs(WORK, exist_ok=True)
 with tarfile.open(fileobj=io.BytesIO(base64.b64decode("__PAYLOAD__")), mode="r:gz") as tar:
     tar.extractall(WORK)
-DATA = "/kaggle/input/codedoctor-c3-e2-inputs"
+def find(name):
+    for root, _dirs, files in os.walk("/kaggle/input"):
+        if name in files:
+            return root
+    return None
+DATA = find("MANIFEST.json")
+STAGE_A = find("e2_A.json")
+print("mounted inputs:", DATA, STAGE_A, flush=True)
 subprocess.run([sys.executable, "scripts/e2_ov_kernel.py", __ARGS__], cwd=WORK, check=False)
 for name in ("e2_A.json", "e2_B.json"):
     path = os.path.join("/kaggle/working/e2", name)
@@ -134,9 +141,8 @@ def build_kernel(stage: str, arm: str, out: Path) -> None:
         args = '"stage-a", "--data", DATA, "--work", "/kaggle/working/e2"'
         sources = []
     else:
-        src = "/kaggle/input/" + KERNELS["a"].split("/")[1]
-        args = (f'"stage-b", "--data", DATA, "--work", "/kaggle/working/e2", "--ir", "{src}/e2/ir_{arm}", '
-                f'"--arm", "{arm}", "--stage-a-dir", "{src}/e2"')
+        args = (f'"stage-b", "--data", DATA, "--work", "/kaggle/working/e2", "--ir", STAGE_A + "/ir_{arm}", '
+                f'"--arm", "{arm}", "--stage-a-dir", STAGE_A')
         sources = [KERNELS["a"]]
     script = (KERNEL.replace("__PAYLOAD__", payload).replace("__PINS__", PINS).replace("__ENV__", env)
               .replace("__ARGS__", args).replace("__STAGE__", stage))

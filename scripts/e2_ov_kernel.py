@@ -146,9 +146,10 @@ def cmd_export(mode: str, out: str, snapshot: str) -> dict:
         model_kwargs = {"quantization_config": OVWeightQuantizationConfig(bits=8, sym=True, group_size=32)}
     elif mode == "T1pc":
         model_kwargs = {"quantization_config": OVWeightQuantizationConfig(bits=8, sym=True, group_size=-1)}
-    elif mode == "T1b":
+    elif mode in ("T1b", "T1bpc"):
+        # T1b keeps T1's grouping: per-channel once the group-32 export was rejected
         model_kwargs = {"quantization_config": OVWeightQuantizationConfig(
-            bits=8, sym=True, group_size=32,
+            bits=8, sym=True, group_size=-1 if mode == "T1bpc" else 32,
             ignored_scope={"patterns": [".*down_proj.*", ".*v_proj.*"]})}
     else:
         raise ValueError(mode)
@@ -176,7 +177,7 @@ def ir_layout(xml: Path) -> dict:
         for op in model.get_ops():
             if op.get_type_name() != "Constant":
                 continue
-            et = str(op.get_output_element_type(0))
+            et = op.get_output_element_type(0).get_type_name()
             types[et] = types.get(et, 0) + 1
             if et in ("i8", "u8"):
                 shape = list(op.get_output_partial_shape(0).to_shape())
@@ -223,7 +224,9 @@ def ov_properties(encoder) -> dict:
     props = {}
     try:
         auto = encoder.model._first_module().auto_model
-        compiled = getattr(auto, "compiled_model", None) or auto.request.get_compiled_model()
+        compiled = getattr(auto, "compiled_model", None) or auto.request
+        if hasattr(compiled, "get_compiled_model"):
+            compiled = compiled.get_compiled_model()
         for name in ("INFERENCE_NUM_THREADS", "DYNAMIC_QUANTIZATION_GROUP_SIZE", "INFERENCE_PRECISION_HINT",
                      "KV_CACHE_PRECISION", "PERFORMANCE_HINT"):
             try:
@@ -403,8 +406,11 @@ def stage_a(data: Path, work: Path) -> dict:
     chosen = None
     for arm, ir in (("T1", t_ir), ("T1b", str(work / "ir_T1b"))):
         if arm == "T1b":
-            result["exports"]["T1b"] = run_sub(["export", "--mode", "T1b", "--out", ir, "--snapshot", snap], timeout)
+            mode = "T1bpc" if result.get("T1_substituted_by_per_channel") else "T1b"
+            result["exports"]["T1b"] = run_sub(["export", "--mode", mode, "--out", ir, "--snapshot", snap], timeout)
             dump(work / "e2_A.json", result)
+            if result["exports"]["T1b"].get("status") != "ok":
+                break
         timed = interleaved({"REF06": None, arm: ir, "REF": None}, texts, work, f"gate_{arm}", timeout)
         if timed["status"] != "ok":
             result[f"gate_{arm}"] = timed
