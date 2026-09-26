@@ -42,7 +42,8 @@ This code runs untrusted programs, its outputs decide what ships, and it must ru
   - A config that is missing or not valid YAML raises. Sandbox spawn failures are counted in the audit and warned about. Workers default to physical cores. Runs record their duration (`tests/test_robustness_fixes.py`).
   - Atomic writes in the outcome stores and experiment scripts.
   - Model revisions pinned.
-  - CI: full suite on ubuntu/3.11; sandbox tests on ubuntu, macOS and Windows; ruff F401/F811.
+  - Document caches (scored path and demo) are keyed on the full encoder recipe; mixed dimensions raise (`tests/test_cache_recipe_key.py`, 2026-09-26). Loaded models are keyed on backend (`tests/test_encoder_backend.py`).
+  - CI: full suite on ubuntu/3.11; sandbox tests on ubuntu, macOS and Windows (including `test_judge_like_io.py` and `test_blank_line_fallback.py`); ruff F401/F811.
 - **Target, not yet true:**
   - Result files lack git SHA, package versions and hardware.
   - Dependencies are `>=` ranges (only `mteb==2.21.0` is pinned); `psutil` is optional (without it, workers fall back to logical cores).
@@ -106,4 +107,6 @@ We would not be releasing an additional dataset/codebase. The APPS dataset will 
 ## Where things live
 - Architecture plan: docs/V2-ARCHITECTURE-PLAN.md
 - Experiments and results: experiments/README.md, experiments/RESULTS.md, experiments/HANDOFF.md
+- **Current state and next steps: experiments/HANDOFF.md, section A** (the hand-off to a new machine, 2026-09-26). Cycle 3: experiments/C3_cycle/ (SUMMARY.md first). Work continues on branch `v3`; `v2/prepost-architecture` is frozen.
+- The three-persona debate (2026-09-25): docs/debate-2026-09-25.md
 - Machine-specific facts (hardware, accounts, local paths): CLAUDE.local.md — gitignored, per checkout.

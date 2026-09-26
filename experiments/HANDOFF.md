@@ -1,4 +1,123 @@
-# Hand-off: the 1.7B re-measurement, and what needs the team
+# Hand-off
+
+## A. Moving to another machine: the state on 2026-09-26 (branch `v3`)
+
+Work moves to an agent on another laptop, which will have only GitHub. Everything that agent needs is in this repo; nothing depends on the old laptop.
+
+### A1. Branches
+| branch | state | rule |
+|---|---|---|
+| `main` | the screening submission (0.96558), untouched | never push to it (team decision) |
+| `v2/prepost-architecture` | frozen at `9982be8`; CI green on all 8 jobs | **do not touch** (user, 2026-09-26) |
+| `v3` | = `v2` + this hand-off (docs only) | continue here |
+
+### A2. Audit of `v2/prepost-architecture` at `9982be8` (read-only, 2026-09-26)
+- **CI:** green on all 8 jobs (the main job, the recipe registry, and the sandbox on ubuntu/macOS/Windows × Python 3.11/3.12). The last three pushes were all green.
+- **Local:** `ruff check app scripts tests --select F401,F811,F821,E9` is clean. `pytest tests` gives 492 passed, 5 skipped (Windows; the skips are Linux-only rlimit tests).
+- **`config/frozen.yaml` is byte-identical to `main`.** The submitted configuration was never edited. Every cycle-3 change sits behind switches that default to off, and they are on only in `config/candidate_v2.yaml`.
+- **Secrets:** a scan of tracked files for GitHub, Hugging Face and Kaggle tokens and API-key patterns finds nothing. `CLAUDE.local.md`, `artifacts/`, `build/` and `.claude/` are gitignored.
+- **Size:** no tracked file is over 5 MB. `data/outcomes/` holds 27 MB of recorded stores.
+- **Stale docs (open; changing claims is a team decision):**
+  - `README.md` does not yet mention cycle 3: E1, arm B, the demo-cache fix, or `rebuild=true`.
+  - The disclosure line Dr. Ortega asked for, about test-qrels-informed sizing in `docs/V2-ARCHITECTURE-PLAN.md:270`, is still missing; the user deferred it.
+  - `RESULTS.md` and `CLAUDE.md` are updated on `v3` in this hand-off.
+
+### A3. Cycle 3: what is done, what is not
+Full detail: `experiments/C3_cycle/` (`SUMMARY.md` first, then `PREREG.md` with addenda A1–A3).
+
+| item | status | what is left |
+|---|---|---|
+| **P0:** why execution added +0.000 on CodeContests-onesol | **done**: a small-pool ceiling effect (`P0_ceiling_anomaly/result.md`) | – |
+| **E1:** blank-line fallback | **done, adopted** in `candidate_v2`: DEV stdin +0.0078 [+0.0031, +0.0131] | – |
+| **E1 arm B:** judge-like I/O | **done, accepted** (DEV 0 changes; CI green on 3 OSes); on in `candidate_v2` | – |
+| **E2:** int8 OpenVINO 1.7B query encoder | **Run 1 VOID** (S2: Kaggle gave a slower CPU; addendum A3). **Run 2 (the one permitted repeat) finished on Kaggle; its output has NOT been read.** | step B1 below |
+| **E3 Part 1:** recipe-aware demo cache key | **done** (tests) | – |
+| **E3 Part 2:** in-process `rebuild=true` | **done** (tests) | – |
+| **E3 Part 3:** P1 timing | **not run**: it needs ≥ 3 GB free RAM, and the old laptop had 0.2–0.6 GB | step B2 below |
+
+### A4. Next steps, in order, with commands
+**B1. Evaluate E2 run 2 (Kaggle kernel `munalsingh/codedoctor-e2-ov-a`, version 2).**
+```bash
+kaggle kernels output munalsingh/codedoctor-e2-ov-a -p build/kernel_e2a/out2
+```
+- The download includes a ~1.7 GB IR under `e2/ir_*`. The result is `e2/e2_A.json`.
+- On Windows, `cd` into the target folder and pass `-p .`, because the CLI mangles relative paths.
+- **Apply `PREREG.md` mechanically, in this order:**
+  - **Is it void?** Void if S2 fails (`gate_T1.REF_within_25pct_of_7.83s`), S1 (`S1_C0_reproduces_stored`), S3, S6 (`pins`) or NEG (`NEG_fails_as_required`).
+    - If void: **E2 stops.** Report the hardware blocker (A3); there are no more repeats.
+  - **Otherwise, the gate:** `chosen` is `null` when neither T1 nor T1b passed.
+    - Expected from the void run: fidelity fails for both (median cosine 0.982 and 0.991 against the 0.995 bar), and both are slower (1.43×, 1.31×).
+    - If it fails: **E2 ends negative.** Write `E2_result.md` covering fidelity, speed ratio with CI, peak RSS, CPU model and ISA flags, and the single-machine end-to-end costs (`search_cost`, `execution_pass`, the REF/REF06 latencies, `doc_rate_1.7B_fp32`). These are descriptive and machine-labelled; they are also Dr. Ortega's requested single-machine cost.
+  - **Only if a T passes (unexpected):**
+    - commit the gate result;
+    - `python scripts/build_e2_kernels.py kernel --stage b --arm T1` (or `T1b`), then `cd build/kernel_e2b && kaggle kernels push -p .`;
+    - then `python scripts/exp_e2_replay.py --kernel-out <kernel-B out>/e2 --arm T1 --out experiments/C3_cycle/E2_result_dev.json`. Its known-answer control is already passed: Δ = 0 on stored vectors.
+- **Never report an int8 CI above 0 as a gain** (PREREG E2).
+
+**B2. E3 Part 3: the P1 timing run** (`scripts/exp_e3_p1_timing.py`). It runs last; nothing else heavy may run at the same time.
+- **Machine change needs an addendum first.** The pre-registration says Part 3 runs on "this laptop" (i5-11260H) and "is not moved to another machine". Moving it is a legitimate team decision, but write addendum A4 in `PREREG.md` **before** running:
+  - the new machine (CPU, cores, RAM);
+  - that every P1 number will carry that machine label;
+  - that the sanity band ("0.6B batch-1 within ±25% of 1.275 s/doc") refers to the old laptop and is re-anchored to the new machine's own measured batch-1 rate *before* the timing runs, or reported as a known mismatch.
+
+  Decide which of these two before running, and say so in A4.
+- **Pre-flight:** ≥ 3 GB free RAM.
+- **Commands:** `python scripts/exp_e3_p1_timing.py --dry --out build/e3_dry.json` checks the mechanics (not a result). Then `python scripts/exp_e3_p1_timing.py --out experiments/C3_cycle/E3_result.json`.
+- **Claim rule:** see PREREG E3. `R_claim.claim_allowed` decides whether the README may say "re-embeds only what changed".
+
+**B3. Then:**
+- update `C3_cycle/SUMMARY.md` and the `RESULTS.md` cycle-3 section with E2 and E3;
+- push `v3` and check CI (`gh run watch <id> --exit-status`).
+
+**B4. Next cycle** (not started):
+- the Bonus near-miss tie-break (MBR-exec on mutated sample inputs; pilot 0.46 vs chance 0.33; `C3_cycle/research_scripts/pilot_nearmiss.py`);
+- the Markdown statement normaliser and the disclosure line, both deferred by the user;
+- the README update.
+
+### A5. Setting up the new machine
+1. **Code:** `git clone`, then `git checkout v3`. Python 3.11+ virtual env, `pip install -r requirements.txt` plus CPU `torch`. For the E2 kernels, the OpenVINO pins live in `scripts/build_e2_kernels.py`.
+2. **`CLAUDE.local.md`** (gitignored; write a new one for that machine) should record:
+   - hardware: RAM, cores, GPU;
+   - GitHub account `krizz711`, via `gh auth login` by the user;
+   - Kaggle account `munalsingh`: the user sets up CLI credentials; the agent never opens `~/.kaggle`;
+   - "check CI after every push";
+   - local artifact paths.
+3. **Artifacts (gitignored).** Regenerate them; never commit them.
+   - **`artifacts/apps/`:**
+     - Texts, ids and qrels: `python scripts/encode_apps.py --tier interactive --device cpu`. This also writes the 0.6B vectors (slow on CPU; a GPU is allowed for this step by FAQ A).
+     - 1.7B vectors: the output of Kaggle kernel `munalsingh/codedoctor-apps-encode`. Verify against the sha256 prefixes in the old manifest: corpus `2d2b8938b80a4699`, qtrain `9e19cdc2f32be6af`.
+     - This script also writes **test-split** files (`texts_queries_test.jsonl`, `qrels_test.json`). **Never open them;** they are only for the one logged test-split run.
+   - **`artifacts/ext_cc/`:** `python scripts/build_external_set.py --out artifacts/ext_cc`, then the 1.7B vectors from Kaggle kernel `munalsingh/codedoctor-ext-encode-17b` (`scripts/build_ext_encode_kernel.py`). The EXT-lockbox (`splits.json` key `ext_lockbox`) stays sealed.
+   - **`artifacts/oracle/`:** `codeparrot/apps` train (`apps_train.jsonl`, sha256 `45e82ef2…`) and a CodeContests train conversion (see `scripts/parser_oracle.py`).
+   - **Shortcut:** the private Kaggle dataset `munalsingh/codedoctor-c3-e2-inputs` holds the APPS corpus texts, the 1.7B/0.6B corpus vectors, the DEV query texts and the TUNE-100 subset (`experiments/C3_cycle/E2_dataset_manifest.json` lists them with sha256).
+4. **Checks that the artifacts are right, before any experiment:**
+   - `python scripts/replay_outcomes.py --store data/outcomes/f2llm17b_all_dev_deep50.jsonl.gz` must print dense 0.92792, `legacy+numeric1e-6` 0.94846 and `call-style+deep50` 0.95327. On the `..._tune_deep50` store: 0.93779 / 0.95375 / 0.95849. This needs `artifacts/apps/qrels_train.json`.
+   - `python scripts/p0_headroom.py` (about 5 minutes, live execution included) recomputes dense ranks **from the stored vectors**. Its M0 lines must print 0.90155 (APPS DEV stdin) and 0.97857 (CC-onesol).
+
+### A6. Traps met this cycle (so they are not rediscovered)
+- **Kaggle:**
+  - The CPU class is **heterogeneous**: an AMD EPYC 7B12 on one run, an Intel Xeon @ 2.20 GHz on the next, both AVX2 without VNNI. Record `cpu_model` and ISA with every timing.
+  - Datasets are not mounted at `/kaggle/input/<slug>`; the E2 kernels search for them.
+- **nncf 3.4 rejects group-wise int8** ("INT8 modes require per-channel quantization"). OpenVINO's CPU plugin also quantises **activations** dynamically (group 32), so weight-only fidelity numbers do not transfer.
+- **F2LLM-v2's EOS is `<|im_end|>` (151645); `<|endoftext|>` is the pad token.** The tokenizer's post-processor appends EOS whatever the flag says.
+- **macOS:** `fstat` on a pipe reports the bytes already buffered (not 0 as on Linux/Windows). That was a wrong assumption of ours, found by CI.
+- **Wall-clock timeouts are load- and memory-sensitive.** Decision runs pre-flight ≥ 3 GB free RAM and run alone.
+- **Windows consoles are cp1252:** set `PYTHONIOENCODING=utf-8` before printing Δ.
+- **Scoring new dense orders:**
+  - Use `scripts/union_replay.py` together with `app.pipeline.search.build_candidate_pool` on the **raw** stored vectors. Re-normalising them changes near-tie order: DEV 0.92777 instead of 0.92792.
+  - Only fill pairs the policy uses (`scripts/exp_e2_replay.py`).
+
+### A7. Context that used to live outside the repo
+- **The three-persona debate (2026-09-25):** now in `docs/debate-2026-09-25.md`. The moderator's ranked next steps, and where each stands:
+  1. Markdown normaliser: deferred by the user.
+  2. Disclosure line: deferred.
+  3. The CodeContests ceiling anomaly: **done** (P0).
+  4. Single-machine encoder + execution cost: E2 kernel A's end-to-end block; valid only if run 2 is not void.
+  5. CodeT/MBR agreement and PRE-4 enrichment: MBR is the next-cycle Bonus item; PRE-4 was rejected in research.
+  6. Quantisation: E2.
+- **The brief (`theme1_guidelines.pdf`)** is the organisers' document and is not committed. Its essentials and the judge's FAQ, verbatim, are in `CLAUDE.md`.
+
+## B. Earlier hand-off (2026-09-24): the 1.7B re-measurement, and what needs the team
 
 **Status 2026-09-24:** steps 1 and 2 are done. The 1.7B vectors came from the
 team's Kaggle kernel and were verified; the re-measurement is in `RESULTS.md`,

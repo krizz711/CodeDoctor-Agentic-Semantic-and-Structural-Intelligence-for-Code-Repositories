@@ -424,3 +424,22 @@ pandas-free Linux environment and then fixed: the script was renamed to
 `stress_analysis.py`, `testpaths = tests` was set, and the import was made
 lazy. `1107297` is green on all 8 jobs. **Lesson:** a local green run does not
 reproduce CI's environment; check CI after every push (`CLAUDE.local.md`).
+
+## Cycle 3 (2026-09-26): summary; details in `experiments/C3_cycle/`
+Pre-registered in `C3_cycle/PREREG.md` (addenda A1–A3). DEV decides; no test split, no lockbox. The quick reference is `C3_cycle/SUMMARY.md`.
+- **P0: the CodeContests "execution adds 0" anomaly is a small-pool ceiling effect.**
+  - Cutting APPS to the same 217-document pool gives dense 0.9016 → 0.9886 and an execution gain of +0.0758 → +0.0074, on the same 200 statements.
+  - It is not evidence against transfer. Execution's value grows with same-source corpus density.
+- **E1: blank-line fallback, adopted** in `candidate_v2`.
+  - DEV stdin 0.95993 → 0.96771 (+0.0078 [+0.0031, +0.0131], exact sign-flip p 0.001, 11 up / 1 down); all families +0.0028.
+  - Placebo and plain-retry controls recover 0, so the gain comes from removing rendered blank lines.
+  - No screening gain is projected.
+- **E1 arm B: judge-like I/O, accepted** (a fidelity fix). DEV 0 changes; CI green on ubuntu/macOS/Windows. macOS pipes report buffered bytes, which corrected a wrong assumption of ours.
+- **E2: int8 OpenVINO query encoder.**
+  - Run 1 is **void** (S2: a slower Kaggle CPU). Disclosed: both int8 variants fail fidelity (median cosine 0.982 / 0.991) and are slower.
+  - Run 2 is finished and not yet read (`HANDOFF.md` A4 B1).
+- **E3 (P1):**
+  - The demo cache served stale vectors after a model or prefix change. **Fixed:** it is keyed on the full recipe; the scored-path keys are unchanged.
+  - An edited folder needed a server restart. **Fixed:** `rebuild=true` re-encodes only the changed chunks.
+  - The timing (Part 3) is not yet run.
+- **Rejected in research, with evidence:** small-to-large query maps (DEV 0.896 < plain 0.6B 0.901), torch dynamic int8, the 0.6B→1.7B cascade, dense PRF, crash demotion, perturbation tie-break, identifier bonus, and LLM spec cards.
