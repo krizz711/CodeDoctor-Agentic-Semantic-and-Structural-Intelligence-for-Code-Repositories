@@ -37,7 +37,7 @@ from typing import Any, Optional, Sequence
 import numpy as np
 
 from app.agent import QueryRouter
-from app.indexing.cache import EmbeddingCache, compute_embedding_key
+from app.indexing.cache import EmbeddingCache, recipe_cache_key, stack_cached
 from app.indexing.versioned import CrossVersionHit, GitVersionManager, VersionedIndex
 from app.parser.chunker import chunk_source
 from app.parser.edges import StructuralExtractor
@@ -492,7 +492,17 @@ class Workbench:
         target_key: str,
         versions: int = DEFAULT_VERSIONS,
         dense: bool = True,
+        rebuild: bool = False,
     ) -> dict[str, Any]:
+        """Index a target in the background.
+
+        A built target is not rebuilt unless ``rebuild`` is set; with it, the
+        target is re-read from disk (or git) and re-chunked, the lexical index
+        is rebuilt, and only chunks whose encoder input is not already in the
+        cache are encoded -- P1's "rebuild any indexes, caches, etc for any
+        version/change".  Without it, an edited folder could only be picked up
+        by restarting the server.
+        """
         target = self._target(target_key)
         if target is None:
             raise KeyError(f"unknown target {target_key!r}")
@@ -503,7 +513,7 @@ class Workbench:
         with self._lock:
             if self._thread is not None and self._thread.is_alive():
                 return self._state.to_dict()
-            if target_key in self._built and self._state.phase == "ready":
+            if target_key in self._built and self._state.phase == "ready" and not rebuild:
                 return self._state.to_dict()
             self._state = BuildState(
                 target=target_key,
@@ -843,10 +853,11 @@ class Workbench:
         estimate that the real run then contradicts.
         """
         pending = 0
+        encoder = self._get_encoder()
         for position, document in enumerate(documents):
             if not eligible[position]:
                 continue
-            key = compute_embedding_key(_encoder_input(document))
+            key = recipe_cache_key(encoder, _encoder_input(document))
             if self._cache.get(key, real_only=True) is None:
                 pending += 1
         return pending
@@ -866,7 +877,7 @@ class Workbench:
         encoder = self._get_encoder()
         if eligible is None:
             eligible = [True] * len(documents)
-        keys = [compute_embedding_key(_encoder_input(d)) for d in documents]
+        keys = [recipe_cache_key(encoder, _encoder_input(d)) for d in documents]
         vectors: list[np.ndarray | None] = []
         pending: list[int] = []
         reused = 0
@@ -904,9 +915,7 @@ class Workbench:
             int(getattr(encoder, "dimension", 1024) or 1024),
         )
         zero = np.zeros(dimension, dtype=np.float32)
-        return np.vstack([
-            zero if v is None else np.asarray(v, dtype=np.float32) for v in vectors
-        ])
+        return stack_cached([zero if v is None else v for v in vectors])
 
     # -- apps target -------------------------------------------------------
 

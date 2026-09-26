@@ -166,24 +166,9 @@ class PrePostPipelineEncoder:
         and normalisation.  The ``document`` namespace means a query can never
         be served from this cache even if its text equals a document's.
         """
-        from app.indexing.cache import compute_embedding_key
+        from app.indexing.cache import recipe_cache_key
 
-        enc = self.encoder
-        prompt = (
-            enc.get_prompt_text(text, "document")
-            if hasattr(enc, "get_prompt_text")
-            else f"{getattr(enc, 'document_prefix', '')}{text}"
-        )
-        return compute_embedding_key(
-            encoder_input="document\x00" + prompt,
-            encoder_revision=f"{getattr(enc, 'model_name', '?')}@{getattr(enc, 'revision', None)}",
-            tokenizer_revision=(
-                f"max{getattr(enc, 'max_seq_length', '?')}"
-                f"|eos{int(bool(getattr(enc, 'add_eos_token', True)))}"
-                f"|norm{int(bool(getattr(enc, 'normalize_embeddings', True)))}"
-            ),
-            template_revision=repr(getattr(enc, "document_prefix", "")),
-        )
+        return recipe_cache_key(self.encoder, text)
 
     def _encode_documents_cached(self, texts: list[str]) -> np.ndarray:
         keys = [self.document_cache_key(t) for t in texts]

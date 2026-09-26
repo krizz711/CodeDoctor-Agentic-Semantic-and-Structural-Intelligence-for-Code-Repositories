@@ -31,6 +31,49 @@ def compute_embedding_key(
     return hasher.hexdigest()
 
 
+def recipe_cache_key(encoder: object, text: str) -> str:
+    """Content address of one *document* vector under ``encoder``'s full recipe.
+
+    Everything that changes the vector is in the key: model and revision, the
+    exact prompt string handed to the tokenizer, the sequence cap, EOS and
+    normalisation.  The ``document`` namespace means a query can never be
+    served from this cache even if its text equals a document's.
+
+    This is the one key for every document cache -- the scored path's corpus
+    cache and the demo's -- so a model, revision or prefix change can never
+    serve another recipe's vectors (it did in the demo until cycle 3, E3).
+    Device and dtype are deliberately not in it: GPU and CPU vectors of the
+    same recipe share an address (measured cosine >= 0.9994).
+    """
+    prompt = (
+        encoder.get_prompt_text(text, "document")
+        if hasattr(encoder, "get_prompt_text")
+        else f"{getattr(encoder, 'document_prefix', '')}{text}"
+    )
+    return compute_embedding_key(
+        encoder_input="document\x00" + prompt,
+        encoder_revision=f"{getattr(encoder, 'model_name', '?')}@{getattr(encoder, 'revision', None)}",
+        tokenizer_revision=(
+            f"max{getattr(encoder, 'max_seq_length', '?')}"
+            f"|eos{int(bool(getattr(encoder, 'add_eos_token', True)))}"
+            f"|norm{int(bool(getattr(encoder, 'normalize_embeddings', True)))}"
+        ),
+        template_revision=repr(getattr(encoder, "document_prefix", "")),
+    )
+
+
+def stack_cached(vectors: list, expected_dim: int | None = None) -> np.ndarray:
+    """``np.vstack`` for cached vectors that refuses mixed dimensions loudly."""
+    dims = sorted({int(np.asarray(v).size) for v in vectors})
+    if len(dims) > 1 or (expected_dim is not None and dims and dims[0] != expected_dim):
+        raise ValueError(
+            f"embedding cache returned vectors of dimension {dims}"
+            + (f", encoder produces {expected_dim}" if expected_dim is not None else "")
+            + "; the cache mixes recipes -- rebuild it or point it at a new file"
+        )
+    return np.vstack([np.asarray(v, dtype=np.float32) for v in vectors])
+
+
 class EmbeddingCache:
     """
     Persistent embedding cache keyed by K_emb.
