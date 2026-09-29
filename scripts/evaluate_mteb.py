@@ -160,7 +160,9 @@ def build_mteb_encoder(pipeline: PrePostPipelineEncoder, model_name: str) -> Any
     class CodeDoctorMTEBEncoder(AbsEncoder):
         def __init__(self) -> None:
             self.pipeline = pipeline
-            self.model = pipeline.encoder.model
+            # A cached-corpus C4 run must not load the FP32 document model just
+            # to construct the MTEB wrapper. Cache misses still use it below.
+            self.model = pipeline.encoder if pipeline.query_encoder is not None else pipeline.encoder.model
             self.mteb_model_meta = model_meta
 
         def encode(self, inputs, **kwargs) -> np.ndarray:
@@ -183,6 +185,10 @@ def main() -> None:
         help="accuracy = submission encoder; interactive = the live-service encoder",
     )
     parser.add_argument("--config", type=Path, default=None)
+    parser.add_argument(
+        "--query-encoder-config", type=Path, default=None,
+        help="experimental C4 llama.cpp query-only configuration (default: Torch)",
+    )
     parser.add_argument("--weights", type=Path, default=None, help="reranker weights JSON")
     parser.add_argument("--no-rerank", action="store_true", help="dense only (ablation baseline)")
     execution_group = parser.add_mutually_exclusive_group()
@@ -249,6 +255,32 @@ def main() -> None:
     print(f"Document prefix : {encoder.document_prefix!r}")
     print(f"max_seq_length  : {encoder.max_seq_length}   add_eos_token: {encoder.add_eos_token}")
 
+    query_encoder = None
+    if args.query_encoder_config is not None:
+        from app.retrieval.llama_query import LlamaQueryEncoder
+
+        query_settings = _read_config(args.query_encoder_config)
+        if query_settings.get("backend") != "llama_cpp_q8_0":
+            raise ValueError("query encoder config must set backend: llama_cpp_q8_0")
+        if args.tier != "accuracy" or device != "cpu":
+            raise ValueError("C4 query encoder requires --tier accuracy --device cpu")
+        if model_name != "codefuse-ai/F2LLM-v2-1.7B" or revision != "3766d46e7a68545ed6190c15330983f9b39ab718":
+            raise ValueError("C4 query encoder requires the preregistered model and revision")
+        root = args.query_encoder_config.resolve().parent
+        def artifact_path(key: str) -> Path:
+            value = Path(str(query_settings[key]))
+            return value if value.is_absolute() else root / value
+        query_encoder = LlamaQueryEncoder(
+            binary=artifact_path("binary"), model=artifact_path("model"),
+            model_name=model_name, revision=revision,
+            query_prefix=encoder.query_prefix, max_seq_length=encoder.max_seq_length,
+            threads=int(query_settings.get("threads", 2)),
+            startup_timeout=float(query_settings.get("startup_timeout", 120)),
+            request_timeout=float(query_settings.get("request_timeout", 120)),
+            log_path=artifact_path("log_path"),
+        )
+        print(f"Query encoder   : llama.cpp Q8_0 ({query_encoder.model})")
+
     reranker_config = RerankerConfig.load(args.weights)
     if args.no_rerank:
         reranker_config = RerankerConfig()
@@ -310,6 +342,7 @@ def main() -> None:
         encoder, reranker_config, execution_config=execution_config, corpus_cache=corpus_cache,
         hubness_bank=hubness_bank, hubness_beta=pipeline_defaults["hubness_beta"],
         hubness_k=pipeline_defaults["hubness_k"],
+        query_encoder=query_encoder,
     )
     if args.hubness and args.hubness.exists():
         pipeline.hub_profile_path = args.hubness
@@ -343,7 +376,11 @@ def main() -> None:
     # The submitted 0.96558 predates this hazard only because it was produced
     # on a machine with a cold cache. Disabling the cache is what makes the
     # number belong to this pipeline.
-    results = mteb.evaluate(mteb_model, [task], **evaluate_kwargs)
+    try:
+        results = mteb.evaluate(mteb_model, [task], **evaluate_kwargs)
+    finally:
+        if query_encoder is not None:
+            query_encoder.close()
     task_result = list(results.task_results)[0]
     payload = task_result.to_dict()
 

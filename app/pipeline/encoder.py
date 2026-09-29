@@ -78,8 +78,12 @@ class PrePostPipelineEncoder:
         hubness_bank: np.ndarray | None = None,
         hubness_beta: float = 0.3,
         hubness_k: int = 10,
+        query_encoder: Any = None,
     ) -> None:
         self.encoder = encoder
+        # C4-E1: query-only acceleration. Documents and their recipe keys stay
+        # on the original CodeEncoder, including cache misses.
+        self.query_encoder = query_encoder
         #: PRE-5 hubness correction.  ``hubness_bank`` holds *query* embeddings
         #: (same encoder, same prompt) of statements whose answers are NOT in
         #: the corpus being searched -- otherwise the penalty also pushes down
@@ -151,9 +155,15 @@ class PrePostPipelineEncoder:
             logger.info("pipeline: recorded %d documents", len(texts))
 
         if not texts:
-            dimension = self.encoder.model.get_sentence_embedding_dimension()
+            dimension = (
+                self.query_encoder.DIMENSION
+                if is_query and self.query_encoder is not None
+                else self.encoder.model.get_sentence_embedding_dimension()
+            )
             return np.empty((0, dimension), dtype=np.float32)
 
+        if is_query and self.query_encoder is not None:
+            return self.query_encoder.encode(texts, mode="query")
         if is_query or self.corpus_cache is None:
             return self.encoder.encode(texts, mode=mode)
         return self._encode_documents_cached(texts)
