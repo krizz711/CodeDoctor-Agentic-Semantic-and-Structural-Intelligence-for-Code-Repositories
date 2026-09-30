@@ -50,7 +50,7 @@ def test_the_commit_is_baked_in_and_a_dirty_tree_is_refused(tmp_path, monkeypatc
     assert f'os.environ[{D}CODEDOCTOR_COMMIT{D}] = {Q}{head}{Q}' in code and payload["commit"] == head
     assert {"app/submission.py", "config/submission.yaml", "scripts/submission_run.py"} <= set(payload["files"]) \
         or "app" in payload["files"]
-    monkeypatch.setattr(bk, "git_state", lambda: ("deadbeef", True))
+    monkeypatch.setattr(bk, "git_state", lambda: (head, True))   # a real commit, marked dirty
     with pytest.raises(SystemExit, match="uncommitted"):
         bk.build(args(tmp_path / "no", "hands-on", allow_dirty=False))
     marked = bk.build(args(tmp_path / "yes", "hands-on", allow_dirty=True))

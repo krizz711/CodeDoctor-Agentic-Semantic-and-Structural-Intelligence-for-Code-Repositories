@@ -19,9 +19,12 @@ from __future__ import annotations
 
 import argparse
 import base64
+import gzip
+import io
 import json
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,19 +50,28 @@ def git_state() -> tuple[str, bool]:
 
 
 def git_payload(commit: str) -> tuple[str, list[str]]:
-    """The packaged source as committed: ``git archive`` of ``commit``, never the working tree.
+    """The packaged source as committed: raw blobs of ``commit``, never the working tree.
 
     A working tree may carry platform line endings (this project is developed on Windows with
-    autocrlf), which would make every recorded hash differ from the committed blobs. Archiving the
-    commit makes the measured runtime source byte-identical to what is merged.
+    autocrlf), which would make every recorded hash differ from the committed blobs, and
+    ``git archive`` applies the same conversion. Reading each blob with ``git cat-file`` gives the
+    exact committed bytes, so the measured runtime source is byte-identical to what is merged.
+    The tarball uses fixed timestamps and sorted names, so the payload itself is reproducible.
     """
     listing = subprocess.run(["git", "-C", str(ROOT), "ls-tree", "-r", "--name-only", commit],
                              capture_output=True, text=True, check=True).stdout.splitlines()
-    wanted = [f for f in listing if "__pycache__" not in f
-              and any(f == p or f.startswith(p + "/") for p in PAYLOAD)]
-    archive = subprocess.run(["git", "-C", str(ROOT), "archive", "--format=tar.gz", commit, "--", *wanted],
-                             capture_output=True, check=True).stdout
-    return base64.b64encode(archive).decode("ascii"), wanted
+    wanted = sorted(f for f in listing if "__pycache__" not in f
+                    and any(f == p or f.startswith(p + "/") for p in PAYLOAD))
+    buffer = io.BytesIO()
+    with gzip.GzipFile(fileobj=buffer, mode="wb", mtime=0) as compressed:
+        with tarfile.open(fileobj=compressed, mode="w") as tar:
+            for name in wanted:
+                data = subprocess.run(["git", "-C", str(ROOT), "cat-file", "blob", f"{commit}:{name}"],
+                                      capture_output=True, check=True).stdout
+                info = tarfile.TarInfo(name)
+                info.size, info.mtime, info.mode = len(data), 0, 0o644
+                tar.addfile(info, io.BytesIO(data))
+    return base64.b64encode(buffer.getvalue()).decode("ascii"), wanted
 
 
 def slug(stage: str, shard: str | None, tier: str) -> str:
