@@ -1,12 +1,8 @@
 """Package the evaluation pipeline into a self-contained payload.
 
-The screening run wants a GPU, and the free ones live in hosted notebooks.
-Rather than publishing the repository to get the code there — or, worse,
-committing a stale zip that silently diverges from the source — the payload is
-built from the working tree at generation time.
-
-One packer, used by both ``scripts/build_eval_kernel.py`` (Kaggle) and
-``scripts/make_notebook.py`` (Colab), so the two can never carry different code.
+The Colab notebook embeds the current source so a private repository needs no clone.
+GPU document preprocessing and CPU query retrieval use the same evaluator as the
+recorded Kaggle stages. The Kaggle builder separately packages exact committed blobs.
 """
 
 from __future__ import annotations
@@ -32,6 +28,8 @@ PAYLOAD_PATHS: tuple[str, ...] = (
     "config/submission.yaml",
     "config/retrieval.yaml",
     "config/reranker.json",
+    "requirements.txt",
+    "requirements-submission.txt",
     "scripts/__init__.py",
     "scripts/evaluate_mteb.py",
     "scripts/export_submission_csv.py",

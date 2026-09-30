@@ -12,7 +12,12 @@ revision 3766d46e7a68545ed6190c15330983f9b39ab718, CPU FP32, published prompt,
 No Q8/OpenVINO, trained fusion, hubness, cascade or metamorphic treatment is selected.
 Verify default configuration and shared execution integration before test access.
 Model/data/config/source hashes, exact commands, hardware, packages, timings,
-raw logs and run failures are retained. No result caches or saved query embeddings.
+raw logs and run failures are retained. No MTEB result caches. User-authorized amendment (2026-09-30): final CPU query
+encoding may be checkpointed in four disjoint recipe-key hash shards, each freshly
+computed for this frozen submission. Merge only matching provenance, verify complete
+coverage and 30 seeded live re-encodings (minimum cosine 0.999), then score once.
+No labels enter encoding or shard assignment. Encoding and scoring replay times are
+reported separately; replay time is never presented as live retrieval latency.
 
 ## Final validation order
 
@@ -36,7 +41,7 @@ raw logs and run failures are retained. No result caches or saved query embeddin
 
 Hosted work uses an isolated Linux environment on the available Kaggle account.
 Capture CPU/ISA/RAM first; cap any indexing operation at 30 minutes, P1/Bonus
-at 3 hours, and final P0 at 12 hours. Failures are blocked/incomplete, never replaced
+at 3 hours, each of four CPU query shards at 11 hours, and final P0 scoring at 11 hours. Failures are blocked/incomplete, never replaced
 by smaller datasets or historical results. Setup failures may be repaired before
 final evaluation; preserve all attempts. Do not automatically repeat a completed
 final test evaluation. Offline documents may be cached with full recipe provenance;
@@ -103,4 +108,3 @@ For the P1 goal, an incremental approach might be more efficient over rebuilding
 Question: The sample codebase does not appear to be attached to the current iteration of the problem statement. When will this JavaScript repository be provided to teams, or are we expected to select a substitute repository of our own choosing for the final submission demo?
 
 We would not be releasing an additional dataset/codebase. The APPS dataset will be used throughout the hackathon. We would be using an internal "unseen" dataset for hands-on evaluation, this dataset would not be released to the participants. As for the demonstration, you are free to choose any suitable repository.
-

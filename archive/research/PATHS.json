@@ -214,5 +214,93 @@
   {
     "original": "scripts/instrument_execution.py",
     "archive": "archive/research/scripts/instrument_execution.py"
+  },
+  {
+    "original": "scripts/audit_execution_rerank.py",
+    "archive": "archive/research/scripts/audit_execution_rerank.py"
+  },
+  {
+    "original": "scripts/backfill_test_split_audit.py",
+    "archive": "archive/research/scripts/backfill_test_split_audit.py"
+  },
+  {
+    "original": "scripts/bench_query_cpu.py",
+    "archive": "archive/research/scripts/bench_query_cpu.py"
+  },
+  {
+    "original": "scripts/benchmark_throughput.py",
+    "archive": "archive/research/scripts/benchmark_throughput.py"
+  },
+  {
+    "original": "scripts/build_cpubench_kernel.py",
+    "archive": "archive/research/scripts/build_cpubench_kernel.py"
+  },
+  {
+    "original": "scripts/build_eval_kernel.py",
+    "archive": "archive/research/scripts/build_eval_kernel.py"
+  },
+  {
+    "original": "scripts/build_ext_encode_kernel.py",
+    "archive": "archive/research/scripts/build_ext_encode_kernel.py"
+  },
+  {
+    "original": "scripts/build_hubness_bank.py",
+    "archive": "archive/research/scripts/build_hubness_bank.py"
+  },
+  {
+    "original": "scripts/check_replay_fidelity.py",
+    "archive": "archive/research/scripts/check_replay_fidelity.py"
+  },
+  {
+    "original": "scripts/compare_arms.py",
+    "archive": "archive/research/scripts/compare_arms.py"
+  },
+  {
+    "original": "scripts/encode_baseline.py",
+    "archive": "archive/research/scripts/encode_baseline.py"
+  },
+  {
+    "original": "scripts/encode_jsonl.py",
+    "archive": "archive/research/scripts/encode_jsonl.py"
+  },
+  {
+    "original": "scripts/explore_first_pass.py",
+    "archive": "archive/research/scripts/explore_first_pass.py"
+  },
+  {
+    "original": "scripts/hubness_eval.py",
+    "archive": "archive/research/scripts/hubness_eval.py"
+  },
+  {
+    "original": "scripts/make_kaggle_notebook.py",
+    "archive": "archive/research/scripts/make_kaggle_notebook.py"
+  },
+  {
+    "original": "scripts/measure_recall_ceiling.py",
+    "archive": "archive/research/scripts/measure_recall_ceiling.py"
+  },
+  {
+    "original": "scripts/parser_gold_set.py",
+    "archive": "archive/research/scripts/parser_gold_set.py"
+  },
+  {
+    "original": "scripts/reconcile_e2.py",
+    "archive": "archive/research/scripts/reconcile_e2.py"
+  },
+  {
+    "original": "scripts/run_ablation.py",
+    "archive": "archive/research/scripts/run_ablation.py"
+  },
+  {
+    "original": "scripts/tune_reranker.py",
+    "archive": "archive/research/scripts/tune_reranker.py"
+  },
+  {
+    "original": "tests/test_encoder_backend.py",
+    "archive": "archive/research/tests/test_encoder_backend_openvino.py"
+  },
+  {
+    "original": "tests/test_reconcile_e2.py",
+    "archive": "archive/research/tests/test_reconcile_e2.py"
   }
 ]

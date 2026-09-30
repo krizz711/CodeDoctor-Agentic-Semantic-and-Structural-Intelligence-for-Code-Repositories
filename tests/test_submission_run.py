@@ -110,3 +110,22 @@ def test_main_leaves_a_complete_environment_record(tmp_path, monkeypatch):
 def test_the_queries_stage_needs_a_shard():
     with pytest.raises(SystemExit):
         run.main(["--stage", "queries", "--out", "unused"])
+
+
+def test_query_stage_copies_read_only_input_and_passes_a_database_file(tmp_path, monkeypatch):
+    source = make_cache(tmp_path / 'mounted')
+    before = {p.name: p.read_bytes() for p in source.iterdir()}
+    commands = []
+
+    def fake_run(command, out, timeout_seconds):
+        commands.append(command)
+        database = run.Path(command[command.index('--corpus-cache') + 1])
+        assert database.is_file() and database.name == 'corpus.sqlite'
+        assert database.parent != source
+        return {'exit_code': 0, 'seconds': 0, 'peak_process_tree_rss_bytes': 0, 'timed_out': False}
+
+    monkeypatch.setattr(run, 'run_logged', fake_run)
+    assert run.main(['--stage', 'queries', '--shard', '0/4', '--corpus-cache', str(source),
+                     '--out', str(tmp_path / 'result')]) == 0
+    assert commands
+    assert {p.name: p.read_bytes() for p in source.iterdir()} == before

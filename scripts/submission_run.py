@@ -266,19 +266,36 @@ def main(argv: list[str] | None = None) -> int:
         source = source.parent if source is not None and source.name == "corpus.sqlite" else source
         if source is None:
             raise SystemExit("provide the verified document cache with --corpus-cache")
-        environment["document_cache"] = verify_document_cache(source)
         # sqlite needs a writable directory, and a second corpus.sqlite in this stage's output would make
         # the next stage's input discovery ambiguous: work on a copy under the temp directory
         cache = Path(tempfile.mkdtemp(prefix="codedoctor-documents-")) / "cache"
         shutil.copytree(source, cache)
+        environment["document_cache"] = verify_document_cache(cache)
         shutil.copyfile(source / "manifest.json", out / "document-cache-manifest.json")
+        cache = cache / "corpus.sqlite"
     if args.stage == "p0":
         from scripts.merge_query_stores import merge
 
         stores = [d / "queries.sqlite" for d in (args.query_store_in or
                                                   [p.parent for p in Path("/kaggle/input").rglob("queries.sqlite")])]
         if stores:
-            environment["query_store_merge"] = merge(stores, out / "queries.sqlite")
+            # Kaggle input mounts are read-only; SQLite's WAL/schema setup writes.
+            scratch = Path(tempfile.mkdtemp(prefix="codedoctor-queries-"))
+            writable = []
+            for index, source in enumerate(stores):
+                target = scratch / f"shard-{index}.sqlite"
+                shutil.copyfile(source, target)
+                for suffix in ("-wal", "-shm"):
+                    sidecar = Path(str(source) + suffix)
+                    if sidecar.exists():
+                        shutil.copyfile(sidecar, Path(str(target) + suffix))
+                writable.append(target)
+            environment["query_store_merge"] = merge(writable, out / "queries.sqlite")
+            for record, source in zip(environment["query_store_merge"]["inputs"], stores):
+                record["original_path"] = str(source)
+            if environment["query_store_merge"]["duplicate_keys_disagreeing"]:
+                write_environment(out, environment)
+                raise RuntimeError("query shards disagree; refusing final evaluation")
         write_environment(out, environment)
 
     command = build_command(args.stage, args, out, cache)
