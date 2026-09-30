@@ -359,6 +359,12 @@ shipped 1.7B encoder, then stress-tested. Full numbers, nulls included:
 
 ## 9 · Quick start
 
+For Codex development, start with [the local research workflow](docs/CODEX-WORKFLOW.md)
+and [the branch architecture audit](docs/CODEX-ANALYSIS.md). `AGENTS.md` routes
+Codex to the shared research rules in `CLAUDE.md` and the current experiment
+records. The workflow includes development checks that do not load models or
+benchmark data.
+
 ```bash
 pip install -r requirements.txt
 python -m uvicorn app.server:app --port 8077

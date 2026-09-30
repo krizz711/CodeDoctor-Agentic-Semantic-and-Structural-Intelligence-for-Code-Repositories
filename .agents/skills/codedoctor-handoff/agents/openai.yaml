@@ -1,0 +1,4 @@
+interface:
+  display_name: "CodeDoctor Research Handoff"
+  short_description: "Preserve evidence and the next research action"
+  default_prompt: "Use $codedoctor-handoff to record the verified research state and prepare the next reproducible action."

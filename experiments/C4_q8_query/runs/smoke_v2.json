@@ -1,7 +1,7 @@
 {
   "attempt": 2,
   "kind": "synthetic infrastructure smoke",
-  "status": "submitted",
+  "status": "stopped_incomplete",
   "submitted_at_utc": "2026-09-30T01:27:22.788253+00:00",
   "notebook": "https://www.kaggle.com/code/lifemeansfun/codedoctor-c4-llama-conversion-smoke",
   "version": 2,
@@ -10,5 +10,7 @@
   "notebook_sha256": "f2f282efb0611223b85f575dd2d60c5fdc8ad2e017b70fd3bee815e96a1ecc6d",
   "correction": "User confirmed phone verification and notebook Internet enabled; fresh session adds DNS/HTTPS preflight and explicit public PyPI index.",
   "adoption": false,
-  "decision_dataset_mounted": false
+  "decision_dataset_mounted": false,
+  "network_preflight": "DNS succeeded for pypi.org, github.com and huggingface.co; PyPI HTTP 200; initial pinned packages installed (live log).",
+  "reason": "User ended C4; retry reached smoke, Torch reference worker exited 1 before comparison."
 }

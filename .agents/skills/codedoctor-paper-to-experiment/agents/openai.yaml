@@ -1,0 +1,4 @@
+interface:
+  display_name: "CodeDoctor Paper to Experiment"
+  short_description: "Map primary research to a testable CodeDoctor change"
+  default_prompt: "Use $codedoctor-paper-to-experiment to map this paper to the relevant CodeDoctor path and propose a falsifiable experiment."

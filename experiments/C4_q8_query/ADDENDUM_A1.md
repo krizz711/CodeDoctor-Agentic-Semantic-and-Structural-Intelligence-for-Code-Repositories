@@ -42,7 +42,9 @@ disjoint 2,500-query TUNE and DEV assignments. `scripts/build_c4_data.py`
 checked these against 5,000 train IDs, selected the registered seed's 100
 TUNE queries, and created the private train-only dataset
 [`lifemeansfun/codedoctor-c4-train-inputs`](https://www.kaggle.com/datasets/lifemeansfun/codedoctor-c4-train-inputs).
-Its file hashes and assignment-store hashes are in `build/c4_data/MANIFEST.json`.
+Its file hashes and assignment-store hashes are preserved in
+[INPUTS_MANIFEST.json](INPUTS_MANIFEST.json), copied byte-for-byte from
+`build/c4_data/MANIFEST.json`.
 This preparation did not score or encode a C4 treatment.
 
 Once the conversion smoke succeeds, the [stage-1 runner](../../scripts/c4_stage1.py)
@@ -65,3 +67,10 @@ vectors explicitly: NaN cosine from a zero vector must never pass the F32
 threshold checks. Six synthetic invalid-vector cases (zero/NaN/Inf for both
 F32 and Q8) pass alongside the three existing gate tests. No decision data
 was used for this correction.
+
+## Closure
+
+User stopped C4 on 2026-09-30 to finish the submission. Retry passed network
+preflight and reached the smoke command, whose Torch reference worker exited
+1 before comparison. No fidelity or speed result supports adoption. Preserve
+this experiment as stopped/incomplete; no further C4 jobs are authorized.

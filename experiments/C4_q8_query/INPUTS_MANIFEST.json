@@ -1,0 +1,60 @@
+{
+  "purpose": "C4-E1 train-only inputs",
+  "seed": 20260929,
+  "assignment_sources": {
+    "f2llm17b_all_tune_deep50.jsonl.gz": "e57ab942265d98a8924a5bed54ed1c0732405e9e46dc7f496df7f38cf24861f0",
+    "f2llm17b_all_dev_deep50.jsonl.gz": "eb1b65b22543425b9e3af62719b3670f6827931e14779465cda6f0a7a598c588"
+  },
+  "sample_order": "original ids_queries_train.json order, random.Random(seed).sample",
+  "excludes": [
+    "APPS test queries, vectors and qrels",
+    "EXT-lockbox",
+    "original aggregate-score manifest"
+  ],
+  "files": {
+    "dev.json": {
+      "sha256": "761ccaaaa6182ca4153ce50db93f0739e5c8f72bb411d5e1657f12d193739fa1",
+      "bytes": 3296124
+    },
+    "dev100_seed20260929.json": {
+      "sha256": "2a23219ea366624aff930bd4e07aba226566828da35474e6978bb5437aad0edd",
+      "bytes": 122074
+    },
+    "emb_f2llm17b_corpus.npy": {
+      "sha256": "2d2b8938b80a4699887c3c839137d846c8d3e10e7bd533ad8bf71405efb2f99c",
+      "bytes": 35901568
+    },
+    "emb_f2llm17b_qtrain.npy": {
+      "sha256": "9e19cdc2f32be6aff0b40c4d2305263e5a3a775383620122df8a2d1551dc2fa3",
+      "bytes": 20480128
+    },
+    "ids_corpus.json": {
+      "sha256": "1bcfa382363d941616759be49d3ea0c13679a4fd4deff770ed135d75ebc4a186",
+      "bytes": 77778
+    },
+    "ids_queries_train.json": {
+      "sha256": "3f6f5cb3958defb0b931e805d501e1744ef54f79e86fedbb275fab7a8bcc2869",
+      "bytes": 43893
+    },
+    "qrels_train.json": {
+      "sha256": "d005a6470511671fdddb578e3becac6ee47552e2f7e5d16dd7821f69294cb1ff",
+      "bytes": 112786
+    },
+    "texts_corpus.jsonl": {
+      "sha256": "ff9897578d7bb7749dbcdd168da241cd1591745030db4b0f0fd78afddc1b6022",
+      "bytes": 5560551
+    },
+    "texts_queries_train.jsonl": {
+      "sha256": "bca3330c2c77f45588bf2958ebfd37753dbb01406a3c01c5a9f4a9b8abc498cf",
+      "bytes": 6677525
+    },
+    "tune.json": {
+      "sha256": "a4eb2efe10f78d1e411fd1d80685f408aa31f1f93b7870d43ab56d4715a58be1",
+      "bytes": 3253079
+    },
+    "tune100_seed20260929.json": {
+      "sha256": "78b080c063f71455d2f64e00b3041e4cd219189ac812ce584684abea435e3b80",
+      "bytes": 128442
+    }
+  }
+}

@@ -105,6 +105,7 @@ Question: The sample codebase does not appear to be attached to the current iter
 We would not be releasing an additional dataset/codebase. The APPS dataset will be used throughout the hackathon. We would be using an internal "unseen" dataset for hands-on evaluation, this dataset would not be released to the participants. As for the demonstration, you are free to choose any suitable repository.
 
 ## Where things live
+- Experiment outcomes and cleanup tracking: `experiments/REGISTER.md`. Check it before proposing work; update the relevant row after every attempt or decision, preserving negative and void results and distinguishing candidate adoption from submission.
 - Architecture plan: docs/V2-ARCHITECTURE-PLAN.md
 - Experiments and results: experiments/README.md, experiments/RESULTS.md, experiments/HANDOFF.md
 - **Current state and next steps: experiments/HANDOFF.md, section A** (the hand-off to a new machine, 2026-09-26). Cycle 3: experiments/C3_cycle/ (SUMMARY.md first). Work continues on branch `v3`; `v2/prepost-architecture` is frozen.

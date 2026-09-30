@@ -23,3 +23,6 @@ predictions/
 
 # per-checkout Claude Code notes (hardware, accounts, local paths)
 CLAUDE.local.md
+
+# macOS workspace metadata
+.DS_Store

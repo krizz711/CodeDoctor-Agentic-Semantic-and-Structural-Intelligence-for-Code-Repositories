@@ -1,5 +1,9 @@
 # Experiments — CodeDoctor v2 pre/post-processing
 
+**Start with the [experiment register](REGISTER.md)** for current outcomes, pending
+work and future cleanup candidates on `v3`. This page retains the historical
+round-1 commands; later protocols and the register supersede its status claims.
+
 Every result in this folder was produced by a command below, on data tiers that
 keep tuning and reporting apart. Hypotheses and decision rules are written in
 each experiment's `prereg.md` **before** its results; results are appended
