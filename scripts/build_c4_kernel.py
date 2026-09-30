@@ -22,11 +22,17 @@ def build(owner: str, out: Path) -> None:
                                        "scripts/__init__.py", "scripts/c4_llama_smoke.py"))
     out.mkdir(parents=True, exist_ok=True)
     code = f'''# C4-E1 conversion infrastructure smoke; no decision dataset or adoption.
-import base64, io, os, subprocess, sys, tarfile
+import base64, io, os, socket, subprocess, sys, tarfile
 from pathlib import Path
+from urllib.request import urlopen
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 os.environ["HF_HOME"] = "/kaggle/working/hf_cache"
-subprocess.run([sys.executable, "-m", "pip", "install", "cmake==3.31.6", "sentence-transformers==5.0.0", "transformers==4.57.6", "psutil==7.0.0"], check=True, timeout=900)
+# Fail before setup if the Kaggle runtime cannot reach the required services.
+for host in ["pypi.org", "github.com", "huggingface.co"]:
+    print("DNS preflight:", host, socket.gethostbyname(host), flush=True)
+with urlopen("https://pypi.org/simple/cmake/", timeout=15) as response:
+    print("PyPI HTTP preflight:", response.status, flush=True)
+subprocess.run([sys.executable, "-m", "pip", "install", "--index-url", "https://pypi.org/simple", "--retries", "0", "--timeout", "30", "cmake==3.31.6", "sentence-transformers==5.0.0", "transformers==4.57.6", "psutil==7.0.0"], check=True, timeout=900)
 root = Path("/kaggle/working/codedoctor")
 root.mkdir()
 with tarfile.open(fileobj=io.BytesIO(base64.b64decode({payload!r})), mode="r:gz") as archive:
@@ -37,9 +43,9 @@ for command in ["prepare", "smoke"]:
 print(Path(work, "smoke-result.json").read_text())
 '''
     notebook = {"nbformat": 4, "nbformat_minor": 5, "metadata": {"kernelspec": {"name": "python3", "display_name": "Python 3"}},
-                "cells": [{"cell_type": "code", "metadata": {}, "execution_count": None, "outputs": [], "source": code.splitlines(keepends=True)}]}
+                "cells": [{"id": "c4-conversion-smoke", "cell_type": "code", "metadata": {}, "execution_count": None, "outputs": [], "source": code.splitlines(keepends=True)}]}
     (out / "c4-smoke.ipynb").write_text(json.dumps(notebook, indent=1), encoding="utf-8")
-    (out / "kernel-metadata.json").write_text(json.dumps({"id": f"{owner}/codedoctor-c4-llama-smoke", "title": "CodeDoctor C4 llama conversion smoke",
+    (out / "kernel-metadata.json").write_text(json.dumps({"id": f"{owner}/codedoctor-c4-llama-conversion-smoke", "title": "CodeDoctor C4 llama conversion smoke",
         "code_file": "c4-smoke.ipynb", "language": "python", "kernel_type": "notebook", "is_private": True,
         "enable_gpu": False, "enable_tpu": False, "enable_internet": True,
         "dataset_sources": [], "kernel_sources": [], "competition_sources": [], "model_sources": []}, indent=2), encoding="utf-8")

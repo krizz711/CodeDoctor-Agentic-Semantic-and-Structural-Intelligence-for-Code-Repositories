@@ -121,3 +121,28 @@ def test_close_kills_unresponsive_child():
     process.terminate.assert_called_once()
     process.kill.assert_called_once()
     assert adapter._process is None
+
+
+def test_mteb_query_config_defaults_off():
+    from scripts.evaluate_mteb import build_query_encoder
+    assert build_query_encoder(None, None) is None
+
+
+def test_mteb_query_config_uses_same_recipe_and_relative_paths(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from scripts.evaluate_mteb import build_query_encoder
+    import app.retrieval.llama_query as module
+
+    config = tmp_path / "query.yaml"
+    config.write_text("backend: llama_cpp_q8_0\nbinary: bin/server\nmodel: q8.gguf\nlog_path: server.log\nthreads: 4\n")
+    original = SimpleNamespace(device="cpu", model_name="codefuse-ai/F2LLM-v2-1.7B",
+        revision="3766d46e7a68545ed6190c15330983f9b39ab718", query_prefix="prefix", max_seq_length=8192)
+    monkeypatch.setattr(module, "LlamaQueryEncoder", lambda **kwargs: kwargs)
+    result = build_query_encoder(config, original)
+    assert result["binary"] == tmp_path / "bin/server"
+    assert result["model"] == tmp_path / "q8.gguf"
+    assert result["query_prefix"] == original.query_prefix
+    assert result["threads"] == 4
+    original.revision = "other"
+    with pytest.raises(ValueError, match="revision"):
+        build_query_encoder(config, original)
