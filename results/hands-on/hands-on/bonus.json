@@ -1,0 +1,210 @@
+{
+  "kind": "functional synthetic diagnostic (wrong variants fail the worked examples); not an estimate of accuracy on unseen repositories",
+  "path": "Workbench.across (backs /api/workbench/across)",
+  "versions": 3,
+  "lineages": 12,
+  "metrics": {
+    "correct_version_first": 1.0,
+    "lineage_first": 1.0,
+    "wrong_above_correct": 0.0,
+    "verified_by_execution": 1.0,
+    "control_no_verification_correct_first": 0.08333333333333333,
+    "distinct_at_10": 10.0,
+    "query_seconds_median": 5.817684377999967,
+    "query_seconds_max": 6.150915235999946
+  },
+  "queries": [
+    {
+      "lineage": 0,
+      "kind": "changes",
+      "seconds": 5.82127109299995,
+      "correct_version_first": true,
+      "lineage_first": true,
+      "wrong_above_correct": false,
+      "distinct_at_10": 10,
+      "verified_by_execution": true,
+      "top_versions": [
+        "v1",
+        "v2",
+        "v3"
+      ],
+      "control_no_verification_correct_first": true
+    },
+    {
+      "lineage": 1,
+      "kind": "changes",
+      "seconds": 5.814097662999984,
+      "correct_version_first": true,
+      "lineage_first": true,
+      "wrong_above_correct": false,
+      "distinct_at_10": 10,
+      "verified_by_execution": true,
+      "top_versions": [
+        "v1",
+        "v2",
+        "v3"
+      ],
+      "control_no_verification_correct_first": false
+    },
+    {
+      "lineage": 2,
+      "kind": "changes",
+      "seconds": 5.763129013000025,
+      "correct_version_first": true,
+      "lineage_first": true,
+      "wrong_above_correct": false,
+      "distinct_at_10": 10,
+      "verified_by_execution": true,
+      "top_versions": [
+        "v1",
+        "v2",
+        "v3"
+      ],
+      "control_no_verification_correct_first": false
+    },
+    {
+      "lineage": 3,
+      "kind": "changes",
+      "seconds": 5.879543159999912,
+      "correct_version_first": true,
+      "lineage_first": true,
+      "wrong_above_correct": false,
+      "distinct_at_10": 10,
+      "verified_by_execution": true,
+      "top_versions": [
+        "v1",
+        "v2",
+        "v3"
+      ],
+      "control_no_verification_correct_first": false
+    },
+    {
+      "lineage": 4,
+      "kind": "changes",
+      "seconds": 6.000233180999885,
+      "correct_version_first": true,
+      "lineage_first": true,
+      "wrong_above_correct": false,
+      "distinct_at_10": 10,
+      "verified_by_execution": true,
+      "top_versions": [
+        "v1",
+        "v2",
+        "v3"
+      ],
+      "control_no_verification_correct_first": false
+    },
+    {
+      "lineage": 5,
+      "kind": "changes",
+      "seconds": 5.716403488999958,
+      "correct_version_first": true,
+      "lineage_first": true,
+      "wrong_above_correct": false,
+      "distinct_at_10": 10,
+      "verified_by_execution": true,
+      "top_versions": [
+        "v1",
+        "v2",
+        "v3"
+      ],
+      "control_no_verification_correct_first": false
+    },
+    {
+      "lineage": 6,
+      "kind": "changes",
+      "seconds": 5.691621251000015,
+      "correct_version_first": true,
+      "lineage_first": true,
+      "wrong_above_correct": false,
+      "distinct_at_10": 10,
+      "verified_by_execution": true,
+      "top_versions": [
+        "v1",
+        "v2",
+        "v3"
+      ],
+      "control_no_verification_correct_first": false
+    },
+    {
+      "lineage": 7,
+      "kind": "changes",
+      "seconds": 5.675510059999851,
+      "correct_version_first": true,
+      "lineage_first": true,
+      "wrong_above_correct": false,
+      "distinct_at_10": 10,
+      "verified_by_execution": true,
+      "top_versions": [
+        "v1",
+        "v2",
+        "v3"
+      ],
+      "control_no_verification_correct_first": false
+    },
+    {
+      "lineage": 8,
+      "kind": "changes",
+      "seconds": 5.796082642000101,
+      "correct_version_first": true,
+      "lineage_first": true,
+      "wrong_above_correct": false,
+      "distinct_at_10": 10,
+      "verified_by_execution": true,
+      "top_versions": [
+        "v1",
+        "v2",
+        "v3"
+      ],
+      "control_no_verification_correct_first": false
+    },
+    {
+      "lineage": 9,
+      "kind": "unchanged",
+      "seconds": 6.125535011000011,
+      "correct_version_first": true,
+      "lineage_first": true,
+      "wrong_above_correct": false,
+      "distinct_at_10": 10,
+      "verified_by_execution": true,
+      "top_versions": [
+        "v1",
+        "v2",
+        "v3"
+      ],
+      "control_no_verification_correct_first": false
+    },
+    {
+      "lineage": 10,
+      "kind": "unchanged",
+      "seconds": 6.088839182000129,
+      "correct_version_first": true,
+      "lineage_first": true,
+      "wrong_above_correct": false,
+      "distinct_at_10": 10,
+      "verified_by_execution": true,
+      "top_versions": [
+        "v1",
+        "v2",
+        "v3"
+      ],
+      "control_no_verification_correct_first": false
+    },
+    {
+      "lineage": 11,
+      "kind": "unchanged",
+      "seconds": 6.150915235999946,
+      "correct_version_first": true,
+      "lineage_first": true,
+      "wrong_above_correct": false,
+      "distinct_at_10": 10,
+      "verified_by_execution": true,
+      "top_versions": [
+        "v1",
+        "v2",
+        "v3"
+      ],
+      "control_no_verification_correct_first": false
+    }
+  ]
+}

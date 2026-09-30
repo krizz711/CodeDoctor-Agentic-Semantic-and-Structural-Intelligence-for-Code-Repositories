@@ -1,0 +1,6 @@
+Error in sitecustomize; set PYTHONVERBOSE for traceback:
+ModuleNotFoundError: No module named 'wrapt'
+`torch_dtype` is deprecated! Use `dtype` instead!
+P1 done: true
+Bonus done: {"correct_version_first": 1.0, "lineage_first": 1.0, "wrong_above_correct": 0.0, "verified_by_execution": 1.0, "control_no_verification_correct_first": 0.08333333333333333, "distinct_at_10": 10.0, "query_seconds_median": 5.817684377999967, "query_seconds_max": 6.150915235999946}
+Hands-on validation complete

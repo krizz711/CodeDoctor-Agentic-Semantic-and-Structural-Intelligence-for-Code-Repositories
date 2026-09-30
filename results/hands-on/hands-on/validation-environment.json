@@ -1,0 +1,20 @@
+{
+  "model": "codefuse-ai/F2LLM-v2-1.7B",
+  "revision": "3766d46e7a68545ed6190c15330983f9b39ab718",
+  "tier": "accuracy",
+  "dimension": 2048,
+  "device": "cpu",
+  "dtype": "float32",
+  "max_batch": 1,
+  "platform": "Linux-6.12.90+-x86_64-with-glibc2.35",
+  "cold_load_and_first_query_seconds": 38.603485202,
+  "execution": {
+    "max_candidates": 20,
+    "timeout_mode": "cpu",
+    "call_style": true,
+    "deepen_to": 50,
+    "skip_interactive": true,
+    "blank_line_fallback": true,
+    "judge_like_io": true
+  }
+}

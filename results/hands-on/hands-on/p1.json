@@ -1,0 +1,392 @@
+{
+  "fixture": "40 Python functions in 10 files; 3 repetitions",
+  "runs": [
+    {
+      "repetition": 0,
+      "full": {
+        "seconds": 103.4114624749999,
+        "rss_bytes": 10854760448,
+        "encoded": 50,
+        "reused": 0,
+        "chunks": 50
+      },
+      "updates": [
+        {
+          "operation": "unchanged",
+          "expected_new_inputs": 0,
+          "seconds": 1.5122083699999394,
+          "rss_bytes": 10854760448,
+          "encoded": 0,
+          "reused": 50,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "one",
+          "expected_new_inputs": 2,
+          "seconds": 6.452369177000037,
+          "rss_bytes": 10854760448,
+          "encoded": 2,
+          "reused": 48,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "ten",
+          "expected_new_inputs": 13,
+          "seconds": 29.506994243999998,
+          "rss_bytes": 10854760448,
+          "encoded": 13,
+          "reused": 37,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "add",
+          "expected_new_inputs": 2,
+          "seconds": 4.681632723000007,
+          "rss_bytes": 10854760448,
+          "encoded": 2,
+          "reused": 50,
+          "chunks": 52,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "delete",
+          "expected_new_inputs": 0,
+          "seconds": 1.6095800759999292,
+          "rss_bytes": 10854760448,
+          "encoded": 0,
+          "reused": 50,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "rename",
+          "expected_new_inputs": 0,
+          "seconds": 1.487519101000089,
+          "rss_bytes": 10854760448,
+          "encoded": 0,
+          "reused": 50,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        }
+      ],
+      "edited_function_retrievable": true,
+      "fresh": {
+        "seconds": 104.15464775800001,
+        "rss_bytes": 10854760448,
+        "encoded": 50,
+        "reused": 0,
+        "chunks": 50
+      },
+      "equivalence": {
+        "queries": 6,
+        "identical_rankings": 6,
+        "chunks_compared": 50,
+        "min_vector_cosine": 1.0
+      },
+      "fresh_ranking_equal": true
+    },
+    {
+      "repetition": 1,
+      "full": {
+        "seconds": 102.77719217499998,
+        "rss_bytes": 10854760448,
+        "encoded": 50,
+        "reused": 0,
+        "chunks": 50
+      },
+      "updates": [
+        {
+          "operation": "unchanged",
+          "expected_new_inputs": 0,
+          "seconds": 1.467408909000028,
+          "rss_bytes": 10854760448,
+          "encoded": 0,
+          "reused": 50,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "one",
+          "expected_new_inputs": 2,
+          "seconds": 6.812192405000019,
+          "rss_bytes": 10854760448,
+          "encoded": 2,
+          "reused": 48,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "ten",
+          "expected_new_inputs": 13,
+          "seconds": 31.60977737099995,
+          "rss_bytes": 10854760448,
+          "encoded": 13,
+          "reused": 37,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "add",
+          "expected_new_inputs": 2,
+          "seconds": 4.32860585200001,
+          "rss_bytes": 10854760448,
+          "encoded": 2,
+          "reused": 50,
+          "chunks": 52,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "delete",
+          "expected_new_inputs": 0,
+          "seconds": 1.443096565000019,
+          "rss_bytes": 10854760448,
+          "encoded": 0,
+          "reused": 50,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "rename",
+          "expected_new_inputs": 0,
+          "seconds": 1.4229463240000086,
+          "rss_bytes": 10854760448,
+          "encoded": 0,
+          "reused": 50,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        }
+      ],
+      "edited_function_retrievable": true,
+      "fresh": {
+        "seconds": 105.62682549600004,
+        "rss_bytes": 10854760448,
+        "encoded": 50,
+        "reused": 0,
+        "chunks": 50
+      },
+      "equivalence": {
+        "queries": 6,
+        "identical_rankings": 6,
+        "chunks_compared": 50,
+        "min_vector_cosine": 1.0
+      },
+      "fresh_ranking_equal": true
+    },
+    {
+      "repetition": 2,
+      "full": {
+        "seconds": 99.82432957099991,
+        "rss_bytes": 10854760448,
+        "encoded": 50,
+        "reused": 0,
+        "chunks": 50
+      },
+      "updates": [
+        {
+          "operation": "unchanged",
+          "expected_new_inputs": 0,
+          "seconds": 1.5246543529999599,
+          "rss_bytes": 10854760448,
+          "encoded": 0,
+          "reused": 50,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "one",
+          "expected_new_inputs": 2,
+          "seconds": 6.293922588999976,
+          "rss_bytes": 10854760448,
+          "encoded": 2,
+          "reused": 48,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "ten",
+          "expected_new_inputs": 13,
+          "seconds": 29.378008937000004,
+          "rss_bytes": 10854760448,
+          "encoded": 13,
+          "reused": 37,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "add",
+          "expected_new_inputs": 2,
+          "seconds": 4.3445002079999995,
+          "rss_bytes": 10854760448,
+          "encoded": 2,
+          "reused": 50,
+          "chunks": 52,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "delete",
+          "expected_new_inputs": 0,
+          "seconds": 1.4019466519998787,
+          "rss_bytes": 10854760448,
+          "encoded": 0,
+          "reused": 50,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        },
+        {
+          "operation": "rename",
+          "expected_new_inputs": 0,
+          "seconds": 1.4207029929998498,
+          "rss_bytes": 10854760448,
+          "encoded": 0,
+          "reused": 50,
+          "chunks": 50,
+          "encoded_equals_changed": true
+        }
+      ],
+      "edited_function_retrievable": true,
+      "fresh": {
+        "seconds": 100.349718897,
+        "rss_bytes": 10854760448,
+        "encoded": 50,
+        "reused": 0,
+        "chunks": 50
+      },
+      "equivalence": {
+        "queries": 6,
+        "identical_rankings": 6,
+        "chunks_compared": 50,
+        "min_vector_cosine": 1.0
+      },
+      "fresh_ranking_equal": true
+    }
+  ],
+  "summary": {
+    "full_index": {
+      "seconds": {
+        "median": 102.77719217499998,
+        "min": 99.82432957099991,
+        "max": 103.4114624749999
+      },
+      "chunks": 50,
+      "encoded": 50
+    },
+    "unchanged": {
+      "seconds": {
+        "median": 1.5122083699999394,
+        "min": 1.467408909000028,
+        "max": 1.5246543529999599
+      },
+      "encoded": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "reused": {
+        "median": 50,
+        "min": 50,
+        "max": 50
+      },
+      "rss_bytes_max": 10854760448
+    },
+    "one": {
+      "seconds": {
+        "median": 6.452369177000037,
+        "min": 6.293922588999976,
+        "max": 6.812192405000019
+      },
+      "encoded": {
+        "median": 2,
+        "min": 2,
+        "max": 2
+      },
+      "reused": {
+        "median": 48,
+        "min": 48,
+        "max": 48
+      },
+      "rss_bytes_max": 10854760448
+    },
+    "ten": {
+      "seconds": {
+        "median": 29.506994243999998,
+        "min": 29.378008937000004,
+        "max": 31.60977737099995
+      },
+      "encoded": {
+        "median": 13,
+        "min": 13,
+        "max": 13
+      },
+      "reused": {
+        "median": 37,
+        "min": 37,
+        "max": 37
+      },
+      "rss_bytes_max": 10854760448
+    },
+    "add": {
+      "seconds": {
+        "median": 4.3445002079999995,
+        "min": 4.32860585200001,
+        "max": 4.681632723000007
+      },
+      "encoded": {
+        "median": 2,
+        "min": 2,
+        "max": 2
+      },
+      "reused": {
+        "median": 50,
+        "min": 50,
+        "max": 50
+      },
+      "rss_bytes_max": 10854760448
+    },
+    "delete": {
+      "seconds": {
+        "median": 1.443096565000019,
+        "min": 1.4019466519998787,
+        "max": 1.6095800759999292
+      },
+      "encoded": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "reused": {
+        "median": 50,
+        "min": 50,
+        "max": 50
+      },
+      "rss_bytes_max": 10854760448
+    },
+    "rename": {
+      "seconds": {
+        "median": 1.4229463240000086,
+        "min": 1.4207029929998498,
+        "max": 1.487519101000089
+      },
+      "encoded": {
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "reused": {
+        "median": 50,
+        "min": 50,
+        "max": 50
+      },
+      "rss_bytes_max": 10854760448
+    },
+    "fresh_rebuild_seconds": {
+      "median": 104.15464775800001,
+      "min": 100.349718897,
+      "max": 105.62682549600004
+    },
+    "all_encoded_counts_exact": true,
+    "all_equivalent_to_fresh_rebuild": true
+  }
+}
