@@ -139,3 +139,27 @@ def test_a_shard_needs_a_store_and_a_valid_index(harness):
                 ["--query-shard", "a/b", "--query-store", "x.sqlite"]):
         with pytest.raises(SystemExit):
             harness.run(*bad)
+
+
+def test_an_existing_output_is_never_overwritten_by_default(harness):
+    cache = harness.corpus_cache()
+    existing = harness.tmp / "appsretrieval_results.json"
+    existing.write_text('{"first": "release"}', encoding="utf-8")
+    with pytest.raises(SystemExit, match="already exists"):
+        harness.run("--corpus-cache", cache, "--output", existing)
+    assert existing.read_text(encoding="utf-8") == '{"first": "release"}'
+    assert harness.audit == []                          # refused before any test-split record
+    harness.run("--corpus-cache", cache, "--output", existing, "--overwrite")
+    assert json.loads(existing.read_text(encoding="utf-8"))["scores"]["test"][0]["ndcg_at_10"] == 0.5
+
+
+def test_the_default_output_is_under_results_and_an_execution_audit_sits_beside_it(harness, monkeypatch):
+    cache = harness.corpus_cache()
+    monkeypatch.chdir(harness.tmp)
+    harness.run("--corpus-cache", cache)
+    out = harness.tmp / "results"
+    assert (out / "appsretrieval_results.json").exists()
+    audit = json.loads((out / "execution_audit.json").read_text(encoding="utf-8"))
+    assert audit["configuration"]["configuration"] == "config/submission.yaml"
+    assert audit["configuration"]["model"].endswith("F2LLM-v2-1.7B")
+    assert audit["corpus_cache"] == {"hits": len(DOCS), "misses": 0}

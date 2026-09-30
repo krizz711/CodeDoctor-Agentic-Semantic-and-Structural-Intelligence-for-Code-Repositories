@@ -1,14 +1,21 @@
 """Produce the official MTEB ``AppsRetrieval`` result JSON for submission.
 
-    python scripts/evaluate_mteb.py --device cpu --output appsretrieval_results.json
+    python scripts/evaluate_mteb.py --predictions results/predictions
 
-Runs the full two-pass pipeline through MTEB's own evaluator, so the emitted
-JSON is exactly the artifact the screening stage expects — no hand-assembled
-scores anywhere in the path.
+Loads ``config/submission.yaml`` (F2LLM-v2-1.7B, CPU, the accepted verification settings)
+and runs the full two-pass pipeline through MTEB's own evaluator, so the emitted JSON is
+exactly the artifact the screening stage expects: no hand-assembled scores anywhere in
+the path. Outputs go to ``results/`` by default and an existing output is never
+overwritten without ``--overwrite`` (the first release's ``appsretrieval_results.json``
+at the repository root stays as it was).
 
-``--tier interactive`` swaps in the smaller encoder used by the live service;
-``--no-rerank`` runs the frozen dense model alone, which is the ablation
-baseline.  Both write the same schema.
+``--config config/frozen.yaml`` reproduces the historical configuration; ``--tier
+interactive`` selects the smaller 0.6B encoder (a different operating point: report it
+separately); ``--no-rerank`` runs the dense model alone, the ablation baseline.
+
+For a long CPU run, ``--query-store`` checkpoints query vectors (and lets the run be split
+with ``--query-shard``); ``--corpus-cache`` supplies offline document vectors and
+``--require-complete-corpus-cache`` refuses to run if any document is missing from it.
 """
 
 from __future__ import annotations
@@ -120,7 +127,7 @@ def main() -> None:
         action="store_true",
         default=None,
         help="force the execution-verification pass on (default comes from "
-             "config/frozen.yaml: pipeline.execution_rerank)",
+             "config/submission.yaml: pipeline.execution_rerank)",
     )
     execution_group.add_argument(
         "--no-execution",
@@ -135,7 +142,9 @@ def main() -> None:
     parser.add_argument("--execution-max-dense-gap", type=float, default=None,
                         help="skip candidates scoring more than this below the row's best")
     parser.add_argument("--hubness", type=Path, default=None, help="reference hub profile .npz")
-    parser.add_argument("--output", type=Path, default=Path("appsretrieval_results.json"))
+    parser.add_argument("--output", type=Path, default=Path("results/appsretrieval_results.json"))
+    parser.add_argument("--overwrite", action="store_true",
+                        help="replace an existing --output (never done by default)")
     parser.add_argument("--predictions", type=Path, default=None, help="also write ranked CSVs here")
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--device", choices=["auto", "cuda", "cpu"], default="cpu")
@@ -186,6 +195,9 @@ def main() -> None:
         if args.query_store is None:
             raise SystemExit("--query-shard needs --query-store")
         query_shard = (index, count)
+
+    if args.output.exists() and not args.overwrite:
+        raise SystemExit(f"{args.output} already exists; choose another --output or pass --overwrite")
 
     try:
         import mteb
@@ -340,6 +352,18 @@ def main() -> None:
     scores = payload.get("scores", {}).get("test", [{}])[0]
     print(f"\nNDCG@10 = {scores.get('ndcg_at_10')}   MRR@10 = {scores.get('mrr_at_10')}")
     print(f"Wrote {args.output}")
+
+    from app.submission import identify
+
+    audit_path = args.output.parent / "execution_audit.json"
+    audit_path.write_text(json.dumps({
+        **pipeline.execution_audit,
+        "configuration": identify(args.tier, config_path),
+        "corpus_cache": pipeline.cache_stats if corpus_cache is not None else None,
+        "query_store": pipeline.query_stats if query_store is not None else None,
+        "query_verification": pipeline.query_verification,
+    }, indent=2), encoding="utf-8")
+    print(f"Wrote {audit_path}")
 
     # This is a test-split evaluation, so it belongs in the same audit log as
     # every other one.  Until 2026-09-19 it was not recorded: the log only ever
