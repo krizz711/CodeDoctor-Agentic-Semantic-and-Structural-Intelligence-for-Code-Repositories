@@ -136,7 +136,7 @@ def p1(encoder, work: Path, repetitions: int = 3) -> dict:
                 values[0] = 1001
                 write_fixture(folder, values)
             elif operation == "ten":
-                values[:10] = [2000 + i for i in range(10)]
+                values[4:14] = [2000 + i for i in range(10)]
                 write_fixture(folder, values)
             elif operation == "add":
                 (folder / "added.py").write_text('def added(x):\n    """Multiply by 71."""\n    return x * 71\n',
