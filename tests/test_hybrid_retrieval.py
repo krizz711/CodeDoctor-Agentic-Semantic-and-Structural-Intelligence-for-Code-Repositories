@@ -53,8 +53,10 @@ def test_vector_parity_between_callers():
     Acceptance test: Harness and service wrappers, given the same input string
     and same prompt mode, must produce byte-identical vectors.
     """
-    encoder1 = CodeEncoder()
-    encoder2 = get_shared_encoder()
+    # Parity between the two wrappers does not depend on the tier; the small
+    # tier keeps this runnable without the 1.7B default's ~8.5 GB of RAM.
+    encoder1 = CodeEncoder(tier="interactive")
+    encoder2 = get_shared_encoder(tier="interactive")
 
     test_string = "function authenticateUser(token, secret) { return verifyJwt(token, secret); }"
 

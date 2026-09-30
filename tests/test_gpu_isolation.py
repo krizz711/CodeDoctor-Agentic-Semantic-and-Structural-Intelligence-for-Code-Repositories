@@ -22,7 +22,11 @@ def test_service_encoder_defaults_to_cpu(monkeypatch):
     on CPU-only jury machines.
     """
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
-    encoder = get_shared_encoder()
+    # Device selection does not depend on the tier. The judge-facing default is
+    # the 1.7B model (needs ~8.5 GB of RAM to load on CPU; asserted without
+    # loading in tests/test_submission_integration.py), so this test loads the
+    # small tier and stays runnable on ordinary machines.
+    encoder = get_shared_encoder(tier="interactive")
     assert encoder.device == "cpu"
     param_device = next(encoder.model.parameters()).device.type
     assert param_device == "cpu", f"Expected parameter device 'cpu', got {param_device}"

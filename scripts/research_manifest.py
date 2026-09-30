@@ -21,7 +21,18 @@ class ManifestError(Exception):
     """A manifest cannot be collected or safely written."""
 
 
+def _identity(file_stat):
+    """Which file it is: stable across a path lookup and an open handle."""
+    return (file_stat.st_dev, file_stat.st_ino)
+
+
 def _fingerprint(file_stat):
+    """The file's state, compared only between two reads of the same open handle.
+
+    A path lookup is not comparable: on NTFS a just-written file's directory
+    entry can report an older size or timestamp than its open handle until it
+    is flushed, which made a freshly written multi-megabyte file look "changed".
+    """
     return (
         file_stat.st_dev, file_stat.st_ino, file_stat.st_size,
         file_stat.st_mtime_ns, file_stat.st_ctime_ns,
@@ -41,8 +52,8 @@ def hash_file(path):
             for chunk in iter(lambda: source.read(1024 * 1024), b""):
                 digest.update(chunk)
             after = os.fstat(source.fileno())
-        if not (_fingerprint(initial) == _fingerprint(before)
-                == _fingerprint(after) == _fingerprint(path.stat())):
+        if not (_fingerprint(before) == _fingerprint(after)
+                and _identity(initial) == _identity(before) == _identity(path.stat())):
             raise ManifestError(f"Input changed while hashing; retry: {path}")
     except OSError as exc:
         raise ManifestError(f"Cannot hash input {path}: {exc}") from exc

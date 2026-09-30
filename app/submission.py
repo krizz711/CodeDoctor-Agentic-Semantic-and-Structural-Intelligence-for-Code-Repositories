@@ -18,9 +18,14 @@ def read_config(path: Path) -> dict:
     if not path.exists():
         raise FileNotFoundError(f"config not found: {path}")
     try:
-        return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (yaml.YAMLError, UnicodeDecodeError) as error:
         raise ValueError(f"config {path} is not valid YAML: {error}") from error
+    # An empty file used to load as {} and silently changed what runs: no
+    # execution pass, and the encoder fell back to a different (smaller) model.
+    if not isinstance(data, dict) or not data:
+        raise ValueError(f"config {path} is empty or not a YAML mapping")
+    return data
 
 
 def get_pipeline_config(config_path: Path | None = None) -> dict:
