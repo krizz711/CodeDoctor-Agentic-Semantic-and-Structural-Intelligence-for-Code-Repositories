@@ -1,0 +1,16 @@
+{
+  "attempt": 1,
+  "kind": "synthetic infrastructure smoke",
+  "status": "infrastructure_failure",
+  "model_conversion_started": false,
+  "decision_queries_read": false,
+  "adoption": false,
+  "notebook": "https://www.kaggle.com/code/lifemeansfun/codedoctor-c4-llama-conversion-smoke",
+  "version": 1,
+  "implementation_commit": "ed1c173",
+  "protocol_commit": "be0578f",
+  "notebook_sha256": "f7b0f97ccb04a079b31da812ef4803ccc832ffc1577de36e0587f646b1ff0c90",
+  "log_sha256": "e58f7924c4540ff0d23cc07034cb7c2404b5256918182e9a3f40f9ec1da6ea55",
+  "failure": "Kaggle runtime DNS resolution failed while pip fetched cmake; package install exited 1 before conversion. Remote notebook metadata reports Internet enabled.",
+  "retry": "Not yet launched; verify account/network, use fresh session with DNS/HTTP preflight and explicit public PyPI index. At most one infrastructure retry."
+}

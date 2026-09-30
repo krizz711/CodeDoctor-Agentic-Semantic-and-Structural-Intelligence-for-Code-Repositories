@@ -1,5 +1,22 @@
 # Hand-off
 
+**2026-09-30 continuation:** Kaggle access succeeded. The notebook's current
+output was downloaded, and the E2 repeat is [void under S2](C3_cycle/E2_RECONCILIATION.md);
+the original rule stops E2 without a third attempt. The CLI does not certify
+the output version, as disclosed in that record. C4-E1 Q8_0 was
+[preregistered](C4_q8_query/PREREG.md) before decision runs. Its first Kaggle
+synthetic smoke [failed on DNS](C4_q8_query/ADDENDUM_A1.md) before conversion;
+no C4 decision result exists. Train-only TUNE/DEV inputs are prepared in the
+private `lifemeansfun/codedoctor-c4-train-inputs` Kaggle dataset. Confirm
+notebook Internet availability before the single permitted infrastructure
+retry. If F32 conversion fidelity fails, pause for higher-depth analysis; if
+stage 1 passes, pause before stage 2 replay design as the user requested.
+
+**Experiment tracking (2026-09-29):** [REGISTER.md](REGISTER.md) indexes outcomes,
+evidence, active features and future cleanup candidates. Update its row after
+each attempt or decision, alongside the owning experiment record. This tracking
+update ran no experiments and does not close E2 or E3.
+
 ## A. Moving to another machine: the state on 2026-09-26 (branch `v3`)
 
 Work moves to an agent on another laptop, which will have only GitHub. Everything that agent needs is in this repo; nothing depends on the old laptop.

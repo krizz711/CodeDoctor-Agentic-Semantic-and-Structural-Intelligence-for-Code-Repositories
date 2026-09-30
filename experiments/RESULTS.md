@@ -436,8 +436,8 @@ Pre-registered in `C3_cycle/PREREG.md` (addenda A1–A3). DEV decides; no test s
   - No screening gain is projected.
 - **E1 arm B: judge-like I/O, accepted** (a fidelity fix). DEV 0 changes; CI green on ubuntu/macOS/Windows. macOS pipes report buffered bytes, which corrected a wrong assumption of ours.
 - **E2: int8 OpenVINO query encoder.**
-  - Run 1 is **void** (S2: a slower Kaggle CPU). Disclosed: both int8 variants fail fidelity (median cosine 0.982 / 0.991) and are slower.
-  - Run 2 is finished and not yet read (`HANDOFF.md` A4 B1).
+  - Run 1 and the downloaded repeat are **void** under the preregistered S2 reference-timing control on Intel Xeon. The repeat's REF means are 11.290 and 11.456 s against the 7.832 s ±25% band. Both int8 arms also show poor fidelity (median cosine 0.982 / 0.991) and slower encoding, but void-run observations do not establish a valid negative treatment result.
+  - E2 stops under addendum A3 with no third attempt. The CLI does not certify the output's version; the association with the handoff's finished version 2 is inferred from the latest-run metadata. Raw output and exact adjudication are in [`C3_cycle/E2_RECONCILIATION.md`](C3_cycle/E2_RECONCILIATION.md).
 - **E3 (P1):**
   - The demo cache served stale vectors after a model or prefix change. **Fixed:** it is keyed on the full recipe; the scored-path keys are unchanged.
   - An edited folder needed a server restart. **Fixed:** `rebuild=true` re-encodes only the changed chunks.
