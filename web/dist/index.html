@@ -1030,6 +1030,7 @@ function renderSearch(data) {
     '<div class="pass ' + (p.ran ? "on" : "off") + '" title="' + esc(p.detail) + '">' +
       '<div class="head"><span class="name">' + esc(p.name) + "</span>" +
       '<span class="state">' + (p.ran ? "ran" : "not run") + "</span></div>" +
+      (p.detail ? '<div style="font-size:10px;color:var(--ink-3);margin-top:3px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(p.detail) + '</div>' : '') +
     "</div>"
   ).join("");
 
@@ -1132,9 +1133,11 @@ function renderEvidence(r) {
     : '<div class="empty" style="padding:4px 0">no ' + kind + " found in the AST at this version</div>";
 
   const v = r.verification || { state: "not_run" };
+  const execPass = (S.lastSearch && S.lastSearch.passes || []).find((p) => p.name === "Execution");
+  const execReason = (execPass && execPass.detail) || "statement has no machine-readable worked examples";
   const verifyCard = v.state === "not_run"
-    ? '<div class="empty" style="padding:4px 0">This pass did not run for this query. ' +
-      'The reason is in the Execution card above the results.</div>'
+    ? '<div class="empty" style="padding:4px 0"><strong>Status:</strong> ' + esc(execReason) +
+      '<div style="margin-top:6px;font-size:11px;color:var(--ink-3);line-height:1.4">Queries with sample input/output test cases (e.g. <code>-----Sample Input-----</code>) trigger automatic sandbox execution and bonus reranking.</div></div>'
     : '<div class="sigtop"><span class="m">' +
       (v.state === "verified" ? "reproduced every example" : "did not reproduce the examples") +
       "</span></div>" +

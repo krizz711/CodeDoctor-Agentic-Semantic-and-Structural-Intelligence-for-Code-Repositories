@@ -1406,6 +1406,10 @@ def _folder_presets(documents: Sequence[Document]) -> list[dict[str, str]]:
     ]
     for name in named[:2]:
         presets.append({"label": f"Symbol · {name}", "query": name})
+    presets.append({
+        "label": "⚡ Test Execution Pass",
+        "query": "Write a function that calculates the result.\n-----Sample Input-----\n1 2\n-----Sample Output-----\n3",
+    })
     return presets
 
 
