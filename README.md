@@ -154,12 +154,12 @@ the repository does not currently include a top-level license grant.
 | **Requirements** | [`requirement.txt`](requirement.txt) / [`requirements.txt`](requirements.txt) | Pinned dependency specifications |
 | **Presentation Deck** | [`VITV_Doctors_Submission.pptx`](VITV_Doctors_Submission.pptx) | Editable 12-slide template submission |
 | **Presentation PDF** | [`VITV_Doctors_Submission.pdf`](VITV_Doctors_Submission.pdf) | Matching high-resolution PDF export |
-| **Demo Video** | [Demo Video Link (Google Drive / YouTube)](https://drive.google.com/your-demo-video-link) | 5-minute walkthrough of indexing, retrieval, and versioning |
+| **Demo Video** | [Walkthrough Video (YouTube)](https://youtu.be/0k2UUJOp-Tc) | 5-minute walkthrough of indexing, retrieval, and versioning |
 | **AI Disclosure** | [`LangAI3.0_AI_Disclosure.docx`](LangAI3.0_AI_Disclosure.docx) | Completed AI tools disclosure form |
 | **Release Tag** | `PRISM_GENAI_HACKATHON_Y2026` | Official judge-facing release tag on final commit |
 
 ### Demo Video Walkthrough
-- **Recording Link:** [Demo Video Walkthrough (Google Drive / YouTube)](https://drive.google.com/your-demo-video-link)
+- **Recording Link:** [CodeDoctor Demo Walkthrough (YouTube)](https://youtu.be/0k2UUJOp-Tc)
 - **Duration:** Under 5 minutes
 - **Content:** Demonstrates repository onboarding, tree-sitter chunking, semantic natural language search with source span citations, fast incremental re-indexing with vector reuse, and cross-version behavioral ranking using executable worked examples.
 
