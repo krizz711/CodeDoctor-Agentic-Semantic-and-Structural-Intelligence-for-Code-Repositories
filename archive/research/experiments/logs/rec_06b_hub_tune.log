@@ -1,0 +1,22 @@
+5000 eligible queries (all families), TUNE=2500 DEV=2500 seed=20260919  -> recording tune: 2500 queries
+hubness-corrected pools: bank emb_f2llm06b_queries.npy (217), beta 0.3, k 10
+<unknown>:1: SyntaxWarning: invalid escape sequence '\*'
+<unknown>:1: SyntaxWarning: invalid escape sequence '\*'
+<unknown>:1: SyntaxWarning: invalid escape sequence '\*'
+<unknown>:1: SyntaxWarning: invalid escape sequence '\*'
+executing 29,120 (query, candidate) pairs with 6 workers ...
+  2,000/29,120 in 44s
+  4,000/29,120 in 79s
+  6,000/29,120 in 121s
+  8,000/29,120 in 179s
+  10,000/29,120 in 233s
+  12,000/29,120 in 285s
+  14,000/29,120 in 351s
+  16,000/29,120 in 398s
+  18,000/29,120 in 480s
+  20,000/29,120 in 586s
+  22,000/29,120 in 628s
+  24,000/29,120 in 673s
+  26,000/29,120 in 719s
+  28,000/29,120 in 763s
+recorded 29,120 pairs over 2500 queries in 789s -> data\outcomes\f2llm06b_all_tune_hubcc.jsonl.gz

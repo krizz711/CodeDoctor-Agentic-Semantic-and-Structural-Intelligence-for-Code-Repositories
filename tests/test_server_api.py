@@ -113,3 +113,24 @@ def test_workbench_benchmark_reads_the_submitted_artifact():
     assert data["task"] == "AppsRetrieval"
     assert 0.0 < data["ndcg_at_10"] <= 1.0
     assert data["ndcg_at_10"] == data["main_score"]
+
+
+def test_benchmark_panel_labels_the_historical_result_and_prefers_the_final_one(tmp_path, monkeypatch):
+    import json
+
+    import app.server as server
+
+    monkeypatch.setattr(server, "FINAL_RESULTS", tmp_path / "absent")
+    historical = client.get("/api/workbench/benchmark").json()
+    assert historical["kind"] == "historical" and "historical" in historical["label"]
+
+    final = tmp_path / "final"
+    final.mkdir()
+    (final / "appsretrieval_results.json").write_text(json.dumps({
+        "task_name": "AppsRetrieval", "mteb_version": "2.21.0",
+        "scores": {"test": [{"ndcg_at_10": 0.9, "mrr_at_10": 0.8, "recall_at_10": 0.95, "main_score": 0.9}]}}),
+        encoding="utf-8")
+    (final / "execution_audit.json").write_text(json.dumps({"candidates_executed": 5}), encoding="utf-8")
+    monkeypatch.setattr(server, "FINAL_RESULTS", final)
+    data = client.get("/api/workbench/benchmark").json()
+    assert data["kind"] == "final" and data["ndcg_at_10"] == 0.9 and data["execution"]["executed"] == 5

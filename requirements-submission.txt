@@ -1,0 +1,9 @@
+-r requirements.txt
+mteb==2.21.0
+sentence-transformers==5.0.0
+transformers==4.57.6
+huggingface-hub==0.36.2
+datasets==3.6.0
+psutil==7.0.0
+# Install torch==2.8.0 from the official CPU wheel index before this file.
+# The final release also records pip freeze from its measured Linux environment.

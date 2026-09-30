@@ -1,0 +1,73 @@
+[{"stream_name":"stderr","time":6.33881506,"data":"/usr/local/lib/python3.12/dist-packages/nbformat/__init__.py:96: MissingIDFieldWarning: Cell is missing an id field, this will become a hard error in future nbformat versions. You may want to use `normalize()` on your notebooks before validations (available since nbformat 5.1.4). Previous versions of nbformat are fixing this issue transparently, and will stop doing so in the future.\n"}
+,{"stream_name":"stderr","time":6.338886521,"data":"  validate(nb)\n"}
+,{"stream_name":"stderr","time":7.212670148,"data":"0.00s - Debugger warning: It seems that frozen modules are being used, which may\n"}
+,{"stream_name":"stderr","time":7.212704668,"data":"0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off\n"}
+,{"stream_name":"stderr","time":7.212710836,"data":"0.00s - to python to disable frozen modules.\n"}
+,{"stream_name":"stderr","time":7.212716023,"data":"0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.\n"}
+,{"stream_name":"stderr","time":7.909220936,"data":"0.00s - Debugger warning: It seems that frozen modules are being used, which may\n"}
+,{"stream_name":"stderr","time":7.909255008,"data":"0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off\n"}
+,{"stream_name":"stderr","time":7.909260936,"data":"0.00s - to python to disable frozen modules.\n"}
+,{"stream_name":"stderr","time":7.909265729,"data":"0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.\n"}
+,{"stream_name":"stderr","time":43.231812502,"data":"WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a2207d0\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":43.435844568,"data":"WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a2207d0\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":43.435881587,"data":"\n"}
+,{"stream_name":"stderr","time":43.435888704,"data":"WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a2207d0\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":75.741993548,"data":"WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a2259d0\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":75.945570888,"data":"WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a2259d0\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":75.945602481,"data":"\n"}
+,{"stream_name":"stderr","time":75.945609701,"data":"WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a2259d0\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":108.752235336,"data":"WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a251f70\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":108.955870076,"data":"WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a251f70\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":108.955898881,"data":"\n"}
+,{"stream_name":"stderr","time":108.955906207,"data":"WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a251f70\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":142.765040256,"data":"WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a253980\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":142.96884228,"data":"WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a253980\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":142.968879196,"data":"\n"}
+,{"stream_name":"stderr","time":142.968886806,"data":"WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a253980\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":178.775381969,"data":"WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a2440e0\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":178.979335349,"data":"WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a2440e0\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":178.979364289,"data":"\n"}
+,{"stream_name":"stderr","time":178.979369186,"data":"WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('\u003cpip._vendor.urllib3.connection.HTTPSConnection object at 0x7a412a2440e0\u003e: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/cmake/\n"}
+,{"stream_name":"stderr","time":210.792861798,"data":"ERROR: Could not find a version that satisfies the requirement cmake==3.31.6 (from versions: none)\n"}
+,{"stream_name":"stderr","time":210.79315989,"data":"ERROR: No matching distribution found for cmake==3.31.6\n"}
+,{"stream_name":"stderr","time":210.924975143,"data":"ERROR: Could not find a version that satisfies the requirement cmake==3.31.6 (from versions: none)\n"}
+,{"stream_name":"stderr","time":210.925021535,"data":"ERROR: No matching distribution found for cmake==3.31.6\n"}
+,{"stream_name":"stderr","time":210.925027886,"data":"\n"}
+,{"stream_name":"stderr","time":210.925032517,"data":"ERROR: Could not find a version that satisfies the requirement cmake==3.31.6 (from versions: none)\n"}
+,{"stream_name":"stderr","time":210.925037777,"data":"ERROR: No matching distribution found for cmake==3.31.6\n"}
+,{"stream_name":"stderr","time":211.250422531,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":211.250449506,"data":"  File \"\u003cstring\u003e\", line 1, in \u003cmodule\u003e\n"}
+,{"stream_name":"stderr","time":211.250455661,"data":"  File \"/usr/local/lib/python3.12/dist-packages/papermill/execute.py\", line 131, in execute_notebook\n"}
+,{"stream_name":"stderr","time":211.250584119,"data":"    raise_for_execution_errors(nb, output_path)\n"}
+,{"stream_name":"stderr","time":211.250616123,"data":"  File \"/usr/local/lib/python3.12/dist-packages/papermill/execute.py\", line 251, in raise_for_execution_errors\n"}
+,{"stream_name":"stderr","time":211.250835113,"data":"    raise error\n"}
+,{"stream_name":"stderr","time":211.251024113,"data":"papermill.exceptions.PapermillExecutionError: \n"}
+,{"stream_name":"stderr","time":211.251031159,"data":"---------------------------------------------------------------------------\n"}
+,{"stream_name":"stderr","time":211.251036361,"data":"Exception encountered at \"In [1]\":\n"}
+,{"stream_name":"stderr","time":211.251041316,"data":"---------------------------------------------------------------------------\n"}
+,{"stream_name":"stderr","time":211.251046458,"data":"CalledProcessError                        Traceback (most recent call last)\n"}
+,{"stream_name":"stderr","time":211.251051946,"data":"/tmp/ipykernel_16/3798589100.py in \u003ccell line: 0\u003e()\n"}
+,{"stream_name":"stderr","time":211.251057443,"data":"      4 os.environ[\"CUDA_VISIBLE_DEVICES\"] = \"\"\n"}
+,{"stream_name":"stderr","time":211.251062731,"data":"      5 os.environ[\"HF_HOME\"] = \"/kaggle/working/hf_cache\"\n"}
+,{"stream_name":"stderr","time":211.251067928,"data":"----\u003e 6 subprocess.run([sys.executable, \"-m\", \"pip\", \"install\", \"cmake==3.31.6\", \"sentence-transformers==5.0.0\", \"transformers==4.57.6\", \"psutil==7.0.0\"], check=True, timeout=900)\n"}
+,{"stream_name":"stderr","time":211.25107463,"data":"      7 root = Path(\"/kaggle/working/codedoctor\")\n"}
+,{"stream_name":"stderr","time":211.251079467,"data":"      8 root.mkdir()\n"}
+,{"stream_name":"stderr","time":211.251084118,"data":"\n"}
+,{"stream_name":"stderr","time":211.251088796,"data":"/usr/lib/python3.12/subprocess.py in run(input, capture_output, timeout, check, *popenargs, **kwargs)\n"}
+,{"stream_name":"stderr","time":211.251100748,"data":"    569         retcode = process.poll()\n"}
+,{"stream_name":"stderr","time":211.251105551,"data":"    570         if check and retcode:\n"}
+,{"stream_name":"stderr","time":211.251110271,"data":"--\u003e 571             raise CalledProcessError(retcode, process.args,\n"}
+,{"stream_name":"stderr","time":211.251115679,"data":"    572                                      output=stdout, stderr=stderr)\n"}
+,{"stream_name":"stderr","time":211.251154833,"data":"    573     return CompletedProcess(process.args, retcode, stdout, stderr)\n"}
+,{"stream_name":"stderr","time":211.251160332,"data":"\n"}
+,{"stream_name":"stderr","time":211.251172068,"data":"CalledProcessError: Command '['/usr/bin/python3', '-m', 'pip', 'install', 'cmake==3.31.6', 'sentence-transformers==5.0.0', 'transformers==4.57.6', 'psutil==7.0.0']' returned non-zero exit status 1.\n"}
+,{"stream_name":"stderr","time":211.251189894,"data":"\n"}
+,{"stream_name":"stderr","time":213.993274577,"data":"/usr/local/lib/python3.12/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":213.993305968,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":214.173428134,"data":"/usr/local/lib/python3.12/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":214.173458085,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":214.871415255,"data":"[NbConvertApp] Converting notebook __notebook__.ipynb to notebook\n"}
+,{"stream_name":"stderr","time":215.262044049,"data":"[NbConvertApp] Writing 29562 bytes to __notebook__.ipynb\n"}
+,{"stream_name":"stderr","time":218.209223412,"data":"[NbConvertApp] Converting notebook __notebook__.ipynb to html\n"}
+,{"stream_name":"stderr","time":219.218672411,"data":"[NbConvertApp] Writing 304972 bytes to __results__.html\n"}
+]

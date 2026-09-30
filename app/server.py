@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 import numpy as np
 
-from app.indexing.cache import EmbeddingCache, compute_embedding_key
+from app.indexing.cache import EmbeddingCache, recipe_cache_key, stack_cached
 from app.indexing.incremental import IncrementalIndexer
 from app.indexing.sqlite_index import SQLiteIndex
 from app.indexing.versioned import GitVersionManager, VersionedIndex
@@ -69,19 +69,20 @@ def _cached_document_embeddings(documents: list[Document]) -> Optional[np.ndarra
     rank the embedded chunks above the rest.
     """
     vectors: list[np.ndarray] = []
+    encoder = incremental_indexer._get_encoder()  # the recipe the vectors were stored under
     for document in documents:
         encoder_input = (
             f"{document.signature}\n{document.content}"
             if document.signature
             else document.content
         )
-        vector = cache.get(compute_embedding_key(encoder_input), real_only=True)
+        vector = cache.get(recipe_cache_key(encoder, encoder_input), real_only=True)
         if vector is None:
             return None
         vectors.append(vector)
     if not vectors:
         return None
-    return np.asarray(np.vstack(vectors), dtype=np.float32)
+    return stack_cached(vectors)
 
 
 @app.get("/api/repo/info")
@@ -324,10 +325,19 @@ def get_index_status() -> dict[str, Any]:
 
 
 @app.post("/api/index/reindex")
-def trigger_reindex(force_rebuild: bool = False) -> dict[str, Any]:
+def trigger_reindex(force_rebuild: bool = False, compute_embeddings: bool = False) -> dict[str, Any]:
+    """Re-index the explorer's repository; only changed files are re-read.
+
+    With ``compute_embeddings=false`` (the default: no model load) edited chunks
+    get no vector, and the explorer's search then answers lexically for the
+    whole corpus rather than rank a partly embedded one -- the response says so.
+    ``compute_embeddings=true`` encodes exactly the chunks not in the cache.
+    The hands-on demo surface is the workbench (``/api/workbench/build`` with
+    ``rebuild=true``), which always encodes what changed.
+    """
     repo = get_active_repo()
     stats = incremental_indexer.index_repository(
-        repo, compute_embeddings=False, force_rebuild=force_rebuild
+        repo, compute_embeddings=compute_embeddings, force_rebuild=force_rebuild
     )
     # Also extract structural edges
     for f_row in sqlite_index.conn.execute("SELECT path FROM files").fetchall():
@@ -338,7 +348,12 @@ def trigger_reindex(force_rebuild: bool = False) -> dict[str, Any]:
                 structural_engine.index_edges_for_file(path, abs_p.read_text(encoding="utf-8"))
             except Exception:
                 pass
-    return {"status": "success", "stats": stats.to_dict()}
+    return {
+        "status": "success",
+        "stats": stats.to_dict(),
+        "embeddings_computed": compute_embeddings,
+        "dense_search": "available" if compute_embeddings else "lexical only until re-indexed with compute_embeddings=true",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -391,9 +406,12 @@ def workbench_open(path: str) -> dict[str, Any]:
 
 
 @app.post("/api/workbench/build")
-def workbench_build(target: str = "self", versions: int = 4, dense: bool = True) -> dict[str, Any]:
+def workbench_build(
+    target: str = "self", versions: int = 4, dense: bool = True, rebuild: bool = False
+) -> dict[str, Any]:
+    """Build a target; ``rebuild=true`` re-reads an already-built one (P1)."""
     try:
-        return workbench.start_build(target, versions=versions, dense=dense)
+        return workbench.start_build(target, versions=versions, dense=dense, rebuild=rebuild)
     except KeyError as error:
         raise HTTPException(status_code=404, detail=str(error))
     except RuntimeError as error:
@@ -455,16 +473,27 @@ def workbench_across(request: WorkbenchQuery) -> dict[str, Any]:
         raise HTTPException(status_code=409, detail=str(error))
 
 
+FINAL_RESULTS = REPO_ROOT / "results" / "final"
+
+
 @app.get("/api/workbench/benchmark")
 def workbench_benchmark() -> dict[str, Any]:
-    """The submitted screening result, read from the artifact rather than typed.
+    """The screening result, read from the artifact rather than typed.
 
-    Every number on the benchmark panel comes out of the files that are
-    attached to the release, so the panel cannot drift from the submission.
+    Every number on the benchmark panel comes out of a result file, so the panel cannot drift
+    from it. ``results/final`` (the measured final submission) is preferred when it exists;
+    otherwise the first release's artifact at the repository root is shown, labelled as
+    historical so the two are never confused.
     """
     payload: dict[str, Any] = {"available": False}
-    results_path = REPO_ROOT / "appsretrieval_results.json"
-    audit_path = REPO_ROOT / "execution_audit.json"
+    final = FINAL_RESULTS / "appsretrieval_results.json"
+    if final.exists():
+        results_path, audit_path = final, FINAL_RESULTS / "execution_audit.json"
+        payload.update(kind="final", label="final submission (results/final)")
+    else:
+        results_path = REPO_ROOT / "appsretrieval_results.json"
+        audit_path = REPO_ROOT / "execution_audit.json"
+        payload.update(kind="historical", label="first release (historical, frozen configuration)")
     if results_path.exists():
         results = json.loads(results_path.read_text(encoding="utf-8"))
         scores = results.get("scores", {}).get("test", [{}])[0]

@@ -76,19 +76,25 @@ def run_acceptance_pipeline(repo_path: Path, run_pytest: bool = True) -> bool:
     print("  PASS: Structural query engine verified.")
 
     # 4. Submission Format & Scoring Verification
-    print("\n[Step 4/5] Validating Submission Artifact (appsretrieval_results.json)...")
-    results_file = REPO_ROOT / "appsretrieval_results.json"
-    if results_file.exists():
+    print("\n[Step 4/5] Validating submission artifacts...")
+    artifacts = [
+        ("final submission", REPO_ROOT / "results" / "final" / "appsretrieval_results.json"),
+        ("local run", REPO_ROOT / "results" / "appsretrieval_results.json"),
+        ("first release (historical)", REPO_ROOT / "appsretrieval_results.json"),
+    ]
+    present = [(label, path) for label, path in artifacts if path.exists()]
+    for label, results_file in present:
         errors = validate_submission_file(results_file)
         if errors:
-            print("  FAIL: Submission validation errors:")
+            print(f"  FAIL: {label}: submission validation errors:")
             for err in errors:
                 print(f"    - {err}")
             all_ok = False
         else:
-            print("  PASS: appsretrieval_results.json strictly conforms to MTEB schema with positive scores.")
-    else:
-        print("  NOTICE: appsretrieval_results.json not present in workspace root (run evaluation first).")
+            print(f"  PASS: {label}: {results_file.relative_to(REPO_ROOT)} conforms to the MTEB schema "
+                  "with positive scores.")
+    if not present:
+        print("  NOTICE: no appsretrieval_results.json found (run scripts/evaluate_mteb.py first).")
 
     # 5. Core Regression Suite Execution
     if run_pytest:

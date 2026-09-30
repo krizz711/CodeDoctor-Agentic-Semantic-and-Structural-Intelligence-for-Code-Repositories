@@ -1,0 +1,361 @@
+[
+ {
+  "experiment": "Experiment 1, \"Verifier fidelity\". Arm A: when a candidate's raw run on a parsed sample input with blank lines does not match, re-run it once on the same input with the blank lines removed. Raw verifications are never removed. Arm B: feed stdin as a file instead of a pipe, and bind exit = quit = sys.exit in the child, because -S removes them. Everything below was measured on TUNE, on EXT-dev (the research phase's own script, re-run), or on text and code only. Nothing was run on APPS DEV, the test split or the EXT lockbox. Scratch scripts are in C:\\Users\\Asus\\AppData\\Local\\Temp\\claude\\C--Users-Asus-manish\\85dfd3f9-bb2a-4e1b-afb7-3ebf75ec6bf3\\scratchpad\\skeptic (prev.py, raw2.py, gold_raw.py, live_collapse.py, nongold.py, meaningful.py, gold_fail.py, replace_check.py, armb_probe.py, wsl_probe.sh, armb_tune.py, ext_prev.py). I made no edits to the repository.",
+  "claims_checked": [
+   {
+    "claim": "24/777 TUNE stdin statements have a sample input with every other line blank",
+    "method": "prev.py on data/outcomes/f2llm17b_all_tune_deep50.jsonl.gz (header: seed 20260919, exec_depth 20, timeout 2.0, workers 6). The detector is the research phase's interleaved() applied to stdin_examples[0].",
+    "result": "{'stdin_stmts(legacy>0)': 777, 'interleaved_ex0': 24, 'anyblank_first2': 35, 'blank_not_interleaved_first2': 11, 'fam:competitive_stdin': 825}. Reproduced. Denominator mismatch: research's blank_check.py divides by 825 (the competitive_stdin family), while the claim says 777 statements with legacy examples. Per 777 the gain is +0.00345, not +0.0033.",
+    "holds": "holds"
+   },
+   {
+    "claim": "Golds crash in 20/24 TUNE affected statements",
+    "method": "gold_raw.py: the recorded stdin_runs[0] of each gold",
+    "result": "gold_run0 completed rc=1 in 20 (ValueError 14, IndexError 4, SyntaxError 1, ModuleNotFoundError 1). rc=0 but mismatch in 4. Gold tier 'none' in 24/24. All 24 golds are in the dense top-20.",
+    "holds": "holds"
+   },
+   {
+    "claim": "The blank lines come from the raw statement text, not from our parser",
+    "method": "raw2.py: print the raw '-----Sample Input-----' sections of 6 affected TUNE statements",
+    "result": "The raw text already has the blank lines, e.g. q585 '-----Sample Input:-----\\n3\\n\\n1110\\n\\n0010\\n\\n1001000  \\n\\n-----Sample Output:-----\\n1\\n\\n0\\n\\n2'; the same holds for q614, q645, q711, q716 and q793. All 24 are CodeChef problems (apps_train url codechef.com). This is a rendering or scraping artefact of the CodeChef statements, not something the parser adds.",
+    "holds": "holds"
+   },
+   {
+    "claim": "Collapsing is judge-faithful: APPS official inputs for these problems have no blank lines",
+    "method": "raw2.py and meaningful.py: match the 24 statements to artifacts/oracle/apps_train.jsonl by exact question text, and join the official inputs (lists of lines) with newlines",
+    "result": "'input types {list} official==raw sample 0, official==collapsed sample 24, official interleaved 0 of 24'. Across APPS train, only 6/1736 stdin problems have any blank line in their official inputs, and 0/1736 have interleaved blank lines. In TUNE, the one statement whose official input really does contain blank lines is q1676 (codechef POINTS, where test cases are separated by empty lines). The interleaved detector does not fire on it; an any-blank detector does. Caveat: each of these 24 problems has only 1 official input, and it is the sample itself.",
+    "holds": "holds"
+   },
+   {
+    "claim": "Live on TUNE, the gold verifies after the collapse in 21/24, with 9 non-gold verifications across 4 statements, and NDCG on the 24 goes 0.852 -> 0.964",
+    "method": "live_collapse.py interleaved: collapsed fallback only for runs whose recorded verdict is not 'strong', using the recorder's ExecutionConfig (timeout 2.0, track_input) and 4 workers. The new runs are spliced into the store records and scored with the unchanged replay_outcomes.rerank, including deep50. This fixes a flaw in research's blank_check.py, which used a hand-made ranking that ignored the deep window. The numbers happen to agree anyway.",
+    "result": "'fallback_runs=1168 secs=36.8 {new_strong_gold: 21, new_strong_nongold: 9, nongold_j<20: 7, stmts_with_new_nongold: 4}'. 'call-style+deep50: NDCG@10 on these 24: 0.8520 -> 0.9638; per 777 TUNE stdin: +0.00345; per 2500 TUNE: +0.00107'. legacy+numeric1e-6 gives an identical result. However, only 6 statements go UP and 1 goes DOWN: q1090 falls 1.000 -> 0.500. There the gold (d1090, a module-level 'nonlocal' SyntaxError that no fix can repair) is overtaken by d6441 and d6932, which verify coincidentally on the one-number output '4'. d6932 is a different problem and does not read the third input line.",
+    "holds": "partly"
+   },
+   {
+    "claim": "The fallback-only design protects statements whose blank lines are meaningful",
+    "method": "replace_check.py: re-run the collapsed input for every raw-STRONG run, i.e. the cost of collapsing instead of falling back",
+    "result": "Interleaved detector: 2 raw-strong runs, both still strong after the collapse, so nothing would be lost. Any-blank detector: 5 raw-strong runs, and the gold of q1676 goes strong -> none. Fallback-only is required for the broader detector, and with fallback-only q1676 keeps its raw verification ('gold_strong->strong': 2).",
+    "holds": "holds"
+   },
+   {
+    "claim": "A more general rule (any blank line, fallback-only) is at least as good",
+    "method": "live_collapse.py anyblank on TUNE",
+    "result": "35 statements, 1675 fallback runs. Gold recoveries 28 (interleaved rule: 21). Non-gold verifications 13 across 7 statements. 9 statements up, 1 down (q1090 again). Per 777 stdin +0.00488, per 2500 +0.00152. 'Collapse runs of blank lines to one' cannot help the interleaved case, so it is not a real alternative.",
+    "holds": "holds"
+   },
+   {
+    "claim": "The false verifications from the fallback can be filtered without losing golds (a new design, tuned on TUNE)",
+    "method": "live_collapse.py, variant: accept a fallback run only if the tracked input consumption covers every non-blank character (read >= len(collapsed.rstrip())). Untracked runs are accepted and counted.",
+    "result": "Interleaved rule: gold recoveries 21/21 kept, non-gold 9 -> 5, 6 up / 0 down, sum delta 3.182 (+0.0041 per 777). Any-blank rule: gold 28/28 kept, non-gold 13 -> 9, 9 up / 0 down, sum delta 4.289 (+0.0055 per 777, +0.0017 per 2500). Untracked fallback runs: 8 and 14. This was tuned on TUNE after seeing the q1090 regression, so it is in-sample until DEV.",
+    "holds": "holds"
+   },
+   {
+    "claim": "The effect is carried by only a few statements (the power concern)",
+    "method": "Count of statements whose NDCG changes, from the live_collapse.py output",
+    "result": "TUNE changes 7 statements (interleaved) or 10 (any-blank). An exact sign-flip test on 6 up / 1 down, counting signs only, gives two-sided p = 2*8/128 = 0.125. On 9 up / 0 down it gives 2/512 = 0.004. DEV has 35 interleaved statements against TUNE's 24, according to research's text count, which I did not re-derive. Estimate: roughly 9-13 changed statements on DEV. That is enough power, but fragile.",
+    "holds": "partly"
+   },
+   {
+    "claim": "The placebo negative control fails as it should",
+    "method": "live_collapse.py interleaved placebo: collapse, then reverse every line after the first",
+    "result": "5 gold recoveries, 0.852 -> 0.883. The reversal leaves the input unchanged on at least one used example in exactly 5/24 statements, and on the other 19 golds stay none->none. The 5 recoveries are probably those 5 statements; I did not check each one. So the reversal is not a clean null. Shuffled-expected control: 1-3 matches per 422-605 successful runs. Its seed uses hash(qid), which varies from process to process, so the exact counts are not reproducible.",
+    "holds": "partly"
+   },
+   {
+    "claim": "Arm B: the os.read(0, os.fstat(0).st_size) idiom breaks on pipes but works on files",
+    "method": "armb_probe.py on Windows 11 with Python 3.13.7, and wsl_probe.sh on WSL2 Ubuntu (Linux 6.6.114.1, Python 3.12.3)",
+    "result": "Windows pipe: 'st_size 0' and the BytesIO idiom gives rc=1 ValueError; from a file: 'st_size 8', rc=0. Linux: 'pipe st_size 0 0' and 'file st_size 8 8'. macOS was not run; the old macOS fstat(2) BUGS section says fstat on a pipe 'returns a zero'd buffer' (unverified on current macOS). Linux man stat(3type) defines st_size only for regular files and symlinks. The pipe failure therefore shows up on every platform, and a file-backed stdin behaves like a judge that redirects a file. That judges redirect a file is itself unverified.",
+    "holds": "holds"
+   },
+   {
+    "claim": "Binding exit/quit fixes fidelity and adds no new way to falsely pass",
+    "method": "armb_probe.py compares '-I -S + prelude' with '-I' (site loaded, which is normal CPython)",
+    "result": "Return code, stdout and stderr are identical to normal CPython in every case, including exit('bye') -> rc=1 with 'bye' on stderr, and early exit after partial output -> rc=0 with only the partial output. A program that exits before printing everything therefore passes only when a real judge would pass it. A source-prepended prelude (research's fidelity.py) would break 'from __future__' files (1 corpus doc). Bind in the runner's builtins instead.",
+    "holds": "holds"
+   },
+   {
+    "claim": "On EXT-dev, 7/9 crashing golds match after Arm B, and non-gold top-10 verifications stay at 13/81",
+    "method": "Re-ran the research phase's experiments/C3_cycle/research_scripts/fidelity.py (the scratchpad research copy)",
+    "result": "7 MATCH (cc-valid-87, cc-valid-104, cc-test-120, 125, 136, 193, 222); cc-test-156 still crashes; cc-test-191 mismatches. 'non-gold top-10 candidates: 81 verify under pipe: 13 under file+exit: 13'. Reproduced. But the 9 golds were chosen post hoc from EXT-dev, the effect on ranking was never measured, and the negative control covers only those 9 statements.",
+    "holds": "partly"
+   },
+   {
+    "claim": "Arm B's APPS prevalence is tiny",
+    "method": "armb_tune.py: regex over all 8765 corpus docs, then a live re-run on TUNE (file stdin + builtins exit binding, 4 workers) of every non-strong run by a candidate that uses the idioms",
+    "result": "Corpus: 17 docs with bare exit/quit, 8 with fstat(0)/os.read(0). Research's '24 fast IO' used a broader regex I did not reproduce. TUNE: 85 re-runs, 0 new strong verifications, 0 statements with a changed NDCG. The wrapper sanity check passed (bare exit -> rc 0 '7'; fstat idiom -> '2').",
+    "holds": "holds"
+   },
+   {
+    "claim": "Arm A generalises to non-APPS (unseen-like) data",
+    "method": "ext_prev.py: prevalence text count in the EXT-dev store",
+    "result": "EXT-dev (CodeContests): 2/108 stdin statements interleaved, 6/108 with any blank line. Several of those are meaningful blank lines ('test cases separated by an empty line'). Arm A's gain depends on the CodeChef rendering artefact inside APPS. On a cleanly rendered unseen set it is mostly inactive; it costs little, but it also adds little.",
+    "holds": "partly"
+   }
+  ],
+  "strongest_objection": "Arm A is real and judge-faithful, but it is small and rests on very few statements, and one of those is harmed. On TUNE the whole gain (+0.00107 all-family, +0.00345 on the 777 stdin statements) comes from 7 statements that change: 6 up, 1 down. A sign test on 6 up / 1 down gives p = 0.125. The loss (q1090, NDCG 1.0 -> 0.5) happens because the fallback gives a second chance to wrong programs whose outputs are short numbers: d6932 answers '4' without reading the third input line and overtakes a gold that can never run under Python 3. The gain also depends on how APPS rendered its CodeChef statements, with doubled newlines in 24/24 raw samples. The official inputs have none of these blank lines (24/24 equal the collapsed sample). On CodeContests (EXT-dev) the pattern occurs in 2/108 statements. The FAQ says the unseen set 'would be representative of the APPS dataset' and warns 'we would advise against overfitting too much on the APPS dataset'. Collapsing blank lines is a generic, judge-faithful normalisation, so it is not overfitting in the FAQ's sense. But claiming it helps generalisation to unseen data goes beyond the evidence: it helps only where the rendering artefact is present. Arm B cannot be tested for a score effect on APPS at all: TUNE gives 0 changes in 85 re-runs. Its only evidence is 9 EXT-dev golds that were chosen after the fact, so EXT-dev is in-sample for B. Protocol note: research's '29/35 DEV golds crash' used DEV qrels. That is not a treatment effect, but DEV labels were looked at, and the pre-registration must disclose it. The FAQ that bears on B: 'Dynamic analysis, such as execution of code is also in scope and allowed, however keep in mind that your approach should ideally generalize'. B generalises (it matches standard CPython and judge behaviour), but it cannot show a gain on APPS.",
+  "design_changes": [
+   "Split the arms. Arm A is the decision experiment. Arm B is a fidelity or robustness fix behind its own default-off switch, justified by unit tests and a no-regression replay, and no score claim is made for it: on APPS TUNE it changes 0 statements, so it cannot pass a superiority gate. Report its EXT-dev 7/9 as in-sample and descriptive.",
+   "Arm A: pre-register the any-blank detector (sample input has any blank line; fallback-only) instead of 'every other line blank'. On TUNE it is more general and recovers more (28 vs 21 golds, +0.0055 vs +0.0041 per 777 with the consumption gate), and fallback-only protects the meaningful-blank-line case (q1676 POINTS). Register only one variant to avoid a multiple-comparison penalty. Report the interleaved variant as descriptive only.",
+   "Arm A: accept a fallback verification only if the tracked input consumption covers every non-blank input character. On TUNE this keeps all gold recoveries, cuts non-gold fallback verifications from 13 to 9, and removes the only regression (q1090). Count and report fallback runs that are accepted while untracked (14 on TUNE).",
+   "Recorder: store fallback runs in a separate field (e.g. stdin_runs_collapsed, with tracked/read), so the baseline replay stays byte-identical and the policy can be switched in replay. Put the new ExecutionConfig switch behind a default-off flag; config/frozen.yaml stays untouched.",
+   "Arm B implementation: bind builtins.exit = builtins.quit = sys.exit inside _RUNNER_SOURCE, not by prepending source (a prepended prelude breaks 'from __future__'). Pass stdin as a temp-file handle opened 'rb' and keep the feed-thread path only as a fallback. Add sandbox tests for the fstat idiom, bare exit, exit('msg') -> rc 1, and a __future__ file, and run them in CI on ubuntu, macOS and Windows, because macOS behaviour is unverified here.",
+   "Fix research tooling before reuse: blank_check.py's denominator (825 vs 777), its hand-made ranking that ignores deep50 (use the real rerank on spliced records), its use of 5 workers, and the hash()-seeded shuffled-expected control (use a fixed random.Random(seed)).",
+   "Replace the reversal placebo with one that is never the identity. Proposal: the fallback input is the collapsed sample of a different affected statement (a fixed-seed derangement)."
+  ],
+  "proposed_prereg": "Hypothesis: on APPS DEV with the 1.7B model, adding a collapsed-blank-line fallback run (any-blank detector, fallback-only, accepted only if the tracked input consumption covers every non-blank character) to the candidate_v2 policy (call-style + deep50, no gate, numeric tolerance 1e-6) raises all-family NDCG@10. Stack it on candidate_v2 (call-style+deep50), the configuration going forward, not on the frozen rule. The affected statements are stdin-only, and on TUNE both policies give identical deltas. Report frozen-rule+A (baseline 0.94846) as descriptive only. Use the 1.7B stores only; do not mix operating points; 0.6B is descriptive. PRIMARY METRIC: DEV all-family NDCG@10 over the 2,500 DEV statements, paired per statement against the same policy without Arm A. Secondary: DEV stdin NDCG@10, MRR@10, count of statements up and down, non-gold fallback verifications (and those ranked above the gold), extra executions and wall time. BASELINE: 0.95327 all-family / 0.95993 stdin (research's replay of call-style+deep50 at 1.7B), which must be reproduced exactly before anything else. DECISION RULE: adopt into the candidate config behind a default-off switch iff (a) mean delta > 0; (b) the 95% paired bootstrap CI (2000 resamples, seed 7) excludes 0; (c) the paired sign-flip permutation p < 0.05 (exact if 20 or fewer statements change, else 100k permutations with a fixed seed), Holm-corrected if Arm B is also scored; (d) at least 6 statements change (the minimum at which an all-positive sign-flip can reach p < 0.05). Fewer than 6 means underpowered and the result is reported as descriptive, not adopted; (e) at most 1 statement where a fallback-only non-gold verification displaces a gold that was at rank 1. Smallest effect that matters: any positive delta that meets (a)-(e). Expected (estimate from TUNE, scaled by DEV prevalence 35 vs 24): about +0.0015 to +0.0025 all-family, about 9-13 statements changed. SANITY CONTROLS (a run that fails them is void, not inconclusive): (1) replay of candidate_v2 on the unmodified DEV store reproduces 0.95327 / 0.95993 to 5 decimals, and `replay_outcomes.py --check-legacy 50` reports all identical. (2) On TUNE, the pipeline reproduces the live numbers measured here: interleaved rule 0.8520 -> 0.9638 on 24 statements, 21 gold recoveries. Consumption-gated any-blank: 28 gold recoveries, 9 up / 0 down. Allow \u00b11 statement for wall-clock timeouts. (3) A spot re-run of 200 recorded raw DEV runs reproduces their recorded verdicts in at least 198/200; this checks load and timeout sensitivity at 4 workers against the recorder's 6. NEGATIVE CONTROL THAT MUST FAIL: the same fallback machinery with a placebo input (the collapsed sample of a different affected statement, fixed-seed derangement) must recover at most 1 gold and give a delta NDCG of 0 or less on DEV. If it 'improves', the mechanism claim is void. POWER / CEILING: the ceiling equals the sum over affected DEV statements of (1 - baseline NDCG) divided by 2500. Compute it from the store before running; if the ceiling is below 0.0005, report descriptive only. With about 10 changed statements that nearly all move up, the paired sign-flip has good power (estimate), but the result depends on a handful of statements, and the count must be printed next to the delta. RUNTIME / STOP RULE: about 1,700-2,500 fallback runs on DEV. On TUNE, 1675 runs took 52-87 s at 4 workers (a load-dependent spread; that is the timing caveat). Expected under 5 minutes; stop and void the run if it exceeds 10 minutes, if spawn_failures() > 0, or if sanity control 1 fails. DISCLOSURES in the pre-registration: DEV prevalence (35/824) and DEV gold crash counts (29/35) were already looked at by the research phase using DEV qrels. The consumption gate and the any-blank detector were chosen on TUNE. ARM B (not a scored decision): pass if the new sandbox tests pass on ubuntu, macOS and Windows CI, and a full DEV replay shows 0 statements with lower NDCG. No gain is claimed.",
+  "sources": [
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\app\\pipeline\\execution_rerank.py (parse_worked_examples L213-255, _RUNNER_SOURCE/_main L301-573, _run_capped L664-758, execute_candidate L761-857, apply_execution_rerank L1079-1201)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\scripts\\replay_outcomes.py (Policy, stdin_verdict, candidate_tier, rerank, metrics)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\scripts\\record_outcomes.py (record_config, _stdin_record)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\config\\candidate_v2.yaml (call_style true, deepen_to 50, max_dense_gap null)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\data\\outcomes\\f2llm17b_all_tune_deep50.jsonl.gz, f2llm17b_extcc_dev_deep50.jsonl.gz",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\artifacts\\oracle\\apps_train.jsonl (official APPS train inputs)",
+   "Scratch scripts: C:\\Users\\Asus\\AppData\\Local\\Temp\\claude\\C--Users-Asus-manish\\85dfd3f9-bb2a-4e1b-afb7-3ebf75ec6bf3\\scratchpad\\skeptic\\{prev.py,raw2.py,gold_raw.py,live_collapse.py,nongold.py,meaningful.py,gold_fail.py,replace_check.py,armb_probe.py,wsl_probe.sh,armb_tune.py,ext_prev.py}",
+   "Research scripts re-run: ...\\scratchpad\\research\\blank_check.py (reviewed), fidelity.py (re-run)",
+   "https://man7.org/linux/man-pages/man3/stat.3type.html: st_size 'gives the size of the file (if it is a regular file or a symbolic link) in bytes'",
+   "https://www.unix.com/man_page/osx/2/fstat/: BUGS: 'Applying fstat to a socket (and thus to a pipe) returns a zero'd buffer'",
+   "https://lkml.iu.edu/hypermail/linux/kernel/0106.1/0708.html: LKML thread '[BUG] stat.st_size is not set for pipes' (search result only, not fetched)"
+  ],
+  "verdict": "go-with-changes"
+ },
+ {
+  "experiment": "EXPERIMENT 2: a CPU-quantised F2LLM-v2-1.7B query encoder (only the query side changes; document vectors stay as stored). The goal is FAQ A/B CPU efficiency and demo speed with no P0 loss. Proposed: pick one runtime (OpenVINO weight compression, or llama.cpp GGUF Q8_0) and evaluate it on a Kaggle CPU kernel for speed and RAM, plus DEV NDCG.",
+  "claims_checked": [
+   {
+    "claim": "(1a) sentence-transformers backend=\"openvino\" works with a last-token-pooling Qwen3 model",
+    "method": "Read sentence-transformers v5.0.0 models/Transformer.py::_load_openvino_model and optimum-intel main (modeling.py, exporters/openvino/model_configs.py). Checked the cached F2LLM-v2 modules.json and 1_Pooling/config.json.",
+    "result": "The ST OpenVINO backend replaces only auto_model, with OVModelForFeatureExtraction returning last_hidden_state. The HF tokenizer (and its tokenizer_kwargs) and ST's own Pooling(lasttoken) and Normalize modules are kept, and F2LLM-v2's 1_Pooling has pooling_mode_lasttoken=true. optimum-intel registers \"qwen3\" for \"feature-extraction\", and OpenVINO ships Qwen3-Embedding-0.6B-int8-ov used through OVModelForFeatureExtraction (needs optimum-intel >=1.27, OpenVINO >=2026.0). Open risk from static reading: TextDecoderWithPositionIdsOpenVINOConfig adds a position_ids input for task feature-extraction (config.py line 112), but OVModelForFeatureExtraction.forward passes only input_ids and attention_mask. It is unclear whether the exported IR runs without an explicit position_ids; the first kernel cell must smoke-test this. The repo's CodeEncoder also passes model_kwargs torch_dtype and attn_implementation=\"sdpa\", which would be forwarded to OVModelForFeatureExtraction.from_pretrained, and whether that errors is unverified. Nothing was run with openvino, because it is not installed in .venv (import check: 'openvino MISSING', 'optimum.intel MISSING', 'nncf MISSING').",
+    "holds": "partly"
+   },
+   {
+    "claim": "(1a) Weight-only int8 is applied by default for models over 1B parameters",
+    "method": "optimum-intel main source: modeling_base.py OVBaseModel._export (load_in_8bit: Optional[bool]=None; 'If load_in_8bit and quantization_config not specified then ov_config is set to None'), exporters/openvino/__main__.py lines 993-1004, utils.py '_MAX_UNCOMPRESSED_SIZE = 1e9'. Docs: huggingface.co/docs/optimum/intel/openvino/optimization. ST v5.0.0 passes no load_in_8bit. HF API: F2LLM-v2-1.7B safetensors total 1,720,574,976 parameters.",
+    "result": "Holds on current main. With no quantization_config and nncf installed, export counts f16/f32/bf16 constants and, at 1e9 or more, applies quantization_config={\"bits\": 8, \"sym\": False}: int8_asym, per output channel (group -1). The docs say: 'model will be exported in 8 bits by default when it has more than 1 billion parameters.' The 1.72B model therefore gets int8_asym by default, but only if nncf is installed; otherwise it exports fp32 with a warning (a silent operating-point switch that must be asserted). This default is per-channel asym, not the block-32 scheme the research's 0.997 cosine was measured on. OpenVINO's own Qwen3-Embedding-0.6B-int8-ov card also states INT8_ASYM, group size -1.",
+    "holds": "holds"
+   },
+   {
+    "claim": "(1b) OpenVINO's CPU plugin quantises activations dynamically for weight-compressed models (a prefill speedup, not only memory)",
+    "method": "openvino master docs source docs/articles_en/openvino-workflow-generative/inference-with-optimum-intel.rst lines 231-275. GitHub discussion openvinotoolkit/openvino#25075.",
+    "result": "Holds for Intel CPUs. Docs: dynamic quantization applies to MatMuls 'that have 4 or 8-bit quantized weights', and 'On Intel CPU and Intel GPU, dynamic quantization is enabled by default', with group size 32 on CPU. It is disabled with DYNAMIC_QUANTIZATION_GROUP_SIZE=0, is 'not enabled for BF16 inference', and 'The plugin may choose to disable dynamic quantization entirely.' Whether it is enabled on AMD CPUs or CPUs without VNNI is unverified. Consequence: the OV arm is W8A8-dynamic, not weight-only, so the research's weight-only fidelity does not transfer.",
+    "holds": "partly"
+   },
+   {
+    "claim": "(1c) llama.cpp converts F2LLM-v2 (Qwen3Model) and computes last-token embeddings; EOS handling",
+    "method": "Fetched llama.cpp master conversion/qwen.py, conversion/base.py, gguf-py/gguf/tensor_mapping.py, gguf-py/gguf/vocab.py and ggml-cpu.c. Read safetensors keys of the cached F2LLM-v2-0.6B. Fetched the 1.7B tokenizer_config.json and the head of tokenizer.json at the pinned revision. Read the comments on issue ggml-org/llama.cpp#14234 via gh api.",
+    "result": "Static reading only; nothing was converted. (i) qwen.py line 159 has '@ModelBase.register(\"Qwen3ForCausalLM\", \"Qwen3Model\")'. F2LLM keys have no 'model.' prefix (e.g. 'layers.0.mlp.down_proj.weight'), and tensor_mapping.py maps them ('layers.{bid}.self_attn.q_proj  # qwen3-embedding'). (ii) _try_set_pooling_type reads modules.json and 1_Pooling (pooling_mode_lasttoken) and writes PoolingType.LAST. (iii) EOS trap: the F2LLM EOS is '<|im_end|>' (151645); '<|endoftext|>' (151643) is the pad token. tokenizer.json has a TemplateProcessing post-processor that appends <|im_end|> for 1.7B and 0.6B, and gguf vocab.py sets add_eos=True when that token equals eos_token, so a current conversion should append EOS itself. The Qwen3-Embedding advice (ggerganov on #14234: add the EOS token manually as 'test<|endoftext|>') is therefore wrong for F2LLM: it would give a pad token or a double terminal token. Local tokenizer check: 'abc<|im_end|>' encodes to [..., 151645, 151645]. (iv) ggml-cpu.c line 272: Q8_0 has vec_dot_type GGML_TYPE_Q8_0, so activations are also quantised in blocks of 32. Also W8A8.",
+    "holds": "partly"
+   },
+   {
+    "claim": "(2) How the repo applies EOS, prefix and pooling",
+    "method": "Read app/retrieval/encode.py, app/pipeline/encoder.py, scripts/bench_query_cpu.py and config/frozen.yaml. Ran exp2/toklen.py on all 2,500 TUNE statements.",
+    "result": "Prefix: CodeEncoder.encode passes prompt=query_prefix ('Instruct: Retrieve the most relevant code snippet for the given query.\\nQuery: ') to SentenceTransformer.encode; documents get ''. EOS: tokenizer_kwargs {add_eos_token: True, model_max_length: 8192}, but the tokenizer.json post-processor already appends <|im_end|> with or without the flag (local: flag [13683, 151645], no flag [13683, 151645]). _verify_recipe_applied asserts that the last id == eos_id and max_seq_length == 8192. Pooling is ST lasttoken (include_prompt true) plus Normalize. Output of toklen.py: 'eos appended on all: True eos id 151645 <|im_end|>'; 'TUNE n 2500 mean 386.5 median 324.0 p95 856.0 max 2706'. Traps for a runtime swap: _LOADED_MODELS is keyed on (model, device, dtype) with no backend. PrePostPipelineEncoder.document_cache_key contains model@revision, max, eos and norm but no backend or quantisation, so an int8 encoder used in document mode would poison the corpus cache. The hubness bank (if enabled) must come from the same query encoder.",
+    "holds": "holds"
+   },
+   {
+    "claim": "The research fidelity (W8 block-32 weight-only, cosine 0.997 on 0.6B) predicts the runtimes' fidelity",
+    "method": "Cheapest falsifying check (exp2/fakequant_160m.py). Proxy F2LLM-v2-160M, because only 1.85 GB of RAM was free and 0.6B/1.7B do not fit. The first 40 statements of R2's seeded TUNE subset, compared with the stored GPU vectors. Fake quant in fp32 torch through CodeEncoder (the exact recipe).",
+    "result": "Command: PYTHONIOENCODING=utf-8 python fakequant_160m.py 40. Output: fp32_control median 0.99993 / min 0.99987, which reproduces R2's 0.99992. W8_block32_weightonly 0.9997 / 0.99957. W8A8_block32 (Q8_0-like) 0.99941 / 0.99909. W8_rowasym_weightonly 0.99938 / 0.9991. W8 row-asym + A8 group-32 (OV-like) 0.9991 / 0.99871. NEG_drop_eos_fp32 median 0.36795 / min 0.04822. Adding activation quantisation roughly doubles 1-cos, and per-channel asym roughly doubles it again against block-32. If the same ratios held at 1.7B, where research reports 1-cos of about 0.003 already at 0.6B weight-only, the OV default could land near cos 0.99 (extrapolation, unverified). The EOS negative control is caught by any cosine gate.",
+    "holds": "refuted"
+   },
+   {
+    "claim": "(3) Weight compression speeds up ~400-token prefill on a 2-core CPU",
+    "method": "Arithmetic from the measured R2 result (experiments/R2_encoder_choice/cpu_latency.json: 1.7B fp32 mean 7.832 s, p95 15.74, peak 8.54 GB, torch 2 threads). Token lengths of the same 100 statements (exp2 one-liner).",
+    "result": "Output: 'R2 subset tokens mean 377.74 median 333.0'; 'non-embedding params 1409410048 GFLOP per mean query 1064.8 effective GFLOP/s at 7.832 s 136.0'. That is about 68 GFLOP/s per core, so prefill is compute-bound. fp32 weight traffic is about 5.6 GB per query, roughly 0.4-0.6 s at 10-15 GB/s (estimate), so weight-only compression without int8 compute can save at most about 5-10% (estimate). Any real speedup must come from int8 x int8 compute, whose gain depends on ISA: VNNI/AMX up to about 3-4x theoretical; AVX2 without VNNI much less (estimate, about 1.2-2x). No published CPU latency or fidelity numbers for Qwen3-Embedding int8-ov or Q8_0 were found. The ST v3.3.0 '4x speedup' is static int8 with calibrated activations on unspecified small models, and not transferable. RAM is the near-certain win: int8 weights are about 1.7 GB against 6.9 GB, which should let the 7.7 GiB laptop run 1.7B (estimate; peak RSS must be measured).",
+    "holds": "unverified"
+   },
+   {
+    "claim": "(3) Which runtime is better on a generic 2-core x86",
+    "method": "Source reading above plus integration-cost analysis of the repo code path",
+    "result": "No measured evidence favours either runtime on speed; both are W8A8-dynamic. OpenVINO via ST backend=\"openvino\" is recommended on engineering grounds. It keeps the same HF tokenizer (EOS post-processor), the same ST lasttoken pooling and Normalize, and the repo's _verify_recipe_applied, and it is a single SentenceTransformer(...) call. llama.cpp adds a second tokenizer, the EOS double-append trap, a binary dependency (llama-cpp-python wheels and version lag, unverified) and its own normalisation flag. Its block-32 symmetric weights are probably more faithful than OV's per-channel default (160M proxy: 0.99941 against 0.9991). OV can match this with OVWeightQuantizationConfig(bits=8, sym=True, group_size=32) if nncf accepts group-wise int8 (unverified), chosen on TUNE only.",
+    "holds": "unverified"
+   },
+   {
+    "claim": "(4) The cosine >= 0.999 bar is the right fidelity bar",
+    "method": "exp2/noise_sens.py and exp2/noise_shared_run.py on the TUNE half only (qids from data/outcomes/f2llm17b_all_tune.jsonl.gz). Stored 1.7B query vectors perturbed to an exact cosine (isotropic, query-covariance-shaped, and a shared direction for all queries); full 8,765-doc re-rank; dense NDCG@10; paired bootstrap and sign-flip.",
+    "result": "Baseline TUNE dense NDCG@10 0.93764 (top1 0.8896). Random perturbations are NDCG-neutral down to cos 0.99: covariance-shaped at 0.997 gives mean +0.00039 with 46-56 statements changed; shared direction at 0.99 gives -0.00110 to +0.00082, all CIs spanning 0. The first significant loss appears at shared cos 0.98, seed 1: -0.00231 [-0.00442, -0.00016], p 0.030. One pure-noise draw (cov 0.997) gave +0.00142 with CI [+0.00026, +0.00265], a 'significant gain' that is noise. Gold margin: only 1.6% of statements within 0.005. The 0.999 bar is too strict: R2 already rejected 1.7B-bf16-CPU at 0.99889. Cosine is a validity gate (catches recipe bugs: dropped EOS gives 0.37), and the decision should be DEV pipeline non-inferiority. Structured quantisation error may hurt more than these noise models, which is why DEV NDCG must decide.",
+    "holds": "refuted"
+   },
+   {
+    "claim": "(4) A -0.002 non-inferiority test on DEV is adequately powered",
+    "method": "Bootstrap CI widths from the TUNE simulations above",
+    "result": "With about 50 changed statements (cos about 0.997), the dense CI half-width is about 0.0012-0.0013, so a truly null treatment fails the lower-bound > -0.002 rule whenever its realised mean is below about -0.0007. Estimated false-failure probability is about 13% at cos 0.997 and about 36% at cos 0.99 (estimate, normal approximation, dense level). The pipeline (execution pass) should change fewer statements and tighten this, which is unverified. Requiring DEV and TUNE both to pass, as R2 did, would roughly double the false-failure risk.",
+    "holds": "partly"
+   },
+   {
+    "claim": "(5) The Kaggle CPU has AVX512/VNNI/AMX",
+    "method": "Searched the repo and the web. Checked R2's own measurements.",
+    "result": "Unknown; cpu_latency.json records only 'x86_64', 2 physical / 4 logical cores and 33.7 GB. Indirect hint: 1.7B bfloat16 was 5x slower than fp32 (39.4 s against 7.83 s), which argues against AVX512_BF16/AMX (inference, unverified). The effective 136 GFLOP/s on 2 cores does not settle AVX2 against AVX-512. Must be detected in-kernel: grep -o -w 'avx2\\|avx512f\\|avx512_vnni\\|avx_vnni\\|avx512_bf16\\|amx_int8' /proc/cpuinfo | sort -u; lscpu; torch.backends.cpu.get_cpu_capability(); openvino.Core().get_property('CPU','FULL_DEVICE_NAME') and 'OPTIMIZATION_CAPABILITIES'; compiled_model.get_property('DYNAMIC_QUANTIZATION_GROUP_SIZE').",
+    "holds": "unverified"
+   },
+   {
+    "claim": "(6) Runtime to encode 2,500 DEV queries on 2 cores",
+    "method": "R2 mean latency multiplied by n; assumed speedup range labelled",
+    "result": "Estimates, not measurements: fp32 torch 2,500 x 7.83 s = about 5.4 h (not needed, since the stored vectors are the baseline). int8 at 1.3-3x gives about 1.8-4.2 h. Export about 15-30 min, plus a 3.4 GB download. TUNE-100 gate with fp32 reference about 18 min. The whole plan fits one CPU session if the speedup is at least about 1.5x. The Kaggle session limit (believed 12 h for CPU) is unverified; the docs page did not render.",
+    "holds": "unverified"
+   }
+  ],
+  "strongest_objection": "The premise rests on a fidelity number that does not describe either runtime, and on a speedup mechanism that depends on hardware nobody has identified.\n\nFidelity: both candidate runtimes quantise activations as well as weights. OpenVINO docs: \"On Intel CPU and Intel GPU, dynamic quantization is enabled by default\" (group size 32). In ggml, Q8_0 has vec_dot_type Q8_0. OpenVINO's automatic >1B default is also per-channel int8_asym, not block-32. On the 160M proxy each of these roughly doubled 1-cos (block-32 weight-only 0.9997, Q8_0-like 0.99941, OV-like 0.9991), and research already reports 0.997 at 0.6B weight-only. So the 1.7B OV default could plausibly land near 0.99 (extrapolation).\n\nSpeed: prefill of about 380 tokens runs at an effective 136 GFLOP/s on 2 cores, so it is compute-bound. Weight compression saves about 5-10% at most unless int8 compute (VNNI/AMX) is present, and that is unknown for the Kaggle CPU and for the judge's machine. The bf16 5x slowdown hints that AMX is absent.\n\nWhat the result is compared against: the hands-on demo already runs the 0.6B interactive tier (2.79 s, -0.017 DEV NDCG). A quantised 1.7B at, say, 5 s does not dominate it, and the choice goes back to the user as a trade-off.\n\nWhat it does not change: a default-off switch does nothing for the judge's MTEB re-run (FAQ: \"We would be verifying the submission by re-running the MTEB evaluation\"; about 8.2 h estimated at 1.7B fp32). Turning it on for screening changes the submitted number, which makes it a final decision that would need its own logged test-split run.\n\nSecondary: the non-inferiority test at -0.002 has an estimated 13-36% chance of failing a truly null treatment when 50-90 statements change.\n\nSecondary: a static reading suggests the optimum-intel Qwen3 feature-extraction IR expects a position_ids input that OVModelForFeatureExtraction.forward never supplies (unverified; OpenVINO's own Qwen3-Embedding card implies it works).",
+  "design_changes": [
+   "Pick OpenVINO through sentence-transformers backend=\"openvino\" (same HF tokenizer with its <|im_end|> post-processor, same ST lasttoken pooling and Normalize, the repo's _verify_recipe_applied reused). Keep llama.cpp only as a fallback if OV fails the TUNE gate. If llama.cpp is ever used, never append '<|endoftext|>' (that is the pad token, 151643); feed HF token ids or check with --verbose-prompt that each sequence ends in exactly one 151645.",
+   "Treat the research's 0.997 weight-only cosine as not predictive. Both runtimes are W8A8-dynamic. Record the actual arithmetic in the kernel: nncf version, the weight mode written to openvino_config.json, and compiled DYNAMIC_QUANTIZATION_GROUP_SIZE. Assert that nncf is installed so the >1B int8 default cannot silently fall back to fp32.",
+   "Minimal code path, behind a default-off switch (frozen.yaml untouched). Add encoder key query_backend: torch|openvino (default torch) and query_ov_path (a local IR folder pinned by sha256) to the candidate or retrieval config. In PrePostPipelineEncoder add an optional query_encoder and use (self.query_encoder or self.encoder) only in the is_query branch of encode(), so documents never touch the int8 model and document_cache_key stays valid. In CodeEncoder.model, for backend openvino, call SentenceTransformer(path, backend='openvino', device='cpu', model_kwargs={'file_name': 'openvino_model.xml', 'ov_config': {'PERFORMANCE_HINT': 'LATENCY', 'INFERENCE_NUM_THREADS': physical cores}}, tokenizer_kwargs=same). Drop torch_dtype and attn_implementation for that backend. Add the backend to the _LOADED_MODELS key. Skip torch.set_num_threads for OV. If the hubness bank is enabled, build it with the same query encoder.",
+   "Export once on Kaggle (needs fp32 weights, about 7+ GB RAM) and ship the IR (about 1.8 GB) as a Release or Hub asset with a sha256, so judges and the 7.7 GiB laptop never export. Export with an explicit OVWeightQuantizationConfig, never the implicit default, so the config is visible.",
+   "Hardware: detect ISA in-kernel (/proc/cpuinfo flags avx2, avx512f, avx512_vnni, avx_vnni, avx512_bf16, amx_int8; lscpu; torch cpu capability; OV FULL_DEVICE_NAME and OPTIMIZATION_CAPABILITIES) and report speed conditional on it. Do not claim the speedup for other CPUs.",
+   "Same-machine design: one Kaggle CPU kernel does (a) the ISA probe, (b) an fp32 torch reference on the 100 R2 TUNE statements (known number 7.83 s, within \u00b125%), (c) the OV-fp32 export control and the OV-int8 arm on the same 100 statements (cosine to stored vectors, latency p50/p95/mean, peak RSS, load time), (d) only if the TUNE gate passes, batch-1 encoding of the 2,500 DEV texts (texts only, no qrels in the kernel), and (e) an end-to-end per-query cost on the 100 TUNE statements: encode, dense search over 8,765 x 2048, and a live execution pass with workers = physical cores, each timed, plus whole-process peak RSS. The encoder is timed with nothing else running.",
+   "DEV NDCG is computed locally from the returned DEV query vectors with scripts/union_replay.py (fill_missing executes pairs not recorded) on the same pipeline as R2 (call-style + deepening to 50). check_replay_fidelity must pass first.",
+   "Replace the cosine >= 0.999 decision bar with a validity gate (TUNE: median >= 0.995 and min >= 0.98) plus the DEV pipeline non-inferiority decision. Keep >= 0.999 median / 0.9999 only for the unquantised OV-fp32 export control.",
+   "Choose configurations only on TUNE, in a fixed order: T1 = int8 sym group-32, closest to the block-32 research and Q8_0; T1b = T1 with down_proj and v_proj in ignored_scope. Only the first to pass goes to DEV, so DEV is tested once and needs no multiplicity correction. Note that keeping down_proj (25% of per-layer weight FLOPs) and v_proj (4%) unquantised caps the speedup at about 1.55-1.9x (estimate).",
+   "Compare against both the current screening encoder (1.7B fp32; quality) and the current demo encoder (0.6B fp32, 2.79 s on the same kernel type; speed). The quantised 1.7B is only worth switching the demo tier to if it is both non-inferior to 1.7B and no slower than about 2.8 s. Otherwise the quantified trade-off goes to the user.",
+   "Never report a quantised arm as an improvement even if its CI is above 0: a pure-noise perturbation produced +0.00142 [+0.00026, +0.00265] on TUNE.",
+   "Add an EXT-dev veto (108 CodeContests statements, cheap to encode) as R2 did. Leave the EXT lockbox untouched."
+  ],
+  "proposed_prereg": "Hypothesis: an OpenVINO int8 F2LLM-v2-1.7B query encoder (weights int8, activations dynamically quantised by the CPU plugin; documents unchanged as stored GPU fp16 vectors) is non-inferior to the stored 1.7B query vectors in DEV pipeline NDCG@10, and at least 2x faster at batch 1 than fp32 torch on the same Kaggle 2-core CPU, with peak RSS <= 4 GB.\n\nArms:\n- A0 (baseline): stored emb_f2llm17b_qtrain DEV vectors, replayed through the R2 pipeline (call-style + deepening to 50; the existing f2llm17b_all_dev_deep50 store).\n- C0 (sanity control): OV fp32 export (load_in_8bit=False). TUNE-100 only.\n- T1: int8 sym group-32 weights, default dynamic activation quantisation.\n- T1b: T1 with down_proj and v_proj unquantised (ignored_scope). Enters only if T1 fails the TUNE gate.\n- NEG (negative control): T1 with the terminal EOS removed. TUNE-100 only.\n- REF: fp32 torch on the same kernel, TUNE-100.\n\nPrimary metric: DEV (2,500 statements, all families, seed 20260919) pipeline NDCG@10, paired by statement with A0. Baseline value: A0's recorded DEV pipeline number, reproduced exactly by replay (sanity control 3). The value is taken from the store at pre-registration and quoted with its command.\n\nDecision rule: adopt T (as the interactive/demo query encoder behind a default-off switch; the screening config is unchanged) only if ALL of the following hold:\n1. The 95% paired bootstrap CI lower bound of dNDCG@10 is > -0.002 (the repo's existing cost margin). Also report a sign-flip p (5,000 flips) and the number of statements whose NDCG changes.\n2. Mean batch-1 latency on the same kernel is <= 0.5 x REF.\n3. Peak RSS is <= 4.0 GB.\n4. EXT-dev dNDCG@10 upper CI bound is >= 0.\n\nIf 1 holds but T is slower than 0.6B fp32 (2.79 s, R2), the quantified trade-off goes to the user rather than being adopted automatically.\n\nUsing T for the screening submission is a separate final decision that needs its own logged test-split run. It is never inferred from this experiment.\n\nSecondary metrics: dense NDCG@10, MRR@10, recall@20 and recall@50, and per-statement cosine to stored vectors (min, p10, median).\n\nSanity controls (a run that misses any of them is void):\n1. C0 median cosine >= 0.9999 and min >= 0.999 on TUNE-100.\n2. REF mean latency within \u00b125% of R2's 7.83 s, with the ISA flags recorded.\n3. The A0 replay reproduces the stored DEV pipeline number exactly, and check_replay_fidelity passes (n-1 of n).\n4. Every query's token ids end in exactly one 151645.\n5. NEG median cosine < 0.9, i.e. it must fail the gate. The proxy gave 0.368.\n6. nncf is present and the exported config shows the intended weight mode.\n\nTUNE gate (before any DEV encoding; configurations are selected only here): on the 100 seeded R2 TUNE statements, median cosine >= 0.995 and min >= 0.98 and mean latency <= 0.6 x REF. Try T1, then T1b; the first to pass goes to DEV. If neither passes, stop and report the negative result.\n\nPower and ceiling: TUNE noise simulations show that 50-90 changed statements give a CI half-width of about 0.0012-0.0017, so a truly null treatment has an estimated 13-36% chance of failing (this is reported with the result). A perfect outcome (no statements changed) passes trivially, so the test is not ceiling-bound.\n\nResources and stop rule: one Kaggle CPU kernel (2 cores). Export about 15-30 min, TUNE gate about 20 min, DEV about 1.8-4.2 h (estimate).\n- Stop before DEV if the int8 speedup on TUNE-100 is < 1.3x (mean > 0.77 x REF).\n- Abort the DEV encode if the projected wall time exceeds 6 h.\n- The kernel receives DEV texts only (no qrels) and returns vectors, latencies, the ISA probe and pip freeze. DEV NDCG is computed locally with union_replay (fill_missing), once.\n\nEnd-to-end cost: on the same kernel, 100 TUNE statements, report per-query p50, p95 and mean for tokenise+encode, dense search, execution pass (live sandbox, workers = physical cores) and total, plus whole-process peak RSS, for REF and T.",
+  "sources": [
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\app\\retrieval\\encode.py",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\app\\pipeline\\encoder.py",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\scripts\\bench_query_cpu.py",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\config\\frozen.yaml",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\experiments\\R2_encoder_choice\\cpu_latency.json",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\experiments\\R2_encoder_choice\\prereg.md",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\experiments\\RESULTS.md (R2 section, lines 379-410)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\scripts\\union_replay.py (docstring: fill_missing)",
+   "Scratch: C:\\Users\\Asus\\AppData\\Local\\Temp\\claude\\C--Users-Asus-manish\\85dfd3f9-bb2a-4e1b-afb7-3ebf75ec6bf3\\scratchpad\\skeptic\\exp2\\ (toklen.py, noise_sens.py, noise_sens.json, noise_shared_run.py, fakequant_160m.py, fakequant_160m.json, fetched sources)",
+   "https://huggingface.co/docs/optimum/intel/openvino/optimization (8-bit default for >1B params; load_in_8bit=False)",
+   "https://raw.githubusercontent.com/huggingface/optimum-intel/main/optimum/exporters/openvino/__main__.py (lines 993-1004, int8_asym default)",
+   "https://raw.githubusercontent.com/huggingface/optimum-intel/main/optimum/exporters/openvino/utils.py (_MAX_UNCOMPRESSED_SIZE = 1e9)",
+   "https://raw.githubusercontent.com/huggingface/optimum-intel/main/optimum/intel/openvino/modeling_base.py (_export load_in_8bit=None)",
+   "https://raw.githubusercontent.com/huggingface/optimum-intel/main/optimum/intel/openvino/modeling.py (OVModelForFeatureExtraction.forward)",
+   "https://raw.githubusercontent.com/huggingface/optimum-intel/main/optimum/exporters/openvino/model_configs.py (qwen3 feature-extraction registration)",
+   "https://raw.githubusercontent.com/huggingface/optimum-intel/main/optimum/exporters/openvino/config.py (position_ids input for feature-extraction)",
+   "https://raw.githubusercontent.com/UKPLab/sentence-transformers/v5.0.0/sentence_transformers/models/Transformer.py (_load_openvino_model)",
+   "https://raw.githubusercontent.com/openvinotoolkit/openvino/master/docs/articles_en/openvino-workflow-generative/inference-with-optimum-intel.rst (dynamic quantization default on Intel CPU, group 32)",
+   "https://github.com/openvinotoolkit/openvino/discussions/25075",
+   "https://huggingface.co/OpenVINO/Qwen3-Embedding-0.6B-int8-ov (INT8_ASYM, group -1, optimum-intel >=1.27, OpenVINO >=2026.0)",
+   "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF (--pooling last)",
+   "https://github.com/ggml-org/llama.cpp/issues/14234 (manual EOS advice for Qwen3-Embedding)",
+   "https://raw.githubusercontent.com/ggml-org/llama.cpp/master/conversion/qwen.py (Qwen3Model registered)",
+   "https://raw.githubusercontent.com/ggml-org/llama.cpp/master/conversion/base.py (_try_set_pooling_type)",
+   "https://raw.githubusercontent.com/ggml-org/llama.cpp/master/gguf-py/gguf/tensor_mapping.py (qwen3-embedding unprefixed names)",
+   "https://raw.githubusercontent.com/ggml-org/llama.cpp/master/gguf-py/gguf/vocab.py (TemplateProcessing -> add_eos)",
+   "https://raw.githubusercontent.com/ggml-org/llama.cpp/master/ggml/src/ggml-cpu/ggml-cpu.c (Q8_0 vec_dot_type Q8_0)",
+   "https://huggingface.co/codefuse-ai/F2LLM-v2-1.7B (pinned revision 3766d46e: tokenizer_config eos '<|im_end|>', tokenizer.json post_processor, 1,720,574,976 params)",
+   "https://github.com/huggingface/sentence-transformers/releases/tag/v3.3.0 (4x is static int8, models unspecified)",
+   "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B/discussions/48 (no quantised-variant numbers)"
+  ],
+  "verdict": "go-with-changes"
+ },
+ {
+  "experiment": "EXPERIMENT 3: incremental re-index measured end to end, and the cache-key defect (P1: \"rebuild any indexes, caches, etc for any version/change in a reasonable amount of time\"). I worked read-only on the repo at HEAD 42ba7e1. Scratch files are in C:\\Users\\Asus\\AppData\\Local\\Temp\\claude\\C--Users-Asus-manish\\85dfd3f9-bb2a-4e1b-afb7-3ebf75ec6bf3\\scratchpad\\skeptic: test_cache_key_defect.py, mixed_vectors.py (+ mixed_vectors_result.json), rebuild_probe.py and batch_parity.py. Only the TUNE half, train qrels, corpus texts and code were used. No DEV treatment effect was measured. No test-split or EXT-lockbox file was opened.",
+  "claims_checked": [
+   {
+    "claim": "(a) compute_embedding_key defaults encoder/tokenizer/template revision to \"v1\", and incremental.py:142,190, server.py:78 and workbench.py:849,869 call it with the text only.",
+    "method": "Read app/indexing/cache.py:10-31, app/indexing/incremental.py, app/server.py:63-84 and app/workbench.py:324-330 and 834-909.",
+    "result": "Confirmed at exactly those lines. The key is sha256(\"v1\\0v1\\0v1\\0\" + signature\\ncontent). Neither the model, the revision, the document_prefix, max_seq_length, EOS nor normalisation is in it.",
+    "holds": "holds"
+   },
+   {
+    "claim": "(a) Switching tier (1.7B 2048-d vs 0.6B 1024-d) or prompt makes the demo cache serve stale vectors.",
+    "method": "Wrote scratch test_cache_key_defect.py with stub encoders and ran: PYTHONPATH=<repo> .venv/Scripts/python.exe -m pytest -q -s -p no:cacheprovider test_cache_key_defect.py",
+    "result": "3 failed, 4 passed, as designed. Silent stale serving is confirmed for same-dimension changes. '[same-dim swap] encoder B forward passes: 0; max|vec_b - vec_a| = 0'. '[prefix change] encoder B forward passes: 0; identical=True'. '[incremental] pass1 re_embedded=3; pass2 (model B) re_embedded=0 reused=3'. The 2048-d vs 1024-d swap does NOT serve silently; it fails loudly. With all hits, the bench returns (5,1024) vectors to the 2048-d encoder and similarity raises ValueError. With partial hits, np.vstack raises ValueError at build time. Also, the workbench hard-codes get_shared_encoder(tier=\"interactive\") (workbench.py:816), so the UI cannot switch tier. The real triggers are config edits: a revision bump, a prefix change, a cap/EOS/norm change, or another 1024-d model.",
+    "holds": "partly"
+   },
+   {
+    "claim": "The demo cache (build/cache.db) is currently serving wrong vectors.",
+    "method": "Opened it read-only: sqlite3 'file:build/cache.db?mode=ro' ... SELECT dim,is_real,count(*) GROUP BY dim,is_real",
+    "result": "[(8, 0, 476)]. It holds only dummy rows, which real_only lookups ignore. No real vectors exist, so no stale vectors exist today. The defect is latent: the fix costs no cache rebuild on this machine.",
+    "holds": "refuted"
+   },
+   {
+    "claim": "The scored path (PrePostPipelineEncoder.document_cache_key) keys correctly.",
+    "method": "Read app/pipeline/encoder.py:161-201. Added test test_OBS_scored_path_key_includes_model_but_not_device_or_dtype, which passed.",
+    "result": "The key includes model@revision, the 'document' namespace plus the prompt, max_seq, EOS, norm and document_prefix, so a change to any of them misses. It deliberately excludes device and dtype, so GPU bf16/fp16 vectors and CPU fp32 vectors share one address.",
+    "holds": "partly"
+   },
+   {
+    "claim": "(b) At 0.6B on the laptop CPU a document costs about 1.18 s.",
+    "method": "batch_parity.py: 24 seeded random corpus docs, batch 1, fp32, pinned revision 54b4e2dc. mixed_vectors.py: 150 gold docs of seeded (20260926) TUNE queries.",
+    "result": "'24 random corpus docs: batch-1 30.6s (1.275s/doc)'. On the TUNE gold docs: 's/doc mean 0.957 median 0.785 p95 2.515; tokens median 82'. Model load took 13.9 s with a warm disk cache. Caveats: only 1.57 GB of physical RAM was free at the start, and encode() sets torch threads to os.cpu_count()=12 logical (6 physical). The ~1.18 s figure reproduces within 8%.",
+    "holds": "holds"
+   },
+   {
+    "claim": "(b) A full CPU rebuild of 8,765 docs takes about 2.9-3.3 h.",
+    "method": "Arithmetic from the measured per-doc rates.",
+    "result": "Estimate, not a measurement: 8765 x 0.957-1.275 s = 2.3-3.1 h at batch 1. The demo encodes in windows of 8, and that was about 4x slower here: '24 docs ... full batch 124.7s, windows of 8 121.2s' against 30.6 s at batch 1. That is one run, possibly confounded by memory pressure. It points the same way as R2 on Kaggle (15.3 vs 7.8 s). A full rebuild through the workbench's batching could therefore take far longer than 3 h (estimate).",
+    "holds": "partly"
+   },
+   {
+    "claim": "(b) 1.7B on a T4 takes 450 s for the corpus.",
+    "method": "Read artifacts/apps/manifest.json.",
+    "result": "The manifest records f2llm17b seconds.corpus 450.18 (Kaggle T4, fp16). The 0.6B corpus took 480.3 s on 'cuda'. RESULTS.md:6 says that encode ran on this machine's RTX 2050.",
+    "holds": "holds"
+   },
+   {
+    "claim": "(c) Seeding with GPU fp16 vectors and adding CPU fp32 vectors mixes operating points (cosine 0.9994).",
+    "method": "mixed_vectors.py compared CPU fp32 document vectors with the stored artifacts/apps/emb_f2llm06b_corpus.npy. I also read cpu_latency.json and checked torch.cuda.get_device_capability(0).",
+    "result": "On documents: 'cosine CPU fp32 vs stored GPU: min 0.99868 median 0.99938'. The label 'fp16' is wrong for 0.6B. The stored vectors were computed on the local RTX 2050 ('NVIDIA GeForce RTX 2050 (8, 6)'), where select_dtype picks bfloat16, and then saved as float16 on disk (encode_apps.py). The 1.7B T4-fp16 vectors match CPU fp32 at a median of 0.99998 (queries, cpu_latency.json), so the mismatch is about 30x smaller in 1-cos for the scored 1.7B path. That is an estimate from query vectors; document vectors were not measured at 1.7B.",
+    "holds": "partly"
+   },
+   {
+    "claim": "(c) Mixed vectors could flip ranks.",
+    "method": "mixed_vectors.py replaced the 150 gold docs (1.7% of the corpus) with CPU vectors, then ranked all 2,500 TUNE queries (stored query vectors) against the pure-GPU and the mixed corpus. This is dense only.",
+    "result": "Top-10 order identical for 0.9716 of queries (0.9249 among the 839 whose top 20 contains a replaced doc). Top-10 set identical 0.9952; top-20 set identical 0.9876. Gold-rank changes: 3. Queries whose NDCG@10 changed: 3. Mean NDCG@10 0.914612 vs 0.914616 (delta +3.9e-6). Median |score delta| from a doc swap is 0.00103 (p99 0.0041). 1.04% of queries have a top1-top2 margin below 0.002. Ranks do flip, but retrieval quality is unaffected.",
+    "holds": "holds"
+   },
+   {
+    "claim": "The P1 demo re-indexes after a change (so incremental end-to-end time can be measured).",
+    "method": "rebuild_probe.py: open_folder on a temp dir, build, edit the file (alpha to beta), call start_build again, then search.",
+    "result": "'build 2 after edit: returned phase=ready 0.000s names_for_beta=[]' and 'NOT RE-INDEXED: start_build returned early on a ready target'. The cause is workbench.py:506, which returns early when the target is built and the last phase was 'ready'. So in the demo the only way to pick up a change is a server restart, which re-chunks everything and reuses cached vectors. The explorer endpoint /api/index/reindex (server.py:326-331) calls index_repository(compute_embeddings=False). Reading the code: after any edit, _cached_document_embeddings finds a missing vector and returns None, so dense retrieval switches off for the whole corpus.",
+    "holds": "refuted"
+   },
+   {
+    "claim": "What a P1 change rebuilds, and what is O(corpus).",
+    "method": "Read workbench._build_git/_documents_at/_edges_for/_attach_dense, versioned.add_snapshot and hybrid.HybridRetriever.__init__. Timed rebuild_probe.py (dense=False).",
+    "result": "Workbench per version: git ls-tree plus one cat-file subprocess per file, re-chunking every file, the BM25 postings (HybridRetriever built at warm()) and the call/import edges are all O(snapshot). Only the embeddings are O(changed): _count_uncached and _encode_documents do one sqlite get per chunk and put+commit only the misses. Measured lexical rebuilds: 'folder app/ lexical build: 1.06s, chunks=471'; 'git target self x4 versions lexical build: 5.88s, chunks=1797'. The explorer skips unchanged files by sha256 but still reads and hashes every file and re-extracts edges for every file. The lineage graph is not on any P1 path: app.indexing.lineage is imported only by tests/test_lineage.py and scripts/eval_versions.py. Everything runs on CPU: get_shared_encoder forces device='cpu'.",
+    "holds": "holds"
+   },
+   {
+    "claim": "Which path the judges would use for P1.",
+    "method": "FAQ (verbatim in CLAUDE.md), README section 9, scripts/blind_eval.py args, HANDOFF.md step 3.",
+    "result": "The FAQ does not say which path the judges use for P1. It does say 'we would be verifying the submission by re-running the MTEB evaluation', and for P1 'we would consider the time and resource utilization'. On the demo it says 'you are free to choose any suitable repository'. README Quick start sends reviewers to the server's 'Open a folder', which is the workbench path with the defect and no in-process re-index. The scored re-run path is evaluate_mteb.py --corpus-cache, where content addressing already makes a corpus change O(changed). blind_eval.py accepts MTEB task names only, so an unseen internal dataset has no documented CLI. Whether judges would use it is unverified.",
+    "holds": "unverified"
+   }
+  ],
+  "strongest_objection": "The experiment would time a path the demo does not run. In the workbench (the hands-on surface), a built target cannot be re-indexed in-process; start_build returns early, as the probe showed ('NOT RE-INDEXED'). The explorer's reindex never computes embeddings, so after any edit dense retrieval turns off for the whole corpus. On the scored path, 'incremental' means only the content-addressed corpus cache, which already works. Timing IncrementalIndexer, or a hand-driven encode of k chunks, would give a component number, not an end-to-end one ('implemented' is not 'on the path'). It would also make a P1 speed claim that a judge cannot reproduce by editing a file in the UI. The cache-key defect is a correctness bug, not a decision experiment: it is real for same-dimension changes (tests fail) but loud for 1.7B vs 0.6B (ValueError). It needs a fix and a regression test, and no pre-registered gate. The proposed quality bar is also mis-specified. Top-10 identity at 99.5% against a full rebuild is trivially met when the full rebuild is at the same CPU fp32 operating point: batch-1 vs batched cosine rounds to 1.000000, and a repeated batch-1 encode is bit-identical. It fails when the seed vectors come from the RTX 2050 in bf16: order identity 97.16% with 1.7% of the corpus swapped, even though NDCG@10 moves by only +3.9e-6. The latency bar (10 snippets in at most 60 s including load) is uninformative: the measured parts sum to about 27 s (13.9 s load + 10 x 1.3 s), so it cannot fail and cannot change a decision. Under the project rules it should be run as a descriptive measurement.",
+  "design_changes": [
+   "Split the work in two. (1) Fix the cache key as a correctness change with tests, not an experiment. Derive one key function from PrePostPipelineEncoder.document_cache_key (model@revision, document_prefix, max_seq, EOS, norm) and use it at all 5 demo call sites together (incremental.py:142,190, server.py:78, workbench.py:849,869); otherwise the server misses and dense silently switches off. Promote the 3 failing scratch tests to tests/ as regressions. Add a dimension check at the cache boundary (stored dim != encoder dim raises a clear error, not a numpy ValueError mid-build). build/cache.db holds only 476 dummy rows, so invalidating it costs nothing here.",
+   "(2) Before any timing, give the demo a real in-process rebuild: a force/rebuild flag on start_build and /api/workbench/build, behind a default-off switch, or by treating a changed working tree as a new snapshot. Then time what a judge would do: edit a file in the chosen demo repo, trigger the rebuild, get dense results for the new snapshot. If this is not built, time 'server restart + rebuild with warm cache' honestly and label it that way.",
+   "Fix the explorer's /api/index/reindex (compute_embeddings=False), or state that dense retrieval is off there after any edit.",
+   "Decide whether dtype/device belongs in the key, or at least in a per-row column. The measured effect of mixing RTX-2050 bf16 vectors with CPU fp32 vectors is top-10 order identity 0.9716, set identity 0.9952, and \u0394NDCG@10 +3.9e-6 on 2,500 TUNE queries. Recommend recording the operating point per row and reporting the mixed fraction rather than forcing re-encodes. For the scored 1.7B cache (T4 fp16, query-side cosine 0.99998), note that the 0.9994 figure does not apply.",
+   "Correct the premise text: the 0.6B stored vectors are RTX 2050 bfloat16, stored as fp16, not T4 fp16. The 1.7B vs 0.6B switch crashes rather than serving stale vectors. The lineage graph is not on any P1 path.",
+   "Time by stage (below), not as one total. Record free RAM, the torch thread count (encode() sets 12 logical threads, against the physical-core rule) and warm vs cold disk cache, because this run had only 1.57 GB free.",
+   "Compare batch-1 with the workbench's windows of 8 for the changed-chunk encode. Batching was about 4x slower here (30.6 s vs 121.2 s for 24 docs, one run); if that replicates at 6 threads with at least 3 GB free, encode incrementally at batch 1.",
+   "Run the timing as descriptive (benchmark rule c). The only decision it feeds is the P1 claim text in the README and deck. The parity bar is a sanity gate, not an effect test.",
+   "1.7B timing only on a Kaggle CPU kernel: the laptop cannot run it (8.5 GB peak vs 7.7 GiB of RAM). The P1 demo should run 0.6B on CPU, which is the demo tier anyway. GPU use for incremental updates is allowed by the FAQ (Question A); if the RTX 2050 is used, the vectors are bf16. Disclose that and report the mixing numbers above."
+  ],
+  "proposed_prereg": "FAQ quotes that bear on this: \"You are allowed to use the GPU during pre/post processing (including incremental updates) phase. However, we would like you to make it as efficient as possible.\" \"For the P1 goal, an incremental approach might be more efficient over rebuilding the entire index, however, we do not have any restrictions on the approaches taken ... However, we would consider the time and resource utilization during the evalution.\" \"As for the demonstration, you are free to choose any suitable repository.\" The FAQ is silent on which code path judges use for P1. The design agrees with all three quotes.\n\nType: descriptive measurement plus a correctness gate. It feeds only the P1 claim text. No test split, no DEV.\n\nOperating point, fixed: F2LLM-v2-0.6B @54b4e2dc, CPU, float32, batch 1, torch threads 6 (a 12-thread arm is secondary). Laptop at least 3 GB free RAM at start (record it). Record whether the disk cache is warm or cold.\n\nCorpora:\n(R) The demo repo target: this repo's app/ at HEAD, 471 chunks. Commander as the JavaScript replicate.\n(A) The scored path: PrePostPipelineEncoder with --corpus-cache on the APPS corpus. Changed docs are drawn only from docs that are gold for TUNE queries, seed 20260926.\n\nChange sets, 3 repetitions each: k = 0 (no-op), 1, 10 and 100 modified function bodies; 1 added file; 1 deleted file; 1 pure move/rename (expect 0 encodes).\n\nTimed stages (monotonic clock per stage, peak RSS via psutil): s0 process start and model load; s1 walk and hash; s2 chunk; s3 lexical/BM25 build; s4 edge extraction; s5 cache lookups; s6 encode of misses; s7 cache writes; s8 publish/warm; and end to end from the edit to the first dense answer.\n\nBaseline: a full rebuild at the same operating point with an empty cache. For (R), measured directly (about 471 x 1.3 s = about 10 min; if it exceeds the 10-minute run limit, use commander or a subtree). For (A), estimated as the measured per-doc rate on 200 seeded random corpus docs x 8765, labelled as an estimate.\n\nPrimary metric: end-to-end seconds for k=10 on (R) with the model already loaded, plus the same including a cold model load. Report the median and range of 3 runs, the fitted slope (s per changed chunk) and the intercept (k=0 time), and the speedup against the full rebuild.\n\nClaim rule: the README may say 'O(changed) re-embedding' only if all of these hold: slope within \u00b130% of the measured per-doc rate; intercept at most 10 s on (R); k=100 time at most 0.15 x full rebuild.\n\nCorrectness and parity gates (both must pass, or the run is void):\n(i) Incremental index vs full rebuild at the same operating point: for every re-encoded chunk, cosine \u2265 0.99999, and top-10 order identity \u2265 99.5% over the preset queries on (R) and all 2,500 TUNE queries on (A).\n(ii) Negative control, after the key fix: changing model or revision, document_prefix, max_seq_length, EOS or norm must give 100% misses and 0 reuse. The three scratch tests must pass, and a planted stale vector must not be served.\n(iii) Positive control: the move/rename case gives 100% hits and 0 encodes.\n\nSanity controls:\n- Reproduce the batch-1 per-doc rate of 1.275 s/doc (24 random docs, this session) within \u00b125%.\n- Reproduce the mixed-precision numbers from this session (top-10 order identity 0.9716, \u0394NDCG@10 +3.9e-6 with 150 bf16 docs swapped) to 3 decimals. They are deterministic given the seed.\n- Model load within 2x of 13.9 s when warm.\n\nCeiling and power: timing is descriptive (3 repetitions; report ranges). Parity is expected to be about 100% at the same operating point (batch-1 vs batched cosine rounds to 1.000000), so it is a sanity gate, not a hypothesis test. No bootstrap is needed because no ranking-quality effect is claimed.\n\nSecondary, descriptive:\n- Mixed-operating-point effect, reported as measured, not gated.\n- 1.7B per-doc CPU rate on the Kaggle CPU kernel (codedoctor-cpu-bench), 100 seeded random docs.\n- Batch-1 vs windows of 8 at 6 threads.\n\nResources and stop rule: every run is killed at 10 min. Encoding stops at a 300 s budget per run. If the median s/doc exceeds 3.0 (paging) or free RAM falls below 1 GB, the run is void and repeated after freeing memory. Stop the whole experiment after 2 void runs and report the blocker. Expected total: about 1 h on the laptop plus one Kaggle CPU kernel of about 30 min.",
+  "sources": [
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\app\\indexing\\cache.py (lines 10-31, 73-129)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\app\\indexing\\incremental.py (lines 131-207)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\app\\server.py (lines 36-84, 190-217, 326-353)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\app\\workbench.py (lines 113-119, 324-330, 490-567, 595-712, 812-909)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\app\\pipeline\\encoder.py (lines 157-201)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\app\\retrieval\\encode.py (select_dtype lines 53-65; get_shared_encoder lines 416-426; encode sets torch threads to os.cpu_count() line 361)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\app\\indexing\\versioned.py (lines 159-208)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\app\\retrieval\\hybrid.py (lines 93-211)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\scripts\\encode_apps.py (vectors saved as float16, line ~157)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\artifacts\\apps\\manifest.json (0.6B device cuda 480.3 s; 1.7B T4 fp16 450.18 s; dims 1024/2048)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\experiments\\RESULTS.md line 6 (0.6B encoded on the RTX 2050) and lines 397-404 (CPU vs GPU cosine table)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\experiments\\R2_encoder_choice\\cpu_latency.json (0.6B min 0.99856 / median 0.9994; 1.7B median 0.99998)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\experiments\\HANDOFF.md step 3 (corpus cache shipped as a Release asset)",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\README.md sections 7 and 9",
+   "C:\\Users\\Asus\\manish\\CodeDoctor\\build\\cache.db (read-only: 476 rows, dim 8, is_real 0)",
+   "Scratch: C:\\Users\\Asus\\AppData\\Local\\Temp\\claude\\C--Users-Asus-manish\\85dfd3f9-bb2a-4e1b-afb7-3ebf75ec6bf3\\scratchpad\\skeptic\\test_cache_key_defect.py (3 failed as designed, 4 passed)",
+   "Scratch: ...\\skeptic\\mixed_vectors.py and mixed_vectors_result.json (TUNE only)",
+   "Scratch: ...\\skeptic\\rebuild_probe.py (NOT RE-INDEXED; lexical 1.06 s / 5.88 s)",
+   "Scratch: ...\\skeptic\\batch_parity.py (1.275 s/doc at batch 1; windows of 8 took 121.2 s vs 30.6 s)",
+   "No external URLs were fetched. FAQ and brief quotes come from C:\\Users\\Asus\\manish\\CodeDoctor\\CLAUDE.md"
+  ],
+  "verdict": "go-with-changes"
+ }
+]

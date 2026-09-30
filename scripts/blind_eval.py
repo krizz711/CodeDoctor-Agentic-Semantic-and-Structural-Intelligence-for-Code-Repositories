@@ -43,6 +43,8 @@ from scripts.evaluate_mteb import (  # noqa: E402
     get_default_config_path,
     get_pipeline_config,
     get_tier_model,
+    load_hubness_bank,
+    resolve_workers,
 )
 
 
@@ -95,6 +97,13 @@ def main() -> None:
     )
     parser.add_argument("--config", type=Path, default=None)
     parser.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto")
+    parser.add_argument(
+        "--corpus-cache",
+        type=Path,
+        default=None,
+        help="content-addressed SQLite store of DOCUMENT vectors: filled on first use "
+             "(offline, GPU allowed), reused afterwards so only queries are encoded",
+    )
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--no-execution", dest="execution", action="store_false", default=None)
     parser.add_argument("--output", type=Path, default=None)
@@ -135,12 +144,32 @@ def main() -> None:
         max_candidates=defaults["execution_candidates"],
         timeout_seconds=defaults["execution_timeout_seconds"],
         numeric_tolerance=defaults["execution_numeric_tolerance"],
+        max_dense_gap=defaults["execution_max_dense_gap"],
+        workers=resolve_workers(defaults["execution_workers"]),
+        call_style=defaults["execution_call_style"],
+        extended_stdin=defaults["execution_extended_stdin"],
+        judge_rules=defaults["execution_judge_rules"],
+        timeout_mode=defaults["execution_timeout_mode"],
+        deepen_to=defaults["execution_deepen_to"],
+        skip_interactive=defaults["execution_skip_interactive"],
+        blank_line_fallback=defaults["execution_blank_line_fallback"],
+        judge_like_io=defaults["execution_judge_like_io"],
     )
     print(f"Execution pass  : {'ON' if execution_config.enabled else 'off'} "
           f"(top {execution_config.max_candidates})")
 
+    corpus_cache = None
+    if args.corpus_cache is not None:
+        from app.indexing.cache import EmbeddingCache
+
+        args.corpus_cache.parent.mkdir(parents=True, exist_ok=True)
+        corpus_cache = EmbeddingCache(args.corpus_cache)
     pipeline = PrePostPipelineEncoder(encoder, reranker_config,
-                                      execution_config=execution_config)
+                                      execution_config=execution_config,
+                                      corpus_cache=corpus_cache,
+                                      hubness_bank=load_hubness_bank(defaults["hubness_bank"]),
+                                      hubness_beta=defaults["hubness_beta"],
+                                      hubness_k=defaults["hubness_k"])
     mteb_model = build_mteb_encoder(pipeline, model_name)
 
     print(f"\nFetching task {args.task} ...")

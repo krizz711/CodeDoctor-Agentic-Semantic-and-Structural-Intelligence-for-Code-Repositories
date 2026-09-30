@@ -1,0 +1,55 @@
+{
+  "weights": {
+    "dense": 0.7658291861580473,
+    "gap_to_best": -2.8581994884168047,
+    "log_rank": -0.7119392843428635,
+    "stdin_pass_frac": 0.28424948640866643,
+    "stdin_all_pass": 0.6016631379854143,
+    "stdin_parse_crash": -0.2784004875267363,
+    "stdin_other_failure": 0.1428010440796228,
+    "stdin_shape_match": 0.13394543381675234,
+    "stdin_consumed_frac": -0.649755635324993,
+    "call_pass_frac": 0.43083405037457967,
+    "call_promotable": 0.14069695065474974,
+    "incompatible": 0.00451762104362579,
+    "has_examples": 0.0
+  },
+  "l2": 1.0,
+  "vs legacy": {
+    "delta": 0.005313869291461475,
+    "ci": [
+      0.002324540208921748,
+      0.008419784398720445
+    ],
+    "p": 0.0
+  },
+  "vs judge-aware": {
+    "delta": -0.0021206797091148284,
+    "ci": [
+      -0.004461725854901861,
+      2.8991744616002118e-05
+    ],
+    "p": 0.055
+  },
+  "verdict": "REJECTED as pre-registered: sign-constrained logistic fusion is -0.00212 [-0.00446, +0.00003] vs the best binary rule (worse on stdin -0.011, better on kata/leetcode): a pointwise loss did not learn that verification should dominate.",
+  "post_hoc_tiered_variant": {
+    "design": "verified-first kept; fusion score orders candidates within the verified and unverified tiers",
+    "cross_fit": {
+      "fit_tune_eval_dev": {
+        "delta": 0.002,
+        "ci": [
+          0.00073,
+          0.00335
+        ]
+      },
+      "fit_dev_eval_tune": {
+        "delta": 0.00221,
+        "ci": [
+          0.00109,
+          0.00347
+        ]
+      }
+    },
+    "status": "consistent both ways but below the +0.003 minimum and designed after seeing the result: a candidate for round 2, not shipped"
+  }
+}

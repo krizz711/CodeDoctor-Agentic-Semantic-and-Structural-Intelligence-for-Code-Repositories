@@ -1,0 +1,4 @@
+interface:
+  display_name: "CodeDoctor Experiment"
+  short_description: "Plan and verify CodeDoctor research experiments"
+  default_prompt: "Use $codedoctor-experiment to plan the next bounded CodeDoctor experiment from the current evidence."

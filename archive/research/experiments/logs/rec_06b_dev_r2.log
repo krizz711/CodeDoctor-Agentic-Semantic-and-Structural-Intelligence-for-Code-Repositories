@@ -1,0 +1,17 @@
+5000 eligible queries (all families), TUNE=2500 DEV=2500 seed=20260919  -> recording dev: 2500 queries
+executing 29,740 (query, candidate) pairs with 6 workers ...
+  2,000/29,740 in 40s
+  4,000/29,740 in 64s
+  6,000/29,740 in 99s
+  8,000/29,740 in 144s
+  10,000/29,740 in 190s
+  12,000/29,740 in 238s
+  14,000/29,740 in 283s
+  16,000/29,740 in 332s
+  18,000/29,740 in 376s
+  20,000/29,740 in 484s
+  22,000/29,740 in 552s
+  24,000/29,740 in 583s
+  26,000/29,740 in 620s
+  28,000/29,740 in 652s
+recorded 29,740 pairs over 2500 queries in 688s -> data\outcomes\f2llm06b_all_dev_r2.jsonl.gz

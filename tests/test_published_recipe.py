@@ -109,10 +109,10 @@ class TestEncoderHonoursFrozenConfig:
         encoder = CodeEncoder(tier="accuracy")
         assert encoder.model_name == ACCURACY_MODEL
 
-    def test_interactive_tier_is_the_default_so_the_service_stays_light(self):
+    def test_accuracy_tier_is_the_judge_facing_default(self):
         encoder = CodeEncoder()
-        assert encoder.tier == "interactive"
-        assert encoder.model_name == INTERACTIVE_MODEL
+        assert encoder.tier == "accuracy"
+        assert encoder.model_name == ACCURACY_MODEL
 
     def test_unknown_tier_is_rejected(self):
         with pytest.raises(ValueError, match="tier must be"):

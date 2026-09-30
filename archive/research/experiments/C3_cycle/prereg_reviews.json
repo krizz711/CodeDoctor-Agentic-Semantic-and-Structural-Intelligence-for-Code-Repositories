@@ -1,0 +1,285 @@
+[
+ {
+  "lens": "Statistics and bias: researcher degrees of freedom, forking paths, in-sample validation, controls that can or cannot fail, honest power, the coherence of the claim rules, and whether re-runs can game a decision. Baselines were re-checked by replaying only the unmodified policies on the stored DEV and TUNE stores. No treatment, sidecar, test split or lockbox was touched.",
+  "amendments": [
+   {
+    "experiment": "E3",
+    "severity": "REQUIRED",
+    "change": "Replace the claim rule and gates with: \"**Claim rule** (evaluated on (R) only; (A) is descriptive because its full rebuild is an estimate): (i) in every run the number of encoded chunks equals the number of changed chunks exactly (k for k modified bodies, the new file's chunks for an add, 0 for a delete and for a rename); (ii) the k = 0 time with the model warm is \u2264 10 s; (iii) the k = 10 end-to-end time is \u2264 0.15 \u00d7 the measured full rebuild on (R). The k = 100 row is reported and is not part of the rule: on (R), 100 of \u2248471 chunks is 21% of the corpus, so it cannot fall below 0.15 \u00d7 a full rebuild. **Full-rebuild baseline on (R):** exempt from the 10-minute kill, with its own limit of 20 minutes (\u2248471 \u00d7 1.275 s \u2248 600 s of encoding plus a load of \u224814 s is already over 10 minutes). **Parity on (A):** the reference is the stored index with every changed document re-encoded by the full-rebuild code path at the same operating point, using the stored 0.6B TUNE query vectors; the queries are not re-encoded. Parity is never measured against the GPU-seeded vectors, whose top-10 identity (0.9716) is already below 99.5%.\"",
+    "reason": "As written, the k = 100 \u2264 0.15 \u00d7 full condition is arithmetically impossible on (R) (100/471 = 0.21 > 0.15) and trivially met on (A), where the baseline is extrapolated (k = 100 is 1.1% of 8,765). The (R) full rebuild is itself killed by the 10-minute stop rule. The (A) parity gate has no full rebuild to compare with, so the run would be void by construction."
+   },
+   {
+    "experiment": "E1",
+    "severity": "REQUIRED",
+    "change": "Add under 'Primary metric': \"The +0.003 bar was set for all-family deltas. On the 882-statement stdin family it corresponds to a net summed gain of 2.65 NDCG@10 units, which is +0.00106 on the all-family scale: a bar about 2.8\u00d7 lower in absolute terms than the one earlier decisions used. We keep stdin as the primary metric for construct validity (F5: the screening split is ~99% stdin), and we fix it here, before DEV. Beside the primary we report the all-family \u0394, its CI and its p. The stdin \u0394 is not a forecast of the screening delta, because the prevalence of blank-line samples in the test split is unknown and is not measured (the file stays closed).\"",
+    "reason": "The choice of denominator decides whether the rule can pass. The reachable all-family ceiling is 0.00324, only 1.08\u00d7 the bar, while stdin gives 3.06\u00d7. That choice must be disclosed and fixed as a construct-validity decision, not left looking like the easier path."
+   },
+   {
+    "experiment": "E1",
+    "severity": "REQUIRED",
+    "change": "Replace 'Power and ceiling' with: \"46 affected DEV statements (44 stdin); baseline NDCG@10 on them 0.781. On the 44 stdin ones, 31 golds are already at rank 1. Of the other 13, one gold is outside the 50-candidate pool, so **at most 12 statements can go up**. Reachable ceiling on the stdin family: **+0.0092** (8.09 units; 3.06\u00d7 the bar). The +0.0103 figure counts the out-of-pool gold, which no fallback can reach. Expected: +0.004 to +0.008 from at most 12 upward changes. This is an estimate from TUNE, where the detector and the gate were chosen, so it is optimistic (winner's curse). TUNE's reachable stdin ceiling was only +0.0057.\"",
+    "reason": "Recomputed from the stored DEV store under the unmodified candidate_v2 policy: stdin ceiling 0.01031 unrestricted, 0.00917 with gold in the top 50, and 31 of 44 golds already at rank 1. The quoted '9\u201315 changed statements' exceeds the 12 statements that can possibly improve, and the TUNE-based expectation is in-sample."
+   },
+   {
+    "experiment": "Common protocol",
+    "severity": "REQUIRED",
+    "change": "Add under 'Common protocol': \"**Re-runs.** Each experiment's decision run is performed once. A run voided by a sanity control or stop rule may be repeated **at most once**, and only after the cause is written down and fixed in a commit made before the repeat. Every attempt, void or not, is logged with its outputs. The first non-void attempt is the result. A non-void run is never repeated to change its outcome, whatever the load, seed or timing. If two attempts are void, the experiment stops and reports the blocker. Seeds used: bootstrap and sign-flip 7; E1 placebo derangement 20260926 over the sorted affected qids; E1 S3 sample 20260926; E2 DEV halving 20260926.\"",
+    "reason": "Wall-clock timeouts on Windows and Kaggle load make every live run stochastic. Without a cap and a rule on which attempt counts, a void-and-retry loop is a forking path, and the prereg names no seed for S3 or for the derangement."
+   },
+   {
+    "experiment": "E2",
+    "severity": "REQUIRED",
+    "change": "Add to 'Decision rule, quality': \"and the stdin-family (882) \u0394 point estimate is \u2265 \u22120.002, with its CI and its down/up counts reported. The stdin family is a guard for the same construct-validity reason that makes it E1's primary (F5): the screening split is ~99% stdin.\"",
+    "reason": "E1 uses the stdin family, where gains are 2.8\u00d7 larger per statement, and E2 uses the all-family metric, where losses are diluted 2.8\u00d7. Each is the easier choice for its own experiment. A harm concentrated in stdin, the test split's actual distribution, could pass E2 unnoticed."
+   },
+   {
+    "experiment": "E2",
+    "severity": "REQUIRED",
+    "change": "Replace the efficiency conditions (TUNE gate and adoption) with: \"REF and T are timed in the **same kernel session**, interleaved in blocks (REF, T, T, REF, \u2026 over the same 100 queries, one warm-up query discarded per arm). The latency ratio is mean(T)/mean(REF) with a paired bootstrap 95% CI over queries. The efficiency condition is met iff (ratio \u2264 0.67 and CI upper bound < 1.0) **or** (peak RSS \u2264 4.5 GB **and** ratio \u2264 1.0). The TUNE gate uses 0.77 in place of 0.67. The adoption ratio is measured on 100 seeded DEV query texts (seed 20260926; no qrels needed), not on the TUNE gate set.\"",
+    "reason": "The RSS \u2264 4.5 GB branch is near-certain (\u22481.7 GB of int8 weights), so the OR makes 'clearly cheaper' trivially true even when the int8 model is slower (no VNNI). REF's own \u00b125% spread across sessions means a ratio taken from sequential runs is a load artefact. Reusing the TUNE gate latency for adoption is also in-sample."
+   },
+   {
+    "experiment": "E1",
+    "severity": "RECOMMENDED",
+    "change": "Add a second control: \"**Retry control (descriptive; it attributes the gain).** The same fallback machinery with the **uncollapsed** input, one extra run per candidate that received a fallback run. The gain credited to collapsing is the treatment's recoveries minus the retry control's. If the retry control alone moves any gold or any rank-1, the statement is listed.\"",
+    "reason": "The derangement placebo can only fail on a gross bug, because another statement's input almost never reproduces this statement's output. It cannot separate collapsing from a second chance. On DEV, 10 raw runs on affected examples timed out (none of them gold), so second-chance effects on non-golds are possible under Windows wall-clock limits."
+   },
+   {
+    "experiment": "E1",
+    "severity": "RECOMMENDED",
+    "change": "Add under 'Sanity controls': \"The **replay** is the primary number; live (S4) is only a control. If the S4 mismatch falls on a statement whose NDCG changes in the primary, the decision must also hold with that statement scored from its live ranking. Otherwise E1 is reported as not adopted.\"",
+    "reason": "S4 tolerates n \u2212 1 agreement. If the one tolerated disagreement is a changed statement, it can flip a decision that rests on 6\u201312 statements, and the prereg does not say which number wins."
+   },
+   {
+    "experiment": "E1",
+    "severity": "RECOMMENDED",
+    "change": "Add under 'Secondary': \"**Sensitivity:** the primary recomputed with untracked fallback runs **rejected**. The number of fallback matches accepted without tracking is reported. If the decision differs between the two, this is stated next to the result.\"",
+    "reason": "Accepting untracked runs is a pre-specified exemption from the gate that exists to block lucky-constant matches (q1090). On DEV, 8 of 2,110 raw runs on affected examples were untracked, so the exemption is small but can matter on a 6\u201312 statement decision."
+   },
+   {
+    "experiment": "E1",
+    "severity": "RECOMMENDED",
+    "change": "Make S2 and S3 exact: \"S2 passes iff gold recoveries are within 28 \u00b1 1, ups within 9 \u00b1 1 and downs \u2264 1. S3 draws 200 raw runs (seed 20260926) from the **affected** DEV statements' used examples, including all 10 recorded raw timeouts, and passes iff \u2265 198/200 verdicts match. A timed-out fallback counts as no match and is not re-run.\"",
+    "reason": "'\u00b11 statement' does not say which of the S2 counts it applies to. A random 200 of DEV's ~26k stdin runs is dominated by fast deterministic runs and would not test the runs where drift matters."
+   },
+   {
+    "experiment": "Common protocol",
+    "severity": "RECOMMENDED",
+    "change": "Replace the sign-flip line with: \"Paired sign-flip permutation test, **two-sided**. The statistic is the sum of paired differences. p = (number of flips with |T*| \u2265 |T|, including the identity) / (number of flips). Exact enumeration when \u2264 20 statements change; otherwise 100,000 random flips, seed 7.\" Add to E1 criterion 4: \"(Implied by criterion 3: with 5 changed statements, even all up, the exact p is 2/32 = 0.0625.)\"",
+    "reason": "Sidedness and the p formula are the remaining free choices in the test. Stating that criterion 4 is redundant stops it being read as an extra safeguard."
+   },
+   {
+    "experiment": "E1",
+    "severity": "RECOMMENDED",
+    "change": "In 'When it fires', replace the first clause with: \"For a statement whose stdin examples are used by the policy (legacy_examples > 0), each of the **first two** stdin examples whose input has a whitespace-only line inside `stdin.strip(\\\"\\\\n\\\")` \u2026\". In the negative control, add: \"the placebo input for every affected example is the collapsed **first** example of the partner statement; derangement over the sorted affected qids, seed 20260926 (`record_blank_fallback.py --placebo`).\"",
+    "reason": "This matches the code (`affected()` and `USED_EXAMPLES = 2`). On DEV and TUNE the two detector readings flag the same statements (0 differ), but the prereg text should fix the definition the code implements."
+   },
+   {
+    "experiment": "E2",
+    "severity": "RECOMMENDED",
+    "change": "Add to 'Decision rule, quality': \"Non-inferiority also fails if the two-sided sign-flip test finds a significant decline (\u0394 < 0 and p < 0.05). Up/down counts are reported. The number of statements whose treated ranking depends on a pair executed by `fill_missing` is reported, together with the primary recomputed with those statements excluded. The `fill_missing` fidelity check draws its 100 recorded pairs with seed 20260926, stratified to include every recorded timeout in those statements.\"",
+    "reason": "The TUNE noise run (+0.0014 [+0.0003, +0.0027]) shows the percentile bootstrap is anti-conservative with sparse changes, which inflates the NI lower bound. Only the treated arm contains live-executed pairs, so the arms are measured asymmetrically."
+   },
+   {
+    "experiment": "E2",
+    "severity": "RECOMMENDED",
+    "change": "Replace the halving stop rule with: \"If the DEV encode projects over 6 h, the decision to halve is made from the projected encode time alone, before any DEV NDCG is computed. The subset is the first 1,250 qids after sorting the DEV qids and shuffling them with random.Random(20260926).\"",
+    "reason": "'Sorted qids, seed 20260926' does not define a subset. The switch to a half must not be made after any quality number has been seen."
+   },
+   {
+    "experiment": "E3",
+    "severity": "RECOMMENDED",
+    "change": "Add under 'Part 3': \"Per change set, the reported time is the median of the 3 repetitions. The slope is ordinary least squares of end-to-end time on k over all 12 k-runs (k = 0, 1, 10, 100). Any README or deck statement names the operating point (F2LLM-v2-0.6B, CPU fp32, batch 1, this laptop) and is never placed beside the 1.7B screening numbers without that label.\"",
+    "reason": "Which statistic feeds the claim is otherwise open. CLAUDE.md forbids mixing operating points (0.6B re-index with 1.7B accuracy) in one claim."
+   },
+   {
+    "experiment": "Common protocol",
+    "severity": "RECOMMENDED",
+    "change": "In the baseline table, relabel the candidate_v2 row as \"candidate_v2 as replayed (policy call-style+deep50, numeric 1e-6; `execution_skip_interactive` and `timeout_mode: cpu` are not modelled by the replay)\", and fill the dense MRR@10 cell with 0.91414.",
+    "reason": "The replay policy is not the full candidate_v2.yaml: skip_interactive (2 of 5,000 statements) and CPU-time limits are live-only. The dense MRR is known (replay output) and should not be left blank."
+   },
+   {
+    "experiment": "E1 arm B",
+    "severity": "RECOMMENDED",
+    "change": "Add: \"E1's primary and controls are run with arm B **off**. Arm B's DEV check re-executes every recorded stdin run on DEV with `execution_judge_like_io` on (expected ~26k runs, ~12 min at 6 workers; void over 30 min or if spawn_failures() > 0) and compares verdicts run by run with the store. Any changed verdict is listed, as well as any NDCG change.\"",
+    "reason": "'A DEV replay with it on' cannot be a replay, because arm B changes execution and needs new runs. Its scope, runtime and stop rule are unspecified, and if its order relative to E1 is left open it could contaminate E1's baseline."
+   }
+  ],
+  "checked_sound": [
+   "Every baseline quoted in the PREREG reproduces exactly from the stored 1.7B DEV store (f2llm17b_all_dev_deep50.jsonl.gz) under the unmodified policies. Dense 0.92792 (MRR 0.91414). Frozen rule (legacy+numeric1e-6) 0.94846 / 0.93940, stdin 0.95978 / 0.95331. candidate_v2 (call-style+deep50) 0.95327 / 0.94487, stdin 0.95993 / 0.95312 (n = 882). TUNE: 0.95849, stdin 0.96362.",
+   "DEV affected count 46 (44 stdin) and baseline NDCG@10 0.781 on the affected set: reproduced.",
+   "The detector in code (`has_internal_blank_line` on `strip(\"\\n\")`) and a strict-inside reading flag the same statements on DEV and on TUNE (0 differences).",
+   "On the affected DEV examples, all recorded gold raw runs completed (30 ValueError, 4 IndexError, 1 SyntaxError, 9 rc-0 mismatches); none timed out. A retry-luck confound on golds is therefore not present in the stored data.",
+   "Untracked input consumption is rare on the affected examples: 8 of 2,110 raw runs on DEV and 6 of 1,530 on TUNE.",
+   "Raw verifications are never removed: live `verify_candidate` calls the fallback only when `not matched`, and replay `candidate_tier` overrides only non-strong verdicts. The consumption gate uses the same `is not False` semantics live and in replay, so untracked runs are accepted in both.",
+   "A fallback verification in the top 20 correctly suppresses deepening in replay, because `rerank` uses the same `candidate_tier`, so the treatment and the deepening trigger are consistent.",
+   "The placebo is implemented as a fixed-seed derangement over the sorted affected qids (default seed 20260926), judged against the statement's own expected output.",
+   "The sidecar recorder uses the store header's timeout (2.0 s) and 6 workers, matching the recorded stores (timeout 2.0, workers 6).",
+   "E1's criteria are conjunctive, so they do not inflate type-I error. The bootstrap seed is fixed (7), so the seed cannot be picked after the fact.",
+   "E2 gatekeeping (T1, then T1b on TUNE only; the first to pass goes to DEV) needs no DEV multiplicity correction.",
+   "E2's 'a CI above 0 is never reported as a gain' rule is coherent with a non-inferiority framing.",
+   "E2 keeps qrels off the kernel: DEV NDCG is computed locally.",
+   "Treating the three experiments as separate questions without a family-wise correction is defensible: only E1 is a superiority test, E2 is non-inferiority and E3 is descriptive."
+  ],
+  "commands_run": [
+   "PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe scripts/replay_outcomes.py --store data/outcomes/f2llm17b_all_dev_deep50.jsonl.gz  (unmodified policies only; reproduced 0.92792 / 0.94846 / 0.95327, stdin 0.95978 / 0.95993)",
+   "git diff scripts/replay_outcomes.py app/pipeline/execution_rerank.py  (read the uncommitted E1 treatment code; nothing executed)",
+   "scratchpad/chk.py: unmodified candidate_v2 and frozen replays on the DEV and TUNE deep50 stores. Stdin MRR 0.95312 / 0.95331; affected 46/44 (DEV), 35/33 (TUNE); detector-definition differences 0; baseline on affected 0.781; in-pool stdin ceiling 0.00917 (DEV), 0.00565 (TUNE); all-family ceiling 0.00324; gold raw-run statuses on affected examples.",
+   "scratchpad/chk2.py: unrestricted stdin ceiling 0.01031 (DEV); golds in pool 43/44; golds already at rank 1: 31/44; tracked vs untracked raw runs 2,102/8 (DEV) and 1,524/6 (TUNE); raw timeouts on affected examples 10 (DEV), 6 (TUNE)."
+  ]
+ },
+ {
+  "lens": "Scope and feasibility. For each experiment: does the decision rule measure what the judge scores (P0 NDCG@10/MRR on the APPS test split, the unseen APPS-like set, P1 time and resources, demo speed, FAQ A/B CPU-only retrieval)? Could a pass produce an overstated README/deck claim? Can every step run on the stated resources, and are there hidden blockers or ordering and contamination problems?",
+  "amendments": [
+   {
+    "experiment": "E2",
+    "severity": "REQUIRED",
+    "change": "Line 152: replace the efficiency gate with \"Efficiency: mean batch-1 latency <= 0.77 x REF, OR (peak RSS <= 4.5 GB AND mean latency <= 1.00 x REF AND p95 latency <= 1.10 x REF).\" Line 169: replace \"(mean latency <= 0.67 x REF or peak RSS <= 4.5 GB)\" with \"(mean latency <= 0.67 x REF, OR (peak RSS <= 4.5 GB AND mean latency <= 1.00 x REF AND p95 <= 1.10 x REF)). Latency and RSS for this rule are the TUNE-100 numbers from the gate session. The DEV encode is never used for timing.\"",
+    "reason": "An int8 1.7B almost certainly fits under 4.5 GB (the skeptic calls the RAM saving near-certain; R2 bf16 is already 4.6 GB). As written, both the gate and adoption pass even if int8 is slower than float32, which would license a 'CPU-efficient' claim for a slower encoder. The 0.77 vs 0.67 thresholds also come from an unnamed measurement."
+   },
+   {
+    "experiment": "E2",
+    "severity": "REQUIRED",
+    "change": "Under 'Where it runs', add: \"Each arm (REF, REF06, C0, T1, T1b, NEG) is timed in its own fresh subprocess, which loads only that arm's model (for OpenVINO, the saved IR; never the export process), in the order REF06, T, REF, T, REF06. Peak RSS is that subprocess's own peak. Export and nncf compression run in a separate process. Its wall time and peak RSS are reported as a pre-processing cost, never as the query-time RSS. Every latency ratio is computed from arms timed in the same kernel session. The CPU model string, /proc/cpuinfo flags (avx512_vnni, amx), torch threads measured inside CodeEncoder.encode, and OpenVINO INFERENCE_NUM_THREADS and DYNAMIC_QUANTIZATION_GROUP_SIZE of the compiled model are recorded.\"",
+    "reason": "Loading several 1.7B variants in one process, or taking RSS from the exporting process (which holds float32 weights, R2 peak 8.5 GB), would contaminate both the RSS and the latency comparison. Thread counts differ between backends: CodeEncoder.encode sets torch threads to os.cpu_count() (4 logical on the R2 machine), while R2's metadata recorded torch_threads=2, read outside encode()."
+   },
+   {
+    "experiment": "E2",
+    "severity": "REQUIRED",
+    "change": "Replace 'The kernel receives query texts only, never qrels' with: \"Two kernel pushes. Kernel A: export, S1-S4, NEG, the TUNE gate, REF/REF06 timings and the end-to-end block. Its inputs are the 100 TUNE query texts, their stored 1.7B/0.6B query vectors, the 8,765 corpus texts and the 1.7B corpus vectors, delivered as a private Kaggle dataset (never embedded in the script). The gate result is committed locally before Kernel B is pushed. Kernel B: re-export the chosen T (same pinned versions; must reproduce Kernel A's TUNE-100 vectors at min cosine >= 0.99999, else void), then encode the DEV (2,500) and EXT-dev (108) query texts, also from a private dataset. No qrels, no test-split query file and no EXT-lockbox file are uploaded. The dataset's file list is committed with the result.\"",
+    "reason": "Measured here: 2,500 train query texts are 1.58 MB base64-gzipped, the corpus texts 2.0 MB, and the 1.7B corpus vectors 35.9 MB. All exceed a ~1 MB script payload, and the end-to-end block (dense search, execution pass) needs corpus data, which contradicts 'query texts only'. Also, an in-kernel automatic gate decision cannot be audited before DEV."
+   },
+   {
+    "experiment": "E2",
+    "severity": "REQUIRED",
+    "change": "Add to Sanity controls: \"S6: after installing openvino/nncf/optimum-intel, the kernel asserts transformers==4.57.6 and sentence-transformers==5.0.0 (the R2 pins) and logs `pip freeze`. If the resolver changed either one, the run is void. The exact openvino, nncf, optimum and optimum-intel versions are pinned in the kernel builder before the TUNE gate.\" Add under Arms: \"If nncf/optimum-intel rejects group_size=32 for 8-bit weights, T1 is INT8_SYM per-channel (group_size -1) and T1b keeps that mode. This substitution is recorded, not chosen.\"",
+    "reason": "optimum-intel pins its own transformers range, so an unpinned install can silently change the tokenizer recipe that REF and the stored vectors depend on. Whether 8-bit grouped weights are supported is unverified: without a fallback declared in advance, S4 either voids the run or invites an unregistered, post hoc change of configuration."
+   },
+   {
+    "experiment": "E2",
+    "severity": "REQUIRED",
+    "change": "Under 'Decision rule, outcome', add: \"Adoption also requires (a) `_LOADED_MODELS` in app/retrieval/encode.py to be keyed on backend as well as (model_name, device, torch_dtype), and (b) a test proving that, with query_backend: openvino, document encoding and document_cache_key use the torch model. The test must fail before the fix.\"",
+    "reason": "The in-process model cache key has no backend field, so an OpenVINO query model and a torch document model with the same name, device and dtype would share one loaded model. That breaks the skeptic's 'the int8 model must never encode documents' invariant on the scored and demo paths, where the document cache key has no backend either."
+   },
+   {
+    "experiment": "All (ordering)",
+    "severity": "REQUIRED",
+    "change": "Add to 'Common protocol': \"Order and isolation. E1 runs first, then E2's local steps (fill_missing and replay), then E3 Part 3 last. No two of these, and no other heavy process, run concurrently on the laptop, because E1 and fill_missing use wall-clock timeouts and E3 is a timing run. Kaggle work may overlap with laptop work. E2's baseline is candidate_v2 as of this commit (blank fallback off), whatever E1 decides. The E2 end-to-end block times candidate_v2 with arm A off, and also with arm A on if E1 adopts it, both labelled.\"",
+    "reason": "E1's adoption edits candidate_v2.yaml, which would otherwise silently move E2's baseline (0.95327). Concurrent laptop runs would change timeouts (verdicts) and E3 timings."
+   },
+   {
+    "experiment": "E3",
+    "severity": "REQUIRED",
+    "change": "Replace 'torch threads 6 (physical cores)' with: \"torch threads as the shipped code sets them inside CodeEncoder.encode (os.cpu_count() = 12 logical on this laptop), measured inside encode() and recorded. A 6-thread operating point is used only if a default-off `encoder_threads` switch is added first, with a test.\"",
+    "reason": "app/retrieval/encode.py:361 calls torch.set_num_threads(os.cpu_count()) on every encode, so the stated 6-thread operating point cannot happen through the demo path. A timing labelled '6 threads' would describe a configuration that never ran."
+   },
+   {
+    "experiment": "E3",
+    "severity": "REQUIRED",
+    "change": "Add under Part 3: \"Pre-flight: if free RAM is below 3 GB, Claude stops and asks the user to close applications (a hand-off under 'When Claude needs outside help'). Part 3 is not moved to another machine, and its numbers are not taken under memory pressure.\" In the stop rule, add: \"a run started below 3 GB free is not counted as one of the 2 void runs.\"",
+    "reason": "At review time the laptop had 578 MB free (Win32_OperatingSystem). The build_cpubench_kernel note records about 1.4 GB free with desktop apps open. As written, E3 would void twice and stop without having measured anything."
+   },
+   {
+    "experiment": "E3",
+    "severity": "REQUIRED",
+    "change": "Change the stop rule to: \"Each incremental run is killed at 10 minutes. The full-rebuild baseline on (R) is killed at 30 minutes.\"",
+    "reason": "Measured here: app/ has 475 chunks, 442 of them dense-eligible. At 1.275 s/doc that is about 564 s plus about 14 s load, and the sanity band allows up to 1.59 s/doc (about 700 s). The baseline the claim rule divides by would therefore be killed by the 10-minute rule."
+   },
+   {
+    "experiment": "E3",
+    "severity": "REQUIRED",
+    "change": "Claim rule, third bullet: replace with \"the k = 100 time on (A) is <= 0.15 x the (A) full-rebuild estimate, and the k = 10 time on (R) is <= 0.15 x the measured (R) full rebuild.\" First bullet: replace with \"the slope fitted against the number of chunks actually re-encoded (the indexer's miss count, not the number of edited functions) is within +/-30% of the measured per-document rate. Chunks re-encoded per edit are reported.\"",
+    "reason": "On (R), 100 edited functions re-encode at least 100 of 442 eligible chunks (at least 0.23 of a rebuild), so '<= 0.15' fails by construction. Each function edit also re-encodes 1-3 chunks (enclosing class and file summary; measured 263/90/20 of 373 functions), so a per-function slope is about 1.35x the rate and could fail the +/-30% check for a reason unrelated to incrementality."
+   },
+   {
+    "experiment": "E3",
+    "severity": "REQUIRED",
+    "change": "Gates, Parity: replace with \"(R): incremental vs a measured full rebuild. Cosine >= 0.99999 per re-encoded chunk, and 20 preset queries give identical top-10s. (A): unchanged documents' vectors are bit-identical to the cache, and changed documents' vectors match a separate fresh CPU encode of the same texts (cosine >= 0.99999). Top-10 identity >= 99.5% on the 2,500 TUNE queries, dense-only, using the stored 0.6B TUNE query vectors, between the incremental index and an index assembled from scratch from the same vectors plus a from-scratch lexical build (so global statistics such as IDF are included).\"",
+    "reason": "A true full CPU rebuild of (A) is about 8,765 x 1.275 s, roughly 3.1 h. That cannot run under the 10-minute rule and is already an estimate in the Baseline line. Comparing against the stored GPU vectors would fail 0.99999 by design (mixed origin), and encoding 2,500 queries live would also exceed the kill limit."
+   },
+   {
+    "experiment": "E1",
+    "severity": "REQUIRED",
+    "change": "Arm B, second acceptance bullet: replace with \"a DEV re-run with arm B on, of every recorded stdin run that did not verify, for candidates whose code matches the exit/quit or fstat(0)/os.read(0) idioms (the selection in skeptic_scripts/armb_tune.py), scored by replay, shows 0 statements with lower NDCG. The run count and runtime are reported (stop at 30 min). Candidates outside the selection are not re-run, and the result is stated as covering only them.\"",
+    "reason": "Arm B changes execution itself, so recorded outcomes cannot be replayed. As written, the check either needs an unplanned full DEV re-record (tens of thousands of runs) or an unstated selection."
+   },
+   {
+    "experiment": "E1",
+    "severity": "REQUIRED",
+    "change": "Add under Decision rule: \"Claim scope. A pass licenses only 'raises DEV stdin NDCG@10 by X (n up / m down)', described as a fallback for blank lines in rendered sample inputs (seen in APPS's CodeChef-rendered statements). No screening or test-split gain is projected: prevalence on the test split is unknown and is not measured. The README keeps the screening number from the frozen configuration until a logged test-split run of the adopted configuration exists.\"",
+    "reason": "The mechanism targets an APPS rendering artefact, and the FAQ warns against overfitting to APPS. DEV prevalence (46/2,500) cannot be carried over to the test split without opening it, so a pass could otherwise become an unsupported screening claim."
+   },
+   {
+    "experiment": "E2",
+    "severity": "REQUIRED",
+    "change": "Scope limits: add \"(a) Any speed or RAM claim names the CPU model and whether avx512_vnni or AMX was present. (b) While query_backend: openvino is only in the candidate config, the README may not describe int8 query encoding as the path that produced the screening number or the one the judges' MTEB re-run uses. (c) A failed non-inferiority test is reported as 'non-inferiority not shown (a null treatment fails this bound 13-36% of the time)', not as 'int8 is worse'.\"",
+    "reason": "This prevents three overstatements: a speed claim tied to one CPU's instruction set; an efficiency claim on a path the judges will not run (the frozen config is what they re-run); and a false negative reported as harm."
+   },
+   {
+    "experiment": "E3",
+    "severity": "REQUIRED",
+    "change": "Claim rule: add \"Every P1 number states encoder (F2LLM-v2-0.6B), device (CPU, float32), machine (this laptop, i5-11260H, 6C/12T), threads as measured, and path (demo workbench / explorer, or --corpus-cache). A 1.7B per-document rate from the E2 Kaggle kernel is never placed in the same table or sentence as laptop numbers without a machine label. No P1 timing is claimed for the 1.7B screening encoder.\"",
+    "reason": "CLAUDE.md forbids mixing operating points. Screening uses 1.7B while E3 measures 0.6B on the laptop, and the 1.7B rate comes from a different, 2-core machine."
+   },
+   {
+    "experiment": "E2",
+    "severity": "RECOMMENDED",
+    "change": "Secondary (descriptive), add: \"Projected judges' MTEB re-run query-encoding time on the measured CPU = 3,765 x mean latency for REF, REF06 and T, labelled estimate (R2's estimate: 8.2 h at 1.7B). Also the size of the exported IR and how judges would obtain it (release asset, or export on their machine, with export time and peak RSS).\"",
+    "reason": "The FAQ says the judges will re-run MTEB, and query encoding is the per-query cost FAQ A/B care about. The estimate ties E2 to what the judges actually run."
+   },
+   {
+    "experiment": "E2",
+    "severity": "RECOMMENDED",
+    "change": "Under 'Also replace 0.6B as the demo tier', add: \"...and, before the demo tier is switched, T and REF06 are timed on the demo laptop (>= 3 GB free, nothing else running) with the same 100 TUNE texts, and T's latency is <= 1.1 x REF06 there too. Otherwise the trade-off goes to the user.\"",
+    "reason": "The demo runs on the laptop (6C/12T, different ISA), not on the 2-core Kaggle machine. A ratio measured on Kaggle may not hold where 'how fast your solution is' is shown."
+   },
+   {
+    "experiment": "E2",
+    "severity": "RECOMMENDED",
+    "change": "In 'Decision rule, quality', change the EXT-dev bullet to: \"and the EXT-dev \u0394 CI upper bound >= 0 (a veto only; EXT-dev is adaptively reused, STRESS_TEST F6, and never supports a claim).\"",
+    "reason": "Common protocol says EXT-dev is descriptive only, yet E2 uses it in a decision rule. Stating that it only vetoes removes the contradiction."
+   },
+   {
+    "experiment": "E1",
+    "severity": "RECOMMENDED",
+    "change": "Secondary (descriptive), add: \"extra sandbox executions per affected statement and the added wall-clock per affected query (p50/p95 at 6 workers). These are reported next to \u0394 in any README line. Also, the fallback's outcome on every affected statement whose text mentions 'blank line' or 'empty line' (TUNE has one, q1676), on DEV and EXT-dev.\"",
+    "reason": "FAQ B stresses per-query retrieval cost, and the fallback adds executions on every failed candidate. Statements where blank lines carry meaning are the likeliest failure mode on an unseen Codeforces-style set."
+   },
+   {
+    "experiment": "All (process)",
+    "severity": "RECOMMENDED",
+    "change": "Header, add: \"Committed in the same commit as this file: scripts/exp_e1_blank_fallback.py, scripts/record_blank_fallback.py, scripts/c3_stats.py, scripts/union_replay.py and the current diffs to app/pipeline/execution_rerank.py and scripts/replay_outcomes.py. Analysis code changed after this commit is listed in an addendum before its output is read.\"",
+    "reason": "All six are uncommitted or modified in the working tree. Freezing them with the pre-registration fixes the analysis before DEV is replayed, as the STRESS_TEST F9 rule requires."
+   },
+   {
+    "experiment": "E3",
+    "severity": "RECOMMENDED",
+    "change": "Part 1, add: \"Changing the key invalidates every existing demo cache entry. The one-time re-warm (chunks, seconds, peak RSS) is measured and reported as the (R) full-rebuild baseline, and the demo cache is warmed before any demo recording.\" Positive gate: \"a pure rename = a file move with byte-identical content.\"",
+    "reason": "Otherwise the first demo after the fix silently re-encodes everything, about 10 minutes on app/. The word 'rename' is also ambiguous: renaming an identifier changes chunk content."
+   }
+  ],
+  "checked_sound": [
+   "E1 blank-line detector: PREREG's 'whitespace-only line strictly inside stdin.strip(\"\\n\")' and the skeptic's rstrip-based any-blank detector agree on TUNE (38 vs 38 statements, 0 disagreements, no leading blank lines), so S2 compares like with like.",
+   "Metrics: every TUNE query has exactly one relevant document (2,500/2,500), and metrics() gives NDCG@10 = 1/log2(rank+1) and MRR@10 = 1/rank. The per-statement NDCG and MRR changes therefore share sign, and an NDCG-only decision is consistent with the brief's MRR.",
+   "E3 Part 1: the five demo call sites of compute_embedding_key are confirmed (workbench.py:849 and 869, server.py:78, incremental.py:142 and 190). PrePostPipelineEncoder.document_cache_key already includes model@revision, prefix, max_seq, EOS and normalisation, so deriving the demo key from it is sound.",
+   "The scored path's corpus cache is opt-in (`--corpus-cache` in scripts/evaluate_mteb.py), so (A) measures a documented path the judges can run. The frozen config is untouched and new behaviour sits behind default-off switches.",
+   "No blank-fallback sidecar exists yet in data/outcomes, consistent with no treatment having been replayed on DEV.",
+   "E1 runtime estimate is plausible: R2 measured sandbox runs at 0.156 s mean on Windows, so 2-4k runs at 6 workers takes about 1-2 min, inside the 5-minute expectation and the 15-minute void rule.",
+   "E2 DEV encode is feasible on one session: 2,608 queries x <= 7.83 s is at most 5.7 h, under the 6 h half-DEV rule. The R2 machine had 33.7 GB RAM, enough for a float32 1.7B export (estimate; Kaggle session limits unverified).",
+   "E2 negative control (EOS removed) and S3 (the query ends in exactly one 151645) target the known last-token pooling failure mode. The skeptic's EOS id finding matches `_verify_recipe_applied`.",
+   "E1 primary metric on the stdin family matches the screening split's composition (~99% stdin, STRESS_TEST F5), and the ceiling (+0.0103) is 3.4x the +0.003 bar, so the power check is met.",
+   "Common protocol keeps the APPS test split and the EXT-lockbox sealed, and says adoption into the submission needs its own logged test-split run, which matches CLAUDE.md and the FAQ answer that the judges re-run MTEB."
+  ],
+  "commands_run": [
+   "git log --oneline -5; git status --short (repo state; the E1 scripts are uncommitted)",
+   "python: chunk app/ with workbench._documents_from_source -> 35 files, 475 chunks, 442 dense-eligible; chunks re-encoded per function edit 1:263, 2:90, 3:20",
+   "python: TUNE store detector comparison -> skeptic any-blank 38, PREREG internal 38, disagree 0, leading-blank 0",
+   "python: TUNE qrels relevant-per-query -> {1: 2500}",
+   "python: TUNE affected statements whose text mentions blank/empty line -> 1 (q1676)",
+   "python: payload sizes -> 2,500 train query texts 1.58 MB b64-gzip; corpus texts 2.02 MB b64-gzip; ls: emb_f2llm17b_corpus.npy 35.9 MB",
+   "PowerShell Get-CimInstance: laptop i5-11260H 6C/12T; free RAM 578 MB at review time",
+   "python: read R2 cpu_latency.json machine metadata -> torch_threads 2 (read outside encode), physical 2, logical 4, 33.7 GB, no CPU model recorded",
+   "grep: encode.py:361 torch.set_num_threads(os.cpu_count()); evaluate_mteb.py --corpus-cache opt-in; _LOADED_MODELS key (model_name, device, torch_dtype)"
+  ]
+ }
+]

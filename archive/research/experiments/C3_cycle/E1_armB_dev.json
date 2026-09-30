@@ -1,0 +1,64 @@
+{
+ "dev": {
+  "set": "dev",
+  "candidates_rerun": 83,
+  "seconds": 2.4,
+  "workers": 6,
+  "newly_verified": 0,
+  "ndcg10": {
+   "control": 0.95327,
+   "treatment": 0.95327,
+   "delta": 0.0,
+   "ci95": [
+    0.0,
+    0.0
+   ],
+   "sign_flip_p": 1.0,
+   "sign_flip": "exact",
+   "up": 0,
+   "down": 0,
+   "n": 2500
+  },
+  "statements_lower": [],
+  "statements_higher": [],
+  "stopped": false,
+  "spawn_failures": 0
+ },
+ "extcc_descriptive_in_sample": {
+  "set": "extcc",
+  "candidates_rerun": 90,
+  "seconds": 2.7,
+  "workers": 6,
+  "newly_verified": 18,
+  "ndcg10": {
+   "control": 0.75431,
+   "treatment": 0.76121,
+   "delta": 0.00691,
+   "ci95": [
+    -0.00748,
+    0.02265
+   ],
+   "sign_flip_p": 0.40625,
+   "sign_flip": "exact",
+   "up": 5,
+   "down": 3,
+   "n": 108
+  },
+  "statements_lower": [
+   "cc-valid-83",
+   "cc-valid-114",
+   "cc-test-135"
+  ],
+  "statements_higher": [
+   "cc-valid-87",
+   "cc-valid-104",
+   "cc-test-136",
+   "cc-test-157",
+   "cc-test-222"
+  ],
+  "stopped": false,
+  "spawn_failures": 0
+ },
+ "accepted": true,
+ "note": "CI on ubuntu/macOS/Windows is the other acceptance condition (tests/test_judge_like_io.py)"
+}

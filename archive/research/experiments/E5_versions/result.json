@@ -1,0 +1,36 @@
+{
+  "header": {
+    "_header": true,
+    "model": "f2llm06b",
+    "split": "ext_dev",
+    "family": "external",
+    "seed": 20260919,
+    "depth": 50,
+    "exec_depth": 20,
+    "timeout": 2.0,
+    "workers": 6,
+    "seconds": 100.8,
+    "pairs": 3000
+  },
+  "n": 150,
+  "results": {
+    "dense": {
+      "exec@1": 0.16666666666666666,
+      "lineage@1": 0.7933333333333333,
+      "buggy_above": 0.78,
+      "distinct@10": 6.666666666666667
+    },
+    "execution": {
+      "exec@1": 0.9533333333333334,
+      "lineage@1": 0.9533333333333334,
+      "buggy_above": 0.013333333333333334,
+      "distinct@10": 6.693333333333333
+    },
+    "lineage": {
+      "exec@1": 0.9533333333333334,
+      "lineage@1": 0.9533333333333334,
+      "buggy_above": 0.013333333333333334,
+      "distinct@10": 10.0
+    }
+  }
+}

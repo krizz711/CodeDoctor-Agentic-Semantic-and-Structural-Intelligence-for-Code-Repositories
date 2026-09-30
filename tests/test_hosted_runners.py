@@ -1,7 +1,8 @@
 """The hosted-runner generators must ship everything they then invoke.
 
-There are three generators (Kaggle script kernel, Kaggle notebook, Colab
-notebook) and one packer behind all of them.  The failure this file exists to
+The Colab notebook generator and the packer behind it are covered here (the Kaggle
+notebook and script-kernel generators are archived; the submission kernel builder has
+its own tests, tests/test_build_submission_kernel.py).  The failure this file exists to
 prevent is a quiet one: a generator emits a cell that runs
 ``scripts/something.py``, the packer does not include that path, and the cell
 dies with "can't open file" *after* a three-hour GPU run has already finished.
@@ -20,14 +21,12 @@ from __future__ import annotations
 import ast
 import base64
 import io
-import json
 import re
 import tarfile
 
 import pytest
 
 from app.packaging import PAYLOAD_PATHS, build_payload
-from scripts.make_kaggle_notebook import build_notebook as build_kaggle_notebook
 from scripts.make_notebook import build_notebook as build_colab_notebook
 
 #: ``!python scripts/foo.py`` or ``python scripts/foo.py`` inside a cell.
@@ -47,10 +46,7 @@ def payload_paths() -> list[str]:
 def notebooks() -> dict[str, dict]:
     # A placeholder payload keeps these fast: the tests below read the cells,
     # never the tarball.
-    return {
-        "kaggle": build_kaggle_notebook("", tier="accuracy", execution_candidates=20),
-        "colab": build_colab_notebook(""),
-    }
+    return {"colab": build_colab_notebook("")}
 
 
 def code_cells(notebook: dict) -> list[str]:
@@ -62,7 +58,7 @@ def code_cells(notebook: dict) -> list[str]:
 
 
 class TestPayloadCoversWhatTheCellsInvoke:
-    @pytest.mark.parametrize("name", ["kaggle", "colab"])
+    @pytest.mark.parametrize("name", ["colab"])
     def test_every_invoked_script_is_packed(self, name, notebooks, payload_paths):
         invoked = {
             match
@@ -76,7 +72,7 @@ class TestPayloadCoversWhatTheCellsInvoke:
             f"ship. The cell will fail with 'can't open file' after the run."
         )
 
-    @pytest.mark.parametrize("name", ["kaggle", "colab"])
+    @pytest.mark.parametrize("name", ["colab"])
     def test_every_referenced_data_file_is_packed(self, name, notebooks, payload_paths):
         referenced = {
             match
@@ -122,7 +118,7 @@ class TestPayloadContents:
 
 
 class TestGeneratedNotebooksAreWellFormed:
-    @pytest.mark.parametrize("name", ["kaggle", "colab"])
+    @pytest.mark.parametrize("name", ["colab"])
     def test_nbformat_shape(self, name, notebooks):
         notebook = notebooks[name]
         assert notebook["nbformat"] == 4
@@ -134,7 +130,7 @@ class TestGeneratedNotebooksAreWellFormed:
             for line in source[:-1]:
                 assert line.endswith("\n"), f"cell {index}: unterminated line {line!r}"
 
-    @pytest.mark.parametrize("name", ["kaggle", "colab"])
+    @pytest.mark.parametrize("name", ["colab"])
     def test_code_cells_are_syntactically_valid_python(self, name, notebooks):
         for index, source in enumerate(code_cells(notebooks[name])):
             kept, continuing = [], False
@@ -148,20 +144,3 @@ class TestGeneratedNotebooksAreWellFormed:
                 ast.parse("\n".join(kept))
             except SyntaxError as exc:
                 pytest.fail(f"{name} code cell {index}: {exc.msg} on line {exc.lineno}")
-
-    def test_kaggle_notebook_is_serialisable(self):
-        notebook = build_kaggle_notebook("PAYLOAD", tier="accuracy", execution_candidates=20)
-        assert json.loads(json.dumps(notebook)) == notebook
-
-    def test_kaggle_notebook_states_the_depth_it_was_built_for(self):
-        notebook = build_kaggle_notebook("", tier="accuracy", execution_candidates=20)
-        joined = "".join(code_cells(notebook))
-        assert "EXECUTION_CANDIDATES = 20" in joined
-
-    def test_kaggle_notebook_warns_that_it_executes_dataset_code(self, notebooks):
-        prose = "".join(
-            "".join(cell["source"])
-            for cell in notebooks["kaggle"]["cells"]
-            if cell["cell_type"] == "markdown"
-        ).lower()
-        assert "executes python that came from the dataset" in prose

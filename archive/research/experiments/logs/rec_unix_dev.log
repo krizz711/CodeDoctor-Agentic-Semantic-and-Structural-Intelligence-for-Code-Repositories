@@ -1,0 +1,17 @@
+5000 eligible queries (all families), TUNE=2500 DEV=2500 seed=20260919  -> recording dev: 2500 queries
+executing 29,740 (query, candidate) pairs with 6 workers ...
+  2,000/29,740 in 41s
+  4,000/29,740 in 60s
+  6,000/29,740 in 98s
+  8,000/29,740 in 155s
+  10,000/29,740 in 216s
+  12,000/29,740 in 273s
+  14,000/29,740 in 328s
+  16,000/29,740 in 386s
+  18,000/29,740 in 424s
+  20,000/29,740 in 557s
+  22,000/29,740 in 632s
+  24,000/29,740 in 654s
+  26,000/29,740 in 676s
+  28,000/29,740 in 697s
+recorded 29,740 pairs over 2500 queries in 716s -> C:\Users\Asus\manish\CodeDoctor\data\outcomes\unixcoder_all_dev.jsonl.gz

@@ -1270,7 +1270,8 @@ async function loadBenchmark() {
       cell(b.mrr_at_10.toFixed(5), "MRR@10") +
       cell(b.recall_at_10.toFixed(5), "Recall@10") +
       cell(esc(b.task), "MTEB task") +
-      cell("v" + esc(b.mteb_version), "MTEB version");
+      cell("v" + esc(b.mteb_version), "MTEB version") +
+      cell(esc(b.kind || ""), "result set");
 
     const e = b.execution || {};
     $("bench-exec").innerHTML =

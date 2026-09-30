@@ -1,0 +1,114 @@
+{
+ "prereg": "experiments/R2_encoder_choice/prereg.md",
+ "machine": {
+  "platform": "Linux-6.12.90+-x86_64-with-glibc2.35",
+  "processor": "x86_64",
+  "torch": "2.10.0+cpu",
+  "torch_threads": 2,
+  "physical_cores": 2,
+  "logical_cores": 4,
+  "ram_gb": 33.7
+ },
+ "results": [
+  {
+   "tag": "f2llm160m",
+   "model": "codefuse-ai/F2LLM-v2-160M",
+   "revision": "4ffe22c31406fc321b65a05b15563d38275ee51f",
+   "dtype": "float32",
+   "weights_gb": 0.64,
+   "available_gb_before": 32.54,
+   "threads": 2,
+   "load_seconds": 46.45,
+   "status": "ok",
+   "statements": 100,
+   "chars_median": 1125,
+   "batch1_seconds": {
+    "p50": 0.402,
+    "p95": 1.011,
+    "mean": 0.484,
+    "max": 3.057
+   },
+   "batched_seconds_per_query": 1.237,
+   "peak_memory_gb": 2.07,
+   "cosine_vs_stored_gpu_vectors": {
+    "min": 0.99981,
+    "median": 0.99992
+   }
+  },
+  {
+   "tag": "f2llm06b",
+   "model": "codefuse-ai/F2LLM-v2-0.6B",
+   "revision": "54b4e2dc74e01be7126d4cf5f016af6b21edc563",
+   "dtype": "float32",
+   "weights_gb": 2.38,
+   "available_gb_before": 31.57,
+   "threads": 2,
+   "load_seconds": 31.52,
+   "status": "ok",
+   "statements": 100,
+   "chars_median": 1125,
+   "batch1_seconds": {
+    "p50": 2.368,
+    "p95": 5.689,
+    "mean": 2.793,
+    "max": 15.9
+   },
+   "batched_seconds_per_query": 6.125,
+   "peak_memory_gb": 3.87,
+   "cosine_vs_stored_gpu_vectors": {
+    "min": 0.99856,
+    "median": 0.9994
+   }
+  },
+  {
+   "tag": "f2llm17b",
+   "model": "codefuse-ai/F2LLM-v2-1.7B",
+   "revision": "3766d46e7a68545ed6190c15330983f9b39ab718",
+   "dtype": "float32",
+   "weights_gb": 6.88,
+   "available_gb_before": 32.06,
+   "threads": 2,
+   "load_seconds": 58.99,
+   "status": "ok",
+   "statements": 100,
+   "chars_median": 1125,
+   "batch1_seconds": {
+    "p50": 6.852,
+    "p95": 15.74,
+    "mean": 7.832,
+    "max": 39.892
+   },
+   "batched_seconds_per_query": 15.288,
+   "peak_memory_gb": 8.54,
+   "cosine_vs_stored_gpu_vectors": {
+    "min": 0.99997,
+    "median": 0.99998
+   }
+  },
+  {
+   "tag": "f2llm17b",
+   "model": "codefuse-ai/F2LLM-v2-1.7B",
+   "revision": "3766d46e7a68545ed6190c15330983f9b39ab718",
+   "dtype": "bfloat16",
+   "weights_gb": 3.44,
+   "available_gb_before": 32.43,
+   "threads": 2,
+   "load_seconds": 94.62,
+   "status": "ok",
+   "statements": 100,
+   "chars_median": 1125,
+   "batch1_seconds": {
+    "p50": 34.478,
+    "p95": 83.383,
+    "mean": 39.357,
+    "max": 205.317
+   },
+   "batched_seconds_per_query": 93.856,
+   "peak_memory_gb": 4.6,
+   "cosine_vs_stored_gpu_vectors": {
+    "min": 0.99784,
+    "median": 0.99889
+   }
+  }
+ ]
+}

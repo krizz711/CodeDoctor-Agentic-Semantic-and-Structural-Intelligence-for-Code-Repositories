@@ -1,12 +1,8 @@
 """Package the evaluation pipeline into a self-contained payload.
 
-The screening run wants a GPU, and the free ones live in hosted notebooks.
-Rather than publishing the repository to get the code there — or, worse,
-committing a stale zip that silently diverges from the source — the payload is
-built from the working tree at generation time.
-
-One packer, used by both ``scripts/build_eval_kernel.py`` (Kaggle) and
-``scripts/make_notebook.py`` (Colab), so the two can never carry different code.
+The Colab notebook embeds the current source so a private repository needs no clone.
+GPU document preprocessing and CPU query retrieval use the same evaluator as the
+recorded Kaggle stages. The Kaggle builder separately packages exact committed blobs.
 """
 
 from __future__ import annotations
@@ -24,31 +20,33 @@ PAYLOAD_PATHS: tuple[str, ...] = (
     "app/pipeline",
     "app/retrieval",
     "app/evaluation.py",
+    "app/submission.py",
+    "app/indexing",
     "app/evaluation_harness.py",
     "app/packaging.py",
     "config/frozen.yaml",
+    "config/submission.yaml",
     "config/retrieval.yaml",
     "config/reranker.json",
+    "requirements.txt",
+    "requirements-submission.txt",
     "scripts/__init__.py",
     "scripts/evaluate_mteb.py",
     "scripts/export_submission_csv.py",
-    "scripts/encode_apps.py",
-    "scripts/tune_reranker.py",
-    "scripts/dev_eval.py",
-    # Both hosted notebooks call these after the run.  They were missing until
+    "scripts/prepare_document_cache.py",
+    # The hosted notebook calls this after the run.  It was missing until
     # 2026-09-19, which meant the Colab notebook's validation cell died with
     # "can't open file scripts/validate_submission.py" -- the run was fine, the
     # check on it never executed.
     "scripts/validate_submission.py",
-    "scripts/audit_execution_rerank.py",
-    # Gold labels for the post-run decomposition.  87 KB, and it keeps the
-    # audit runnable in a hosted notebook that has no artifacts/ directory.
-    "data/qrels_test.json",
 )
 
 
+TEXT_SUFFIXES = {".py", ".yaml", ".yml", ".json", ".txt", ".md", ".cfg", ".toml"}
+
+
 def _keep(info: tarfile.TarInfo) -> tarfile.TarInfo | None:
-    if "__pycache__" in info.name or info.name.endswith(".pyc"):
+    if "__pycache__" in info.name or info.name.endswith((".pyc", ".DS_Store")):
         return None
     return info
 
@@ -62,7 +60,9 @@ def build_payload(
     """Return ``(base64 gzipped tar, included paths)`` built from the working tree.
 
     ``extra`` adds paths that the default filter would otherwise drop, such as
-    a ``.npz`` hub profile.
+    a ``.npz`` hub profile.  Text files are added with LF line endings, so the
+    payload is the same whichever OS builds it (a Windows checkout with autocrlf
+    would otherwise ship CRLF sources).
     """
     buffer = io.BytesIO()
     included: list[str] = []
@@ -71,6 +71,16 @@ def build_payload(
             source = root / relative
             if not source.exists():
                 continue
-            tar.add(source, arcname=relative, filter=_keep)
+            files = [source] if source.is_file() else sorted(p for p in source.rglob("*") if p.is_file())
+            for path in files:
+                name = path.relative_to(root).as_posix()
+                if _keep(tarfile.TarInfo(name)) is None:
+                    continue
+                data = path.read_bytes()
+                if path.suffix in TEXT_SUFFIXES:
+                    data = data.replace(b"\r\n", b"\n")
+                info = tarfile.TarInfo(name)
+                info.size, info.mode = len(data), 0o644
+                tar.addfile(info, io.BytesIO(data))
             included.append(relative)
     return base64.b64encode(buffer.getvalue()).decode("ascii"), included

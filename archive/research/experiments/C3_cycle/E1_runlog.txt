@@ -1,0 +1,8 @@
+E1 DEV decision run, attempt 1: start 2026-09-26T05:38:52+05:30, available RAM 3.5 GB, HEAD b8f1769
+46 affected statements, 2260 fallback runs, 6 workers (collapsed)
+recorded 2260 runs in 54s, spawn failures 0 -> data\outcomes\f2llm17b_all_dev_deep50_blankfb.jsonl.gz
+46 affected statements, 2260 fallback runs, 6 workers (placebo)
+recorded 2260 runs in 55s, spawn failures 0 -> data\outcomes\f2llm17b_all_dev_deep50_blankfb_placebo.jsonl.gz
+46 affected statements, 2260 fallback runs, 6 workers (retry)
+recorded 2260 runs in 59s, spawn failures 0 -> data\outcomes\f2llm17b_all_dev_deep50_blankfb_retry.jsonl.gz
+exit 0 ; end 2026-09-26T05:44:36+05:30; elapsed 344 s

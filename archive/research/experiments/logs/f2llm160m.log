@@ -1,0 +1,55 @@
+Loading CoIR-Retrieval/apps ...
+  corpus=8765  train=5000  test=3765
+Encoder: codefuse-ai/F2LLM-v2-160M on cuda (tier=interactive, tag=f2llm160m, attention budget 16,000,000, max batch 16)
+  query prefix   : 'Instruct: Retrieve the most relevant code snippet for the given query.\nQuery: '
+  max_seq_length : 8192   add_eos_token: True
+C:\Users\Asus\manish\CodeDoctor\.venv\Lib\site-packages\huggingface_hub\file_download.py:143: UserWarning: `huggingface_hub` cache-system uses symlinks by default to efficiently store duplicated files but your machine does not support them in C:\Users\Asus\.cache\huggingface\hub\models--codefuse-ai--F2LLM-v2-160M. Caching files will still work but in a degraded version that might require more space on your disk. This warning can be disabled by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For more details, see https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations.
+To support symlinks on Windows, you either need to activate Developer Mode or to run Python as an administrator. In order to activate developer mode, see this article: https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development
+  warnings.warn(message)
+`torch_dtype` is deprecated! Use `dtype` instead!
+Token indices sequence length is longer than the specified maximum sequence length for this model (24664 > 8192). Running this sequence through the model will result in indexing errors
+    batch 28/565: 448/8765 texts, 2s, peak 0.32 GiB
+    batch 56/565: 896/8765 texts, 4s, peak 0.32 GiB
+    batch 84/565: 1344/8765 texts, 6s, peak 0.32 GiB
+    batch 112/565: 1792/8765 texts, 7s, peak 0.32 GiB
+    batch 140/565: 2240/8765 texts, 9s, peak 0.33 GiB
+    batch 168/565: 2688/8765 texts, 10s, peak 0.33 GiB
+    batch 196/565: 3136/8765 texts, 12s, peak 0.34 GiB
+    batch 224/565: 3584/8765 texts, 14s, peak 0.34 GiB
+    batch 252/565: 4032/8765 texts, 17s, peak 0.35 GiB
+    batch 280/565: 4480/8765 texts, 19s, peak 0.35 GiB
+    batch 308/565: 4928/8765 texts, 22s, peak 0.36 GiB
+    batch 336/565: 5376/8765 texts, 26s, peak 0.36 GiB
+    batch 364/565: 5824/8765 texts, 29s, peak 0.37 GiB
+    batch 392/565: 6272/8765 texts, 33s, peak 0.38 GiB
+    batch 420/565: 6720/8765 texts, 37s, peak 0.39 GiB
+    batch 448/565: 7168/8765 texts, 42s, peak 0.41 GiB
+    batch 476/565: 7616/8765 texts, 48s, peak 0.43 GiB
+    batch 504/565: 8064/8765 texts, 56s, peak 0.46 GiB
+    batch 532/565: 8512/8765 texts, 66s, peak 0.54 GiB
+    batch 560/565: 8760/8765 texts, 109s, peak 0.70 GiB
+    batch 565/565: 8765/8765 texts, 114s, peak 0.70 GiB
+  corpus: 8765 texts in 178.6s (20 ms/text) norm[0.9963..1.0039]
+    batch 16/325: 256/5000 texts, 1s, peak 0.70 GiB
+    batch 32/325: 512/5000 texts, 3s, peak 0.70 GiB
+    batch 48/325: 768/5000 texts, 5s, peak 0.70 GiB
+    batch 64/325: 1024/5000 texts, 7s, peak 0.70 GiB
+    batch 80/325: 1280/5000 texts, 9s, peak 0.70 GiB
+    batch 96/325: 1536/5000 texts, 12s, peak 0.70 GiB
+    batch 112/325: 1792/5000 texts, 15s, peak 0.70 GiB
+    batch 128/325: 2048/5000 texts, 18s, peak 0.70 GiB
+    batch 144/325: 2304/5000 texts, 21s, peak 0.70 GiB
+    batch 160/325: 2560/5000 texts, 25s, peak 0.70 GiB
+    batch 176/325: 2816/5000 texts, 29s, peak 0.70 GiB
+    batch 192/325: 3072/5000 texts, 34s, peak 0.70 GiB
+    batch 208/325: 3328/5000 texts, 39s, peak 0.70 GiB
+    batch 224/325: 3584/5000 texts, 45s, peak 0.70 GiB
+    batch 240/325: 3840/5000 texts, 51s, peak 0.70 GiB
+    batch 256/325: 4096/5000 texts, 58s, peak 0.70 GiB
+    batch 272/325: 4352/5000 texts, 66s, peak 0.70 GiB
+    batch 288/325: 4608/5000 texts, 100s, peak 0.70 GiB
+    batch 304/325: 4863/5000 texts, 147s, peak 0.71 GiB
+    batch 320/325: 4995/5000 texts, 175s, peak 0.71 GiB
+    batch 325/325: 5000/5000 texts, 177s, peak 0.71 GiB
+  qtrain: 5000 texts in 190.2s (38 ms/text) norm[0.9964..1.0039]
+Wrote C:\Users\Asus\manish\CodeDoctor\artifacts\apps\manifest.json

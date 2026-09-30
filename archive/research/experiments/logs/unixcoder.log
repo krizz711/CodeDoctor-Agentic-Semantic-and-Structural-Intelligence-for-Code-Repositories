@@ -1,0 +1,7 @@
+No sentence-transformers model found with name microsoft/unixcoder-base. Creating a new one with mean pooling.
+C:\Users\Asus\manish\CodeDoctor\.venv\Lib\site-packages\huggingface_hub\file_download.py:143: UserWarning: `huggingface_hub` cache-system uses symlinks by default to efficiently store duplicated files but your machine does not support them in C:\Users\Asus\.cache\huggingface\hub\models--microsoft--unixcoder-base. Caching files will still work but in a degraded version that might require more space on your disk. This warning can be disabled by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For more details, see https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations.
+To support symlinks on Windows, you either need to activate Developer Mode or to run Python as an administrator. In order to activate developer mode, see this article: https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development
+  warnings.warn(message)
+microsoft/unixcoder-base on cuda, max_seq_length 512
+  corpus: 8765 texts in 405.5s
+  qtrain: 5000 texts in 427.0s

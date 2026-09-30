@@ -1,345 +1,169 @@
-<p align="center">
-  <img src="docs/assets/logo.png" alt="CodeDoctor" width="170" />
-</p>
+# CodeDoctor · VITV / Doctors
 
-<h1 align="center">CodeDoctor</h1>
+**Samsung PRISM GenAI Hackathon · Theme 01: Agentic Code Intelligence**
 
-<p align="center">
-  <b>Agentic semantic and structural intelligence for code repositories</b><br/>
-  Samsung PRISM GenAI Hackathon 2026 · Theme 01
-</p>
+CodeDoctor retrieves ranked source code. Our contribution is a **pre/post-processing
+architecture around an existing embedding model**: prepare reusable, version-aware
+representations before retrieval, then check candidate behavior against the query’s
+worked examples after retrieval. We do not train a new embedding model or generate
+answers in place of code.
 
-<p align="center">
-  <img alt="NDCG@10 0.96558" src="https://img.shields.io/badge/CoIR%20AppsRetrieval-NDCG%4010%200.96558-1f6feb?style=flat-square" />
-  <img alt="tests" src="https://img.shields.io/badge/tests-309%20passed%20%C2%B7%205%20skipped-2ea043?style=flat-square" />
-  <img alt="cpu" src="https://img.shields.io/badge/runs%20on-CPU-4dd8ff?style=flat-square" />
-  <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-555?style=flat-square" />
-</p>
+## Our pre/post-processing architecture
 
----
+| Stage | Scored AppsRetrieval path | Repository and version workbench |
+| --- | --- | --- |
+| Preprocess | Exact MTEB corpus text, pinned encoder recipe, offline content-addressed document embeddings | Tree-sitter chunks with file/line spans, symbol and call/import indexes, recipe-keyed embeddings reused across edits and renames |
+| Retrieve | F2LLM-v2 cosine similarity | Exact-symbol, BM25, structural and dense retrieval with routing and rank fusion |
+| Postprocess | Parse worked examples, verify candidate Python with stdin or call-style inputs, deepen verification when needed | Shared execution checks, verify competing variants before grouping by lineage, deduplicate unchanged content and retain version provenance |
+| Return | Official MTEB ranked predictions and result JSON | Ranked source spans with retrieval evidence, execution outcomes and version identity |
 
-Ask a repository a question in plain English. Get back **ranked code** — with
-the evidence for why each result ranked where it did, which retrieval passes
-ran, which were deliberately skipped, and what each one contributed to the
-score.
+The architectural distinction is **behavioral evidence after semantic retrieval**,
+combined with **reusable representations before retrieval**. Example execution can
+distinguish near-identical programs that compute different answers. Content-addressed
+embeddings avoid re-encoding unchanged functions when a repository changes. Version
+verification occurs before grouping, so a plausible but incorrect variant does not
+win merely because it was selected as the lineage representative.
 
-It is not a chatbot. The centre of the screen says *Relevant code · ranked by
-relevance*, never *AI answer*, because a ranked span of real source with a file
-and line number is checkable and a generated paragraph is not.
-
-| | |
-|---|---|
-| **CoIR AppsRetrieval · NDCG@10** | **0.96558** |
-| Dense pass alone, same frozen recipe | 0.93756 |
-| Published score for the same encoder | 0.93692 |
-| Test suite | **309 passed, 5 skipped** |
-| Cold index of a 7,132-line codebase | **1.0 s** (lexical, no model) |
-| Identifier lookup | **0.4 ms** |
-| First question on an unindexed repo | **5.6 s**, including building the index |
-
----
-
-## 1 · The problem has two halves that want opposite things
+These are our implementation contributions, not a claim that every component is new
+to research. BM25, embeddings, tree-sitter and rank fusion are established techniques.
+The workbench router and structural features do **not** produce the P0 MTEB score.
 
 ```mermaid
 flowchart LR
-  subgraph S["Screening half"]
-    direction TB
-    S1["CoIR AppsRetrieval<br/>8,765 programs · 3,765 queries"]
-    S2["one correct answer per query"]
-    S3["accuracy is everything<br/>latency is irrelevant"]
-    S1 --> S2 --> S3
-  end
-  subgraph D["Demo half"]
-    direction TB
-    D1["a real repository<br/>and somebody typing"]
-    D2["no labels, no gold"]
-    D3["latency is everything<br/>15 s is worse than 2 ms"]
-    D1 --> D2 --> D3
-  end
-  S -.->|same three passes| D
+    D[Code corpus or repository] --> P[Preprocess and cache]
+    P --> I[Reusable document vectors and version indexes]
+    Q[Natural-language query] --> R[Retrieve candidates]
+    I --> R
+    R --> V[Postprocess with executable examples]
+    V --> G[Rank and retain source/version evidence]
 ```
 
-A single pipeline serves both. What changes between them is **which passes
-run**, and that decision is made per query by a router rather than fixed in
-advance.
+## Configuration and operating points
 
-## 2 · Architecture
+`config/submission.yaml` is the final recipe: **F2LLM-v2-1.7B, CPU FP32 query
+inference**, pinned revision, published instruction prefix, EOS, last-token pooling,
+normalized vectors and 8,192-token cap. It enables accepted call-style verification,
+blank-line fallback, judge-like I/O, interactive-statement skipping, adaptive
+verification depth and CPU-time limits. No OpenVINO or llama.cpp treatment ships.
 
-```mermaid
-flowchart TD
-  Q["natural-language query"] --> R{"query router<br/><i>reads cheap signals</i>"}
+The optional **0.6B interactive tier** is a separate operating point. Its latency and
+quality must never be combined with the 1.7B results. The default for the evaluator
+and workbench is 1.7B. The original `config/frozen.yaml` remains unchanged.
 
-  R -->|always| EX["<b>exact symbol</b><br/>inverted index · ~0.1 ms"]
-  R -->|always| BM["<b>BM25</b><br/>postings list · ~2 ms"]
-  R -->|"call/import intent"| ST["<b>structural</b><br/>call graph · ~1 ms"]
-  R -->|"no identifier to match"| DE["<b>dense</b><br/>F2LLM-v2 encoder · seconds on CPU"]
+## Clean-clone setup and demo
 
-  EX --> F["reciprocal rank fusion<br/>k = 60"]
-  BM --> F
-  ST --> F
-  DE --> F
+Use Python 3.11 or 3.12 and Git. Allow sufficient disk space for model weights and
+several GB of free RAM for the 1.7B model. First use downloads the pinned model.
 
-  F --> E{"evidence strong?"}
-  E -->|"rank 1 IS the named symbol"| OUT
-  E -->|"ambiguous → escalate"| DE
-
-  F --> V["<b>execution verification</b><br/>run the candidate against the<br/>query's own worked examples"]
-  V --> OUT["ranked code + evidence"]
-
-  style R fill:#0b1728,stroke:#4dd8ff,color:#edf4ff
-  style V fill:#0b1728,stroke:#ffd65a,color:#edf4ff
-  style OUT fill:#0b1728,stroke:#42d392,color:#edf4ff
+```sh
+git clone https://github.com/krizz711/CodeDoctor-Agentic-Semantic-and-Structural-Intelligence-for-Code-Repositories.git
+cd CodeDoctor-Agentic-Semantic-and-Structural-Intelligence-for-Code-Repositories
+python -m venv .venv
+source .venv/bin/activate
+# Linux CPU; on macOS use: pip install torch==2.8.0
+pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements-submission.txt
+python -m uvicorn app.server:app --host 127.0.0.1 --port 8077
 ```
 
-Indexing is **tree-sitter** over Python, JavaScript, TypeScript and TSX,
-producing structure-aware chunks with exact source spans plus a call/import
-edge table.
+Open `http://127.0.0.1:8077`, choose a local repository, build its index, and search
+or compare versions. On Windows activate with `.venv\Scripts\Activate.ps1`.
+For the explicit smaller mode, set `CODEDOCTOR_TIER=interactive` before starting
+the server. It is not the scored accuracy configuration.
 
-## 3 · The router — the agentic layer
+## Reproduce the submission
 
-Running every pass on every query makes the cheap case cost as much as the
-expensive one. A question naming `authenticate_user` is answered exactly by an
-index lookup, and then, in a naive pipeline, waits on an embedding that cannot
-change the answer.
+The [recorded commands](scripts/README.md) cover Kaggle and direct execution.
+The [reporting protocol](docs/submission/PROTOCOL.md) specifies the frozen behavior,
+checks, dataset exposure and time limits. The hosted builder packages exact Git
+blobs and records the source commit, checksums, hardware, packages and raw logs.
 
-```mermaid
-sequenceDiagram
-  participant U as User
-  participant R as Router
-  participant L as Lexical passes
-  participant D as Dense encoder
+1. Build the complete offline document cache. GPU preprocessing is allowed by the FAQ.
+2. Run the 40-function rebuild fixture three times and the 12-lineage version fixture
+   on CPU with the 1.7B tier.
+3. Encode four disjoint CPU query shards, preserving checkpoints and provenance.
+4. Merge verified shards, re-encode 30 seeded queries live and score once with the
+   official MTEB AppsRetrieval evaluator using `cache=None`.
+5. Validate the JSON and verify measured source against the release commit.
 
-  U->>R: "createOption"
-  R->>R: plan — identifier present, defer dense
-  R->>L: exact + bm25
-  L-->>R: rank 1 = createOption
-  R->>R: escalate? rank 1 IS the named symbol → no
-  R-->>U: 0.4 ms
+The staged query stores are an authorized execution checkpoint. No test labels
+choose the model, configuration or shards. **Final scoring replay time is not live
+retrieval latency**; report CPU encoding and scoring stages separately. A judge can
+run the same evaluator without saved query vectors. `running.ipynb` is a generated
+companion notebook, not a separate implementation.
 
-  U->>R: "how does it decide an option is required"
-  R->>R: plan — 7 words, no identifier
-  R->>L: exact + bm25
-  R->>D: dense (planned up front)
-  D-->>R: vectors
-  R-->>U: 26,126 ms (26,097 ms encoding)
+## Results and evidence status
+
+Final CPU measurements are being collected; no new final score is claimed yet.
+The root `appsretrieval_results.json` is **historical**: NDCG@10 0.96558 and MRR@10
+0.95857 with the original frozen configuration and GPU query encoding. It does not
+measure the current CPU submission. New results belong under `results/final/`.
+
+P1 and Bonus fixtures exercise the real workbench. Bonus intentionally includes
+incorrect variants that fail the supplied examples; its outcome is a synthetic
+functional check, not unseen-repository accuracy. Rebuild timings are specific
+to the measured machine and fixture.
+
+Research outcomes, including null and negative findings, remain in the
+[experiment register](experiments/REGISTER.md). Original runnable research is
+preserved by tag `research-archive-2026-09-30`; archived files and path mappings
+are under [archive](archive/README.md). C3 OpenVINO runs were void. C4 Q8 was
+stopped incomplete and was not adopted.
+
+## Disclosures and limitations
+
+- The model’s documented training sources make APPS/CodeContests exposure plausible;
+  per-problem exposure is unverified. See the preserved
+  [training-data disclosure](docs/history/README-before-final-submission.md#disclosures-added-after-the-samsung-faq).
+- Earlier execution-depth and numeric-comparison choices used the APPS test split.
+  The historical audit is retained. The current final run reports a frozen choice;
+  it cannot establish wholly unseen generalization.
+- Example parsing can fail, fragments may not execute independently, and passing
+  visible examples does not prove program correctness. Queries without runnable
+  examples retain retrieval-based ordering.
+- Candidate code runs in a resource-limited subprocess. This is **not filesystem or
+  network isolation**. Run benchmark code in a disposable environment.
+- CPU query encoding can be expensive. We make no unmeasured speedup claim and
+  impose no invented jury latency threshold.
+- The FAQ prefers CPU retrieval and permits GPU preprocessing, including updates.
+  It does not require an absolute CPU-only workflow. Full verbatim FAQ: `CLAUDE.md`.
+
+## Development checks
+
+```sh
+pip install ruff
+python -m pytest -q -rs -m "not model and not data"
+python -m ruff check app scripts tests --select F401,F811
+python -m compileall -q app scripts tests
+make -B
+make -B test
+python scripts/evaluate.py scripts/sample_eval.jsonl --output build/sample_results.json
+python scripts/validate_submission.py build/sample_results.json
 ```
 
-Both measured on the same corpus in the same session. Every decision carries a
-reason string, and the UI renders them — a planner whose choices you cannot
-inspect is an if-statement with better branding.
+Model/data tests require their artifacts and are reported separately. Format checks
+alone do not reproduce scores. See [project instructions](AGENTS.md) for evidence
+rules. Model and bundled dependency licenses remain those of their upstream authors;
+the repository does not currently include a top-level license grant.
 
-**The sharpest gate is execution verification**, because it needs worked
-examples in the query text, and that is a property of the *dataset*, not the
-wording:
+## Submission materials and checklist
 
-| corpus | queries carrying worked examples | execution pass |
-|---|---|---|
-| CoIR AppsRetrieval | **3,676 / 3,765 — 97.6%** | fires |
-| CodeTransOceanDL | **0 / 180 — 0.0%** | cannot fire |
-| CodeTransOceanContest | **0 / 221 — 0.0%** | cannot fire |
+| Checklist Item | Location / Reference | Notes |
+| --- | --- | --- |
+| **Working Prototype Code** | GitHub repository root (`main` branch) | Reproducible setup via virtualenv or Docker |
+| **Requirements** | [`requirement.txt`](requirement.txt) / [`requirements.txt`](requirements.txt) | Pinned dependency specifications |
+| **Presentation Deck** | [`VITV_Doctors_Submission.pptx`](VITV_Doctors_Submission.pptx) | Editable 12-slide template submission |
+| **Presentation PDF** | [`VITV_Doctors_Submission.pdf`](VITV_Doctors_Submission.pdf) | Matching high-resolution PDF export |
+| **Demo Video** | [Demo Video Link (Google Drive / YouTube)](https://drive.google.com/your-demo-video-link) | 5-minute walkthrough of indexing, retrieval, and versioning |
+| **AI Disclosure** | [`LangAI3.0_AI_Disclosure.docx`](LangAI3.0_AI_Disclosure.docx) | Completed AI tools disclosure form |
+| **Release Tag** | `PRISM_GENAI_HACKATHON_Y2026` | Official judge-facing release tag on final commit |
 
-`parse_worked_examples()` answers that in microseconds, so the pass is cheap to
-skip and expensive to run blind.
+### Demo Video Walkthrough
+- **Recording Link:** [Demo Video Walkthrough (Google Drive / YouTube)](https://drive.google.com/your-demo-video-link)
+- **Duration:** Under 5 minutes
+- **Content:** Demonstrates repository onboarding, tree-sitter chunking, semantic natural language search with source span citations, fast incremental re-indexing with vector reuse, and cross-version behavioral ranking using executable worked examples.
 
-## 4 · What each pass is actually worth
-
-Held-out DEV, paired bootstrap, 2,000 resamples — measured, not asserted:
-
-| stage | NDCG@10 | verdict |
-|---|---|---|
-| Dense only | 0.89659 | baseline |
-| + execution verification, top-5 | 0.93207 | |
-| + execution verification, top-10 | 0.94061 | |
-| + execution verification, top-20 | 0.95486 | ✅ **+0.0583, 95% CI [+0.0457, +0.0702]** |
-| + nine-feature reranker | +0.0048 | ❌ **CI spans zero — rejected** |
-| + numeric output comparison | +0.00468 | ✅ CI [+0.00117, +0.00891], p = 0.017 |
-
-**The reranker made the number go up and was rejected anyway.** It ships as the
-identity configuration — the code is present, the weights are not applied, and
-`config/reranker.json` records the decision. That is the single most important
-thing in this repository: a gate that is only honest when it costs you
-something.
-
-Depth 20 over depth 10 is measured too: it recovers 25 golds sitting at dense
-ranks 11–20, costs 13 to false verification, and nets **+8 rank-1 hits**. It is
-affordable precisely because the deeper half verifies at 0.80% against 8.41%
-for ranks 1–10 — a document the dense pass ranked 11th is far less likely to be
-a program that passes the same examples.
-
-## 5 · Proof of test results
-
-```
-$ python -m pytest -q
-........................................................................ [ 45%]
-............................................sssss....................... [ 68%]
-........................................................................ [ 91%]
-..........................                                               [100%]
-309 passed, 5 skipped in 64.45s (0:01:04)
-```
-
-Verbatim in [`docs/evidence/test-run.txt`](docs/evidence/test-run.txt).
-**30 test files, 314 tests.** The largest groups:
-
-| tests | file | what it pins |
-|---|---|---|
-| 45 | `test_execution_rerank.py` | sandbox, timeouts, worked-example parsing |
-| 34 | `test_pipeline_reranker.py` | the rejected reranker stays the identity |
-| 33 | `test_workbench.py` | fusion arithmetic, version isolation, promotion |
-| 21 | `test_router.py` | every routing decision, and the escalation loop |
-| 21 | `test_pipeline_analysis.py` | query-family classification |
-| 16 | `test_pipeline_encoder.py` | the frozen recipe is applied, not described |
-
-Four of these exist purely to stop a number being reported that was never
-computed: `test_result_cache_disabled`, `test_config_freeze`,
-`test_published_recipe`, `test_firewall_audit`.
-
-The five skips are the MTEB-registry checks, which need the optional `mteb`
-dependency. They are **not** quietly ignored — CI runs them in their own job
-and fails if they collect anything other than five tests.
-
-> **How we found out 30 tests were not running.** `test_published_recipe.py`
-> called `pytest.importorskip("mteb")` inside a class decorator. That argument
-> is evaluated at *module import*, and `importorskip` raises, so the whole file
-> was skipped and reported as a single innocuous `1 skipped`. Thirty tests —
-> every frozen-recipe guard in the project — had not run in the default
-> environment. Scoping the skip to the class surfaced them, and one had drifted:
-> it still asserted `execution_candidates == 10` after the config moved to 20.
-> A guard nobody runs is not a guard.
-
-> ### The trap they guard against
->
-> `mteb.evaluate` defaults to `cache=ResultCache(~/.cache/mteb)` with
-> `overwrite_strategy="only-missing"`. Our encoder advertises the **upstream**
-> model meta, so on any machine that has pulled MTEB's public results
-> repository the evaluator matches a *published leaderboard result* and returns
-> it **without running a single forward pass** — in about 11 seconds, in a
-> well-formed result JSON, wearing the base encoder's score.
->
-> We hit exactly this and nearly published it. Both evaluation paths now pass
-> `cache=None`, and `tests/test_result_cache_disabled.py` fails if that is
-> removed. **If an evaluation finishes in seconds, the number is not yours.**
-
-## 6 · Does it generalise, or is it tuned to the benchmark?
-
-The fair question. The repository answers it by running the **unchanged**
-pipeline against tasks it was never tuned on — `scripts/blind_eval.py` imports
-`build_mteb_encoder`, `get_pipeline_config` and `get_tier_model` from the
-submission path rather than reimplementing them, so the only thing that differs
-is the dataset handed to `mteb.evaluate`.
-
-| task | NDCG@10 | wall clock | execution eligible |
-|---|---|---|---|
-| CodeTransOceanDL | 0.35442 | 47 min (CPU) | 0 / 180 |
-
-**This is not presented as a win.** On that task the reranker is the identity
-and no query carries worked examples, so the pipeline reduces to its dense pass
-— there is nothing of this project's contribution left in the number. The
-honest claim is narrower, and it is still worth making: the frozen recipe
-transfers to a task shaped nothing like APPS without collapsing, and where a
-pass cannot contribute it is **reported as skipped rather than quietly
-credited**.
-
-## 7 · Repository intelligence (P1 and the Bonus goal)
-
-```mermaid
-flowchart LR
-  subgraph V["Version isolation · P1"]
-    C1["commit A"] --> S1["snapshot A"]
-    C2["commit B"] --> S2["snapshot B"]
-    QQ["query pinned to A"] --> S1
-    S1 --> RR["results"]
-    S2 -. "never reachable" .-> RR
-  end
-```
-
-**P1 — version-aware retrieval.** A query pinned to commit K sees that commit's
-chunks and nothing else. An unknown commit **raises** rather than silently
-falling back to HEAD, and every result set is checked for cross-commit leakage
-before it is returned.
-
-**Bonus — retrieval across all versions.** Searching every snapshot naively
-makes things worse: a function that survived ten commits returns ten
-near-identical rows and crowds everything else out. Results are grouped by
-**canonical identity** — file path plus symbol name, which is what survives a
-version change — and each group collapses to its best-scoring variant, carrying
-the list of versions it appears in.
-
-Measured on a real repository: **5 distinct snippets in the top 5, against 3
-when ungrouped.** Evidence in
-[`data/blind/tier3-commander.txt`](data/blind/tier3-commander.txt).
-
-**Structural retrieval.** "What calls `verify_candidate`" is a graph query
-against the extracted call/import edges, not a text match.
-
-## 8 · Evaluation integrity
-
-- **Leakage firewall.** `DevelopmentHarness.get_test_split()` raises during
-  development. Access needs an explicit authorisation reason and lands in
-  `data/test_split_audit_log.json`.
-- **No improvement claimed without a paired bootstrap CI excluding zero.**
-- **Frozen configuration.** `config/frozen.yaml` pins the model *and its
-  revision SHA*, both prefixes, `add_eos_token` and `max_seq_length`. Two tests
-  assert the file against the published recipe.
-- **Columns that would have leaked, refused.** `meta_information` is identical
-  for 500/500 query–gold pairs and `partition` removes 57% of the candidate
-  pool for free. Both documented, both unused.
-
-## 9 · Quick start
-
-```bash
-pip install -r requirements.txt
-python -m uvicorn app.server:app --port 8077
-```
-
-Open <http://127.0.0.1:8077/>, choose **Open a folder…**, paste any local path.
-Then just type a question — if the target is not indexed yet it builds itself
-and answers. Measured from a cold server: **5.6 s to ten ranked hits**.
-
-## 10 · Reproducing every number
-
-```bash
-python -m pytest -q                       # 309 passed, 5 skipped
-python scripts/run_all.py                 # acceptance pipeline
-python scripts/run_ablation.py            # per-pass value, paired bootstrap
-python scripts/judge_endtoend.py --repo test_repos/commander
-python scripts/evaluate_mteb.py --device cpu --output appsretrieval_results.json
-python scripts/blind_eval.py --task CosQA --tier interactive
-python scripts/make_blind_notebook.py     # GPU notebook for the blind suite
-```
-
-CI runs the tests, the lint, the C++ core, the evaluation harness, artifact
-validation and an end-to-end retrieval on an unseen repository on every push.
-The weight-loading and dataset-dependent tests are deselected there on purpose
-— a job whose result depends on a third-party download is a coin toss, not a
-check — and they run locally and in the Kaggle notebook instead.
-
-## 11 · Layout
-
-```
-app/
-  agent/router.py              which passes a query needs, and why
-  retrieval/hybrid.py          exact + BM25 + dense, RRF fusion
-  retrieval/encode.py          the frozen F2LLM recipe
-  pipeline/execution_rerank.py sandboxed verification
-  indexing/versioned.py        snapshot isolation, cross-version collapse
-  parser/chunker.py            tree-sitter chunking with exact spans
-  workbench.py                 the service behind the demo
-config/frozen.yaml             the submission recipe, pinned by revision SHA
-scripts/blind_eval.py          same pipeline, unseen datasets
-web/dist/index.html            the workbench UI — no build step, no CDN
-docs/evidence/                 raw output behind the numbers above
-```
-
-## 12 · Known limits
-
-- **CPU encoding is slow** — 0.35 texts/s for the 0.6B tier on six threads. The
-  router exists partly because of this. A GPU removes it: MTEB's own published
-  `evaluation_time` for this encoder over the entire APPS corpus is 74.9 s.
-- **The execution pass is APPS-shaped by construction.** It is the largest
-  single contributor to the screening score and contributes nothing to a
-  general repository question. §3 gives the number rather than the excuse.
-- **Running the full suite with the demo server up can fail** on an 8 GB
-  machine — two 2.4 GB encoders do not fit. Stop the server first.
-- **The 1.7B accuracy tier needs a GPU or ~8 GB free.** The interactive tier is
-  the 0.6B model and is what the live service uses.
+### Team Information
+- **College:** VITV (Vellore Institute of Technology, Vellore)
+- **Team Name:** Doctors
+- **Theme:** Theme 01: Agentic Code Intelligence

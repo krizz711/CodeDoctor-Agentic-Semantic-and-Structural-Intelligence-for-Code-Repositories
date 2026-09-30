@@ -1,0 +1,13 @@
+[03:19:08] ext_queries
+[03:20:19] ext_queries done
+[03:20:19] ext_corpus
+[03:23:22] ext_corpus done
+[03:23:22] ver_queries
+[03:23:36] ver_queries done
+[03:23:36] ver_corpus
+[03:25:25] ver_corpus done
+[03:25:25] f2llm160m
+[03:32:04] f2llm160m done
+[03:32:04] unixcoder
+[03:47:21] unixcoder done
+[03:47:21] queue complete

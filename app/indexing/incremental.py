@@ -7,7 +7,7 @@ import time
 from typing import Optional
 import numpy as np
 
-from app.indexing.cache import EmbeddingCache, compute_embedding_key
+from app.indexing.cache import EmbeddingCache, recipe_cache_key
 from app.indexing.sqlite_index import SQLiteIndex
 from app.retrieval.encode import CodeEncoder, get_shared_encoder
 
@@ -139,7 +139,7 @@ class IncrementalIndexer:
                         sig = crow["signature"]
                         cnt = crow["content"]
                         enc_in = f"{sig}\n{cnt}" if sig else cnt
-                        ckey = compute_embedding_key(enc_in)
+                        ckey = recipe_cache_key(self._get_encoder(), enc_in)
                         if not self.cache.has(ckey, real_only=True):
                             can_skip = False
                             break
@@ -185,9 +185,10 @@ class IncrementalIndexer:
                 if chunk_hash not in old_chunk_hashes and db_entry:
                     stats.changed_chunks += 1
 
-                # Invariant embedding cache key: path and line number excluded!
+                # Invariant embedding cache key: path and line number excluded,
+                # the encoder's full recipe included (a model swap must re-encode).
                 encoder_input = f"{chunk.signature}\n{chunk.content}" if chunk.signature else chunk.content
-                cache_key = compute_embedding_key(encoder_input)
+                cache_key = recipe_cache_key(self._get_encoder(), encoder_input)
 
                 if compute_embeddings:
                     if self.cache.has(cache_key, real_only=True):

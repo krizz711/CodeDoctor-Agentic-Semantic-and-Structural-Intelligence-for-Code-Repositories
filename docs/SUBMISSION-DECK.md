@@ -36,10 +36,12 @@ Not in scope: generating an answer, explaining the results.
             (family,     │                  │   (AST facts,
              identifiers)│                  │    shape)
                          ▼                  ▼
-                  frozen dense encoder (F2LLM-v2, CPU)
+       frozen dense encoder (F2LLM-v2-1.7B; the scored run encoded
+       corpus and queries on a T4 -- see README "Disclosures")
                               │  top-50 pool
                               ▼
-                   9-feature linear reranker
+                   9-feature linear reranker (measured, rejected:
+                                              ships as identity)
                               │
                               ▼      (shipped on; --no-execution)
                    execution verification

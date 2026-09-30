@@ -1,0 +1,488 @@
+{
+ "reports": [
+  {
+   "goal": "Retrieval-time efficiency on CPU without giving up P0 accuracy. Almost all of the per-query cost is encoding the query with F2LLM-v2-1.7B on CPU: 7.83 s mean and 8.5 GB peak RAM on Kaggle's 2-core CPU, and the author's 7.7 GiB laptop cannot run it at all. The task is to cut that cost while keeping the 1.7B document space, which is built offline where a GPU is allowed. Scope: brief (\"expected on run on CPU with minimal GPU resource utilization\"; the demo should show \"how fast your solution is\"), FAQ A (\"During retrieval, you should make minimal use of the GPU (ideally use the CPU only)\"), FAQ B (\"relying on a large model during retrieval is not efficient\"), and the FAQ's remark that the choice of model is not expected to have \"a significant impact\". Every candidate below changes only the query tower or the query input. Documents, execution and the frozen config stay as they are, and any new behaviour goes behind a default-off switch.",
+   "landscape": "Industry keeps the large document index and makes the query side cheaper. (1) Asymmetric query-encoder distillation: KALE prunes and aligns only the query encoder, with no re-indexing (https://arxiv.org/abs/2304.01016; \"3x faster inference\" beyond DistilBERT on MSMARCO/NQ/TriviaQA/SQuAD/SciFact). A 2-layer distilled query encoder keeps \"92.5%\" of the full dual encoder's BEIR performance (https://arxiv.org/abs/2306.11550). LEAF (MongoDB, ACL 2026) trains a student with an L2 loss to the teacher's vectors, without labels. In asymmetric mode leaf-ir (23M, teacher arctic-embed-m-v1.5) scores 54.8 BEIR NDCG@10, \"97.7%\" of the teacher (https://arxiv.org/html/2509.12539v2). (2) Unpaired space translation (vec2vec, NeurIPS 2025) reaches cosine \"as high as 0.92\" to the true target vectors (https://arxiv.org/abs/2505.12540). (3) CPU quantisation. Sentence-transformers reports a \"4x speedup for CPU with OpenVINO int8 static quantization\"; the model and dataset are not stated in the text (https://github.com/huggingface/sentence-transformers/releases/tag/v3.3.0). OpenVINO ships Qwen3-Embedding-0.6B as weight-only INT8_ASYM via nncf.compress_weights, with no accuracy figures (https://huggingface.co/OpenVINO/Qwen3-Embedding-0.6B-int8-ov). Qwen ships a Q8_0 GGUF with `llama-embedding --pooling last`, also with no quantised benchmarks (https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF). LLM.int8 explains why naive int8 fails: outlier features need mixed precision (https://arxiv.org/abs/2208.07339). (4) Neighbouring fields: the tuned lens fits an affine probe per layer to decode intermediate states (https://arxiv.org/abs/2303.08112), and \"Layer by Layer\" finds that intermediate layers often beat the final layer on MTEB (https://arxiv.org/abs/2502.02013). Together they suggest an early-exit query tower. The F2LLM-v2 family runs from 80M to 14B and supports Matryoshka (https://huggingface.co/codefuse-ai/F2LLM-v2-1.7B). Its card does not say that the sizes share one embedding space, and our data shows they do not.",
+   "readonly_measurements": [
+    "Sanity check. scratchpad/research/qmap.py on the stored vectors, DEV all families (2,500, seed 20260919): dense 1.7B NDCG@10 0.92792 (stdin 0.90155); 0.6B 0.90056 (delta -0.02736); 160M 0.69804. All reproduce the repo's numbers.",
+    "Linear map from a small query encoder into the 1.7B document space (qmap.py; ridge regression fitted label-free on TUNE query pairs, lambda chosen by inner cross-validation; 89.6 s). For 0.6B the mapped query has DEV cosine 0.8427 to the true 1.7B vector, and NDCG@10 is 0.89618, below native 0.6B (0.90056). Fusing native and mapped scores (alpha 0.4, fitted on TUNE) gives 0.90765: +0.0071 over native 0.6B, still -0.0203 [-0.0255,-0.0153] against 1.7B. For 160M: mapped cosine 0.695, NDCG 0.714, fusion 0.755. Negative control (map fitted on shuffled pairs): 0.001, as it should. A map fitted on corpus document pairs is worse than one fitted on queries (0.6B 0.89481).",
+    "0.6B-to-1.7B cascade, replayed exactly from the outcome stores. Command: PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe scripts/simulate_cascade.py --small data/outcomes/f2llm06b_all_{dev,tune}_r2.jsonl.gz --large data/outcomes/f2llm17b_all_{dev,tune}.jsonl.gz, with the cost parameters set to the measured CPU seconds (2.79 and 7.83). DEV: delta -0.00182 [-0.00374,+0.00008], escalation 55.8%, encoding cost -8.6%. TUNE: delta -0.00026, escalation 57.4%, cost -7.0%. This uses the script's judge-aware policy. Side finding: the script crashes on Windows cp1252 consoles when it prints the Greek delta (\u0394), unless PYTHONIOENCODING=utf-8 is set.",
+    "The same cascade split by family (scratchpad/research/cascade_family.py, call-style policy, depth 20). Stdin, stop on any strong verification: DEV escalation 0.286, delta -0.00243 [-0.00709,+0.00231], 18 statements changed; TUNE escalation 0.258, delta -0.00096 [-0.00687,+0.00520], 19 changed. Estimated encoding time (from the Kaggle means) is 5.03 and 4.81 s vs 7.83 s, i.e. about 36-38% less. Other families escalate 72-74%, so the cascade costs about 7-10% more there. Stricter stop rule (the dense rank-1 verifies): stdin escalation 0.43/0.39, delta -0.0012/-0.0012.",
+    "Query length (scratchpad/research/toklen.py; tokenizer.json from the cached 0.6B snapshot, same vocab_size 151936 as the 1.7B config; the 1.7B tokenizer itself is not cached locally): DEV all families p50 330, p90 723, p99 1293 tokens, mean 397.5. DEV stdin (882) p50 498, mean 526.1. A 256-token cap keeps 47.6% of stdin tokens (91% of statements truncated); 384 keeps 67.6%; 512 keeps 82.1%.",
+    "Naive torch dynamic int8 (scratchpad/research/int8_probe.py; 0.6B on the local laptop CPU, 6 threads, 5 seeded TUNE statements, median 653 characters): fp32 2.235 s mean, cosine to the stored vectors 0.99938. int8 (torch.ao.quantize_dynamic, all nn.Linear): 1.175 s (1.9x faster), but cosine to fp32 is only 0.208 median. The encoder is destroyed. An earlier fp32 run of 15 statements measured 14.8 s/query while only 3.6 GB RAM was free, which looks like a memory-pressure artefact, so that number is not used.",
+    "Weight-only fake quantisation of the 0.6B weights, activations kept fp32 (wq_probe.py, wq_probe2.py; 8 TUNE statements; fidelity only, no speed claim). Median cosine to fp32: W8 per-channel 0.987; W8 symmetric block-32 (Q8_0-like) 0.997 (min 0.996); W8 block-128 0.995; W4 group-128 0.528; W4 block-32 0.603. Quantising one projection type at a time (W8 per-channel): q/k 0.99994, o 0.99953, gate 0.99972, up 0.99944, v 0.99763, down 0.99148, so down_proj and v_proj are the sensitive layers. Nothing reaches R2's 0.999 fidelity bar yet.",
+    "1.7B architecture (cached config.json): Qwen3Model, 28 layers, hidden size 2048, intermediate 6144, bfloat16 checkpoint. The frozen config warns that truncation under last-token pooling 'silently produces a wrong vector' when it drops the EOS token. Any cap must therefore cut the text and then append EOS."
+   ],
+   "candidates": [
+    {
+     "name": "C1: Mixed-precision weight-only int8 on the 1.7B query tower (documents stay fp32 GPU vectors)",
+     "scope_goal": "CPU efficiency at retrieval; the laptop and the demo can run the shipped 1.7B",
+     "scope_quote": "During retrieval, you should make minimal use of the GPU (ideally use the CPU only).  /  brief: demo should show \"how fast your solution is\"",
+     "prior_art": [
+      {
+       "title": "LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale",
+       "url": "https://arxiv.org/abs/2208.07339",
+       "finding": "Outlier features ruin plain int8; the fix is mixed-precision decomposition (outlier dimensions kept in 16-bit).",
+       "verified": true
+      },
+      {
+       "title": "OpenVINO/Qwen3-Embedding-0.6B-int8-ov",
+       "url": "https://huggingface.co/OpenVINO/Qwen3-Embedding-0.6B-int8-ov",
+       "finding": "A Qwen3 embedder shipped with weight-only INT8_ASYM (nncf.compress_weights). No accuracy or speed figures.",
+       "verified": true
+      },
+      {
+       "title": "Qwen3-Embedding-0.6B-GGUF",
+       "url": "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF",
+       "finding": "Q8_0 GGUF, run with llama-embedding --pooling last. No quantised benchmarks.",
+       "verified": true
+      },
+      {
+       "title": "sentence-transformers v3.3.0 release",
+       "url": "https://github.com/huggingface/sentence-transformers/releases/tag/v3.3.0",
+       "finding": "Claims a '4x speedup for CPU with OpenVINO int8 static quantization'; the model and dataset are not given in the text.",
+       "verified": true
+      }
+     ],
+     "novelty_vs_trodden": "R2 tried bf16 on CPU (39.4 s, fails fidelity). int8 was never tried. New here: the local probes show that the obvious route (torch dynamic int8) runs 1.9x faster but destroys the vector (cosine 0.21), and that the error sits in down_proj and v_proj. The candidate is therefore block-wise W8 with down_proj and v_proj kept in full precision (about 1/3 of the parameters, estimate from Qwen3 shapes). Asymmetric quantisation (query side only) is the design point: the document vectors are untouched.",
+     "protocol": "Pre-register first. Arm A, fidelity-to-NDCG on a Kaggle T4, no fast kernel needed: fake-quantise the 1.7B weights for (i) W8 block-32 on all layers and (ii) W8 block-32 with down_proj and v_proj in fp32. Encode the 2,500 DEV and 2,500 TUNE queries with the frozen recipe and score dense NDCG@10 against the stored fp32 1.7B corpus vectors. Choose the variant on TUNE and report DEV. Then replay the pipeline, recording outcomes locally for any new top-20 documents. Arm B, speed on a Kaggle CPU kernel of the same class as R2 (2 cores, torch 2 threads): run the chosen variant through one real kernel (OpenVINO weight compression via optimum-intel, or llama.cpp Q8_0 with the sensitive tensors kept f16) on R2's seeded 100 TUNE statements. Report mean and p95 seconds, peak RAM, and cosine to the stored vectors. Arm C: repeat on the laptop, which is only possible if peak RAM stays under about 6 GB.",
+     "baseline": "Dense DEV NDCG@10 0.92792 (1.7B fp32); DEV pipeline, same policy, fp32 queries; CPU 7.83 s/query mean (p95 15.7), 8.5 GB peak (R2, Kaggle 2-core).",
+     "min_effect": "At least 1.5x lower mean encoding time (<= 5.2 s) with dense DEV delta >= -0.002 (non-inferior, bootstrap lower bound plus sign-flip, statements changed reported) and pipeline DEV delta >= -0.002. Secondary: peak RAM <= 6 GB, so the author's laptop can run the shipped encoder.",
+     "cost": "Arm A: Kaggle T4, about 20-30 min for 5,000 queries x 2 variants (estimate); scoring offline with the stored vectors takes seconds. Arm B: Kaggle CPU, about 1-2 h including export (estimate). New pinned dependency (openvino/optimum-intel or llama-cpp-python), installed only on Kaggle until approved.",
+     "risks": "R2 found bf16 slower on this Kaggle CPU, so fast int8 kernels (VNNI) may be missing too; speed is unverified. Mixed precision leaves about 1/3 of the FLOPs at fp32, capping the speedup at roughly 1.5-2x (estimate). An export path (OpenVINO or GGUF) must reproduce the EOS and last-token pooling exactly. A new runtime adds weight to the judges' MTEB re-run (FAQ), so it needs its own install check in CI. The 0.6B fidelity results may not transfer to 1.7B.",
+     "cheapest_falsifying_check": "Arm A with variant (ii) on the 2,500 TUNE queries only (about 15 min on a T4). If the dense TUNE delta is below -0.005 against 0.9328-level fp32 (the TUNE number from the stored vectors), stop. Before that, locally and for free: extend wq_probe2.py to keep down/v fp32 on 0.6B and check that median cosine is >= 0.999; if it is not, stop.",
+     "expected_value": "Estimate: a 1.4-2x CPU speedup at dense delta around -0.001, with P(passes both bars) about 0.4. The largest practical gain is that the shipped model runs on a 7.7 GiB machine (about 2-3 GB of weights instead of 6.9 GB)."
+    },
+    {
+     "name": "C2: Prose-first query view: cap the encoder input by tokens, and send the full statement to the verifier",
+     "scope_goal": "CPU efficiency at retrieval; generalises (a prose-only query is not APPS-specific)",
+     "scope_quote": "relying on a large model during retrieval is not efficient as this cost is incurred for every query",
+     "prior_art": [
+      {
+       "title": "CodeDoctor V2 plan, PRE-2 (internal)",
+       "url": "file:///C:/Users/Asus/manish/CodeDoctor/docs/V2-ARCHITECTURE-PLAN.md",
+       "finding": "Planned, never run: encode the prose only and route the examples to the verifier; examples and notes are about 20% of characters.",
+       "verified": true
+      },
+      {
+       "title": "Query Encoder Distillation via Embedding Alignment (short query towers)",
+       "url": "https://arxiv.org/abs/2306.11550",
+       "finding": "The query side tolerates heavy compression (2-layer encoder keeps 92.5% on BEIR). Evidence only that query-side information is redundant, not about truncation itself.",
+       "verified": true
+      }
+     ],
+     "novelty_vs_trodden": "Not tried. PRE-2 was planned at 0.6B and never run. New: measured token counts show stdin queries average 526 tokens, and a 256-token cap keeps 47.6% of them. The division of labour is intended: the encoder only has to find the right problem, and the verifier still reads the full statement. The frozen config's warning is handled by truncating the text and then appending EOS, not by lowering max_seq_length.",
+     "protocol": "Pre-register first. Views: token caps of 256, 384 and 512 (text cut, EOS appended), plus the parser's prose-only view (sections before Examples). Kaggle T4: encode the 5,000 train queries per view with the frozen 1.7B recipe. Offline: dense NDCG@10 against the stored corpus vectors; choose the view on TUNE, report DEV. Then replay the call-style pipeline. Top-20 documents missing from the 1.7B and 0.6B stores are recorded locally with record_outcomes (CPU). CPU seconds per view come from one Kaggle CPU run on R2's 100 TUNE statements. Hold-out check: the CodeContests EXT-dev 1.7B stores (already adaptively reused, stated as such).",
+     "baseline": "Dense DEV 0.92792 (stdin 0.90155); call-style pipeline DEV (R1); 7.83 s/query.",
+     "min_effect": "Pipeline DEV delta >= -0.002 (non-inferior; sign-flip; statements changed reported) at >= 1.4x measured CPU speedup on stdin statements.",
+     "cost": "Kaggle T4 about 30-40 min for 4 views x 5,000 queries (estimate; shorter inputs encode faster). Local outcome recording for the new candidates about 1 h CPU (estimate). Kaggle CPU timing about 1 h.",
+     "risks": "The frozen recipe was tuned on full statements, so dense loss could be large at 256 tokens (the plan's prior: neutral to a slight loss). Execution only repairs a gold that stays in the top 20. The saving is smaller than the token share because of fixed overhead. The prose-only view depends on parser precision (0.91-0.98).",
+     "cheapest_falsifying_check": "One Kaggle T4 pass encoding only the 882 DEV stdin and 825 TUNE stdin queries at cap 384 (about 5 min). If dense stdin NDCG falls by more than 0.01 on TUNE, drop caps below 512 and stop.",
+     "expected_value": "Estimate: a 1.3-1.8x saving on stdin at a dense cost of -0.002 to -0.01, partly repaired by execution. P(non-inferior at >= 1.4x) about 0.3."
+    },
+    {
+     "name": "C3: Early-exit 1.7B query tower: layer-k last-token state plus an affine head into the final space (tuned-lens idea)",
+     "scope_goal": "CPU efficiency at retrieval with the 1.7B document space kept",
+     "scope_quote": "The theme focuses on pre/post processing and we don't expect the choice of a embedding/retrieval model to have a significant impact.",
+     "prior_art": [
+      {
+       "title": "Eliciting Latent Predictions from Transformers with the Tuned Lens",
+       "url": "https://arxiv.org/abs/2303.08112",
+       "finding": "An affine probe per layer decodes intermediate hidden states of frozen LMs (up to 20B) better than the logit lens.",
+       "verified": true
+      },
+      {
+       "title": "Layer by Layer: Uncovering Hidden Representations in Language Models",
+       "url": "https://arxiv.org/abs/2502.02013",
+       "finding": "On MTEB, intermediate layers often outperform the final layer ('2% to 16% on average', as summarised by the search result; the PDF was not read in full, so this figure is unverified).",
+       "verified": false
+      },
+      {
+       "title": "KALE",
+       "url": "https://arxiv.org/abs/2304.01016",
+       "finding": "Pruning only the query encoder's layers, then aligning it to the frozen original, keeps the index; about 3x faster inference.",
+       "verified": true
+      }
+     ],
+     "novelty_vs_trodden": "Not tried. It differs from the trodden cross-model routes because the head maps within one model's residual stream, not between models. Our cross-model linear map measured cosine 0.84 and NDCG below native 0.6B, which is the warning; states at layers 20-24 are hypothesised (unverified) to be much closer to the final vector. It needs no training beyond a closed-form ridge fit.",
+     "protocol": "Pre-register first. Kaggle T4, one pass: encode the 5,000 train queries with the frozen recipe and output_hidden_states. Store the last-token states for layers {16, 20, 24} (5,000 x 2,048 x 3 in float32, about 120 MB). Offline: fit ridge maps from layer-k state to the final normalised embedding on TUNE (label-free, like qmap.py), then score dense DEV NDCG@10 against the stored corpus. Controls: the identity check at layer 28 must reproduce 0.92792, and the shuffled-pair map must collapse (both already exercised in qmap.py). If k <= 20 passes, measure CPU seconds on Kaggle CPU with a truncated model (layers 0..k-1 plus head).",
+     "baseline": "Dense DEV 0.92792; 7.83 s/query.",
+     "min_effect": "At k = 20 (about 29% fewer layer FLOPs; estimate, excluding embedding and head) the dense DEV delta is >= -0.002. At k = 24, a delta >= -0.002 would be worth only about 14% (descriptive).",
+     "cost": "Kaggle T4 about 15 min (estimate); offline fits in seconds to minutes on the laptop from the stored arrays.",
+     "risks": "The largest plausible saving is 30-45%, less than C1. Near the top layers, last-token pooling may depend on late-layer mixing, and the head can overfit 2,500 TUNE pairs in 2,048-d, which is why the fit uses ridge. It stacks with C1 and C2 but multiplies the switches.",
+     "cheapest_falsifying_check": "The same Kaggle pass with layer 24 only. If the ridge-mapped DEV dense delta at layer 24 is below -0.005, lower layers will not pass either, so kill the idea.",
+     "expected_value": "Estimate: P(k = 20 non-inferior) about 0.25; if it passes, about 1.3-1.4x faster. Low cost to learn."
+    },
+    {
+     "name": "C4: Family-routed 0.6B-to-1.7B cascade, stdin only (escalate when nothing verifies)",
+     "scope_goal": "CPU efficiency on the statement type the scored split and the unseen set are made of",
+     "scope_quote": "we will be doing hands-on eval with a unseen dataset (which will be representative of the APPS dataset)",
+     "prior_art": [
+      {
+       "title": "CodeDoctor E2 / POST-1 (internal)",
+       "url": "file:///C:/Users/Asus/manish/CodeDoctor/experiments/RESULTS.md",
+       "finding": "160M-to-0.6B was rejected (-0.0076, escalation 62%). 0.6B-to-1.7B was only estimated (about 20% saving on stdin).",
+       "verified": true
+      }
+     ],
+     "novelty_vs_trodden": "The trodden cascade used different tiers (160M first). What is new is that 0.6B-to-1.7B has now been replayed exactly from the R1/R2 stores. Over all families it saves only 7-9%, but on stdin only 26-29% of statements escalate, an estimated 36-38% encoding saving. Routing by family uses query text only (allowed).",
+     "protocol": "Measured in-sample on both halves, so these numbers are descriptive, not a pass. Pre-register the rule (stdin: stop on any strong verification; other families go straight to 1.7B), then test it once on the CodeContests EXT-dev stores (f2llm06b_extcc_dev_deep50 vs f2llm17b_extcc_dev; adaptively reused, stated as such). Measure real serial latency on Kaggle CPU, because escalated queries pay 0.6B encoding, execution and 1.7B encoding in sequence.",
+     "baseline": "1.7B call-style pipeline on DEV stdin (replayed); 7.83 s/query mean.",
+     "min_effect": "Stdin pipeline delta >= -0.002 (non-inferior) with a measured mean-latency saving >= 25%.",
+     "cost": "Offline replay takes seconds to minutes (done). Latency needs Kaggle CPU about 1 h. RAM: both models resident, about 3.9 + 8.5 GB (worse than today).",
+     "risks": "DEV stdin delta -0.0024 [-0.0071,+0.0023] does not show non-inferiority. p95 latency is unchanged or worse for escalated queries. It keeps the 1.7B in RAM, so it does not help the laptop. It relies on the verifier, whose value shrinks on small pools (P0 ceiling result). Arguably it goes against the spirit of FAQ B, since the large model still runs for about 28% of queries.",
+     "cheapest_falsifying_check": "Replay on the EXT-dev stores. If stdin escalation is > 50% or delta < -0.005, kill it.",
+     "expected_value": "Estimate: about 1.3-1.5x mean encoding saving on stdin, at about -0.001 to -0.002 NDCG. The weakest of the four; it stacks with C1 only if C1 fails."
+    }
+   ],
+   "rejected": [
+    {
+     "name": "Linear/orthogonal (Procrustes-style) map from the 0.6B or 160M query space into the 1.7B document space",
+     "reason": "Measured offline (qmap.py). 0.6B mapped: 0.89618, worse than native 0.6B (0.90056). 160M mapped: 0.714. Fusing native and mapped: 0.90765, still -0.0203 against 1.7B. A paired map is the most information such a method can use, so unpaired variants cannot do better."
+    },
+    {
+     "name": "vec2vec-style unpaired translation",
+     "reason": "Strictly less information than the paired ridge map, which already fails. The paper's best cosine is 0.92 (https://arxiv.org/abs/2505.12540), and our paired 0.84 already costs more NDCG than using native 0.6B."
+    },
+    {
+     "name": "LEAF/KALE-style trained student into the 1.7B space (0.6B or smaller student)",
+     "reason": "The industry-standard answer, but the arithmetic is poor here. LEAF's asymmetric student keeps about 97.7% of its teacher (BEIR). 97.7% of 0.928 is about 0.907, the native 0.6B level we already have. Beating that needs a student of about 0.6B size (2.79 s), and GPU training on APPS train text brings overfitting risk (FAQ 4). Revisit only if C1-C3 all fail."
+    },
+    {
+     "name": "torch dynamic int8 (per-tensor activations)",
+     "reason": "Measured on 0.6B: 1.9x faster but cosine 0.21 to fp32. The vector is destroyed (outlier activations, cf. LLM.int8)."
+    },
+    {
+     "name": "int4 weight-only (RTN group-32 or group-128)",
+     "reason": "Measured fake-quant cosine 0.53-0.60 on 0.6B. Calibrated methods (AWQ/GPTQ) would need GPU calibration and start from a very large fidelity gap."
+    },
+    {
+     "name": "0.6B-to-1.7B cascade over all families",
+     "reason": "Measured replay: 56-57% escalation and only a 7-9% encoding saving. It costs more on call-style families (72-74% escalate)."
+    },
+    {
+     "name": "Matryoshka dimension truncation",
+     "reason": "Only cuts the scoring and storage cost (8,765 x 2,048 dot products take milliseconds), not query encoding, which is the actual cost."
+    },
+    {
+     "name": "bf16 on CPU, batching, 160M-to-0.6B cascade, plain 0.6B swap",
+     "reason": "Already measured (39.4 s and failed fidelity; batching slower; -0.0076; -0.0169 on the pipeline). Nothing new would change those outcomes."
+    },
+    {
+     "name": "Query-time LLM or API (HyDE, rerankers), GPU at query time",
+     "reason": "Out of scope under FAQ A and B."
+    },
+    {
+     "name": "ONNX Runtime fp32 graph optimisation alone",
+     "reason": "The gain is unverified and likely small for a compute-bound 1.7B decoder. At most a control arm inside C1, not a separate experiment."
+    }
+   ]
+  },
+  {
+   "goal": "P0 retrieval accuracy (NDCG@10/MRR) that transfers to the judges' unseen Python dataset, which the FAQ calls \"representative of the APPS dataset\". The gain has to come from pre/post-processing that also generalises, not from APPS-specific tuning, and query time has to stay on CPU.",
+   "landscape": "For NL-to-code retrieval where query time must stay cheap, the usual expert answer is a strong embedder plus offline document enrichment (LLM summaries or doc2query), then execution- or test-based selection.\n\nOffline enrichment gains shrink or vanish with strong embedders:\n- EnrichIndex (https://arxiv.org/html/2504.03598) reports +10.6 NDCG@10 on average. Its strongest hybrid, BM25+Snowflake on BRIGHT, gains only 33.0 -> 34.7. Its retrievers are small encoders, not LLM embedders.\n- CodeBridge (https://arxiv.org/html/2504.07740) tests only SQL, Solidity and CoSQA, not APPS, with small PLMs (UniXcoder, CoCoSoDa). LLM-based embeddings (DeepSeek-Coder-1.3B) \"perform very poorly\" there.\n- Tool-retrieval document expansion (https://arxiv.org/html/2510.22670v1, Table 2 as read by the fetch tool): Qwen3-Embedding-8B 46.21 -> 46.23, e5-mistral-7b 40.02 -> 38.85.\n\nTACO (https://arxiv.org/html/2312.14852v3) confirms two things about APPS-style data. CodeChef content comes in \"multiple HTML syntax formats\" (line breaks included), and APPS tests have a false-positive rate \"up to 60%\".\n\nThe Python docs (https://docs.python.org/3/library/constants.html) confirm that `-S` suppresses `site`, which is what adds `exit` and `quit` to builtins.\n\nGoing deeper, the most useful adjacent field was judge fidelity: run candidates the way a judge would, and canonicalise rendering artefacts. That is not another re-ranking rule. It fits RESULTS lesson 1 (\"adding evidence worked; re-reading evidence did not\"). Our data shows the verifier cannot see the gold at all on a measurable share of statements, for reasons unrelated to relevance.",
+   "readonly_measurements": [
+    "Loss decomposition, replay of call-style+deep50 on data/outcomes/f2llm17b_all_{dev,tune}_deep50.jsonl.gz (scratchpad/research/decompose.py, stdin_decomp.py). All-family NDCG@10: DEV 0.95327, TUNE 0.95849. Stdin family: DEV 0.95993 (dense 0.90155), TUNE 0.96362. Largest all-family loss class: no parsed examples, so no execution. DEV 1,013/2,500 statements, 0.0198 of the 0.0467 loss, mostly kata. Stdin DEV loss per stdin statement 0.0401: gold crashes with nothing verified 0.0080; gold beyond top-50 0.0079; gold verified but another verified above 0.0060.",
+    "Blank-line sample inputs (prevalence.py): 35/824 DEV and 24/777 TUNE stdin statements have sample inputs with every other line blank. Only 1 of each set gets any verification. Gold crashes in 29/35 (DEV) and 20/24 (TUNE). Pipeline NDCG on them: DEV 0.740, TUNE 0.852.",
+    "Live TUNE-only check, blank lines collapsed (blank_check.py, 31.8 s, 480 runs): gold verifies in 21/24. Non-gold verifications: 9 across 4 statements. NDCG on the 24 statements 0.8520 -> 0.9638. Effect: +0.0033 on TUNE stdin, +0.0011 on all TUNE. DEV was not touched.",
+    "Expected-output trailing-prose trim, TUNE replay (prose.py): 16 statements trimmed, 11 golds newly verified, 3 non-gold newly verified, 0 verifications lost. Only 1 statement's NDCG changes: stdin +0.00081 [0, +0.00242].",
+    "EXT-dev gold crashes (ext.py, fidelity.py): 9/107 executed golds crash. 6 use `io.BytesIO(os.read(0, os.fstat(0).st_size))` fast IO; 3 call bare `exit()` (NameError under -S). Live re-run with stdin as a file plus `exit = quit = sys.exit`: 7/9 golds MATCH. cc-test-156 still crashes; it has blank-line input. Negative control: non-gold top-10 candidates verify 13/81 under pipe and 13/81 after the change. The 9 statements carry 0.0296 of EXT-dev loss (pipeline 0.75431).",
+    "APPS prevalence of those idioms: 17/8,765 corpus docs use bare exit/quit, 24 use fast IO. Gold crashes from a missing numpy (the -S sandbox has no site-packages): DEV 3, TUNE 11, loss about 0.0004 on TUNE.",
+    "Dense Rocchio PRF on TUNE with stored vectors (prf.py): 1.7B baseline 0.93779. Every setting is worse: k=1, beta=0.1 gives 0.93696; k=5, beta=0.5 gives 0.92767. 0.6B is also worse at every setting.",
+    "Crash demotion when nothing verifies, TUNE replay (soft.py): -0.01227 [-0.01601, -0.00867], 57 statements down, 8 up. It demotes blank-line golds. Ungated shape tier at rank 2: +0.00016 [-0.00041, +0.00079].",
+    "Perturbation-survival tie-break among >=2 verified stdin candidates, TUNE live, 82 statements (perturb.py): golds survive 4.39/5 perturbed inputs, the other verified candidates 4.78/5. Re-ordering drops NDCG on those statements 0.8922 -> 0.8530.",
+    "Multi-verified cases (dups.py): 44 statements. In 31 the candidate ranked above gold is another train query's gold; its query cosine to ours has median 0.743, and 22.6% are >= 0.95 (near-duplicate problems, not fixable).",
+    "Rare function-name match bonus for statements with no examples, TUNE (ident2.py): bonus 0.05 gives +0.00023, 2 up. Bonus 1.0 gives -0.00249 (4 up, 23 down).",
+    "Kata statements with no parsed examples (kata.py, TUNE): 707/1,044 mention 'Example'. Only 96 have call-arrow forms, carrying 0.0006 of loss.",
+    "Example characters in stdin train statements: mean 3.2% of the text (median 2.2%). So PRE-2 would save little CPU on APPS-train-like text; the plan's ~20% figure (test split, examples plus notes) was not re-checked, since the test split stays closed.",
+    "Why TUNE stdin recall misses happen (gold beyond top-50): the golds are an 83-character formula or a 30,119-character lookup table, at dense ranks 51, 86, 93 and 8,433.",
+    "Python-3 compile failures in the corpus: 411/8,765, mostly \"'return' outside function\" (270) and unbound nonlocal. No Python 2 markers found."
+   ],
+   "candidates": [
+    {
+     "name": "C1: sample canonicalisation, a fallback-only relaxation (blank-line-collapsed input, trailing-prose-trimmed expected output)",
+     "scope_goal": "P0 accuracy on stdin statements, the family that makes up 98.4% of the scored test split. Also robustness to how the unseen dataset's statements are rendered.",
+     "scope_quote": "FAQ: \"While using static analysis methods such as regex parsing are well within the scope of the theme and expected to part of the solution\"; brief list: pre-processing the query",
+     "prior_art": [
+      {
+       "title": "TACO: Topics in Algorithmic COde generation dataset",
+       "url": "https://arxiv.org/html/2312.14852v3",
+       "finding": "CodeChef content can be \"represented in multiple HTML syntax formats\", line breaks included. The authors needed per-format parsers.",
+       "verified": true
+      }
+     ],
+     "novelty_vs_trodden": "Not trodden. The parser work (V3, Note/Example fixes) targeted which text is extracted, not how blank lines inside the extracted input are handled. Judge-aware comparison relaxed output rules (+0.0004 at 1.7B); this repairs the input. It adds evidence the verifier could not get before (gold crashes in 29/35 affected DEV statements), rather than re-reading existing evidence.",
+     "protocol": "Behind a default-off switch. Only when a statement's sample input contains blank lines, re-run a candidate on the collapsed input if its raw run did not match; raw verifications are never removed. Separate arm: when the trailing expected-output lines match a prose pattern, compare with them trimmed. Record a new outcome store for the 46 DEV stdin statements with blank lines (top-20 plus the deep-50 window). Replay call-style+deep50 with and without each arm. Commit the pre-registration first; decide on DEV only, since TUNE was used in this exploration. Then run EXT-dev once (2 interleaved statements, descriptive only).",
+     "baseline": "DEV stdin NDCG@10 0.95993 and DEV all-family 0.95327, from my replay of call-style+deep50 at 1.7B.",
+     "min_effect": "At least +0.003 NDCG@10 on the DEV stdin family (Holm over 2 arms, bootstrap CI excluding 0, sign-flip p < 0.05, changed statements reported). All-family at least -0.002. Power check: DEV stdin ceiling is +0.0103 (35 statements at 0.740), so the bar is reachable.",
+     "cost": "Laptop CPU, no GPU. About 46 statements x at most 50 candidates x 0.16 s, under 2 minutes with 6 workers (estimate). At query time: extra runs only for about 3-4% of stdin statements, about 20 runs each.",
+     "risks": "Inputs where blank lines are meaningful, e.g. empty-string test cases; the fallback-only rule and the non-gold verification count bound this (TUNE: 9 non-gold verifications in 4 statements). Prevalence in the test and unseen sets is unknown, and the test split must stay closed. The prose trimmer is regex-based and its measured effect is tiny (+0.0008 on TUNE stdin).",
+     "cheapest_falsifying_check": "Done on TUNE, live, 32 s: gold verifies after collapse in 21/24 statements, and NDCG on them goes 0.852 -> 0.964. Next falsifier, cost a few minutes: record the DEV store. If fewer than 20 of the 35 interleaved DEV statements gain a gold verification, or non-gold verifications exceed gold ones, kill.",
+     "expected_value": "Estimate: +0.006 to +0.009 on DEV stdin (+0.002 to +0.003 all-family). If the scored test split has the same 3-4% prevalence, about +0.003 to +0.009 on the screening number (hypothesis, unverified)."
+    },
+    {
+     "name": "C2: judge-fidelity execution (stdin delivered as a file, not a pipe; exit/quit bound to sys.exit in the runner; numpy availability as a separate arm)",
+     "scope_goal": "P0 generalisation: the verifier must not fail correct programs that use common competitive-Python idioms the APPS corpus rarely contains but other sources do (EXT-dev: 9 of 107 golds).",
+     "scope_quote": "FAQ: \"Dynamic analysis, such as execution of code is also in scope and allowed, however keep in mind that your approach should ideally generalize and not overfit on a dataset\"",
+     "prior_art": [
+      {
+       "title": "Python docs: Constants added by the site module",
+       "url": "https://docs.python.org/3/library/constants.html",
+       "finding": "The site module, \"imported automatically during startup, except if the -S command-line option is given\", adds the builtin constants (quit, exit). So our -I -S sandbox removes exit().",
+       "verified": true
+      }
+     ],
+     "novelty_vs_trodden": "Not trodden. Sandbox work so far was isolation, limits and timeouts. Nobody had counted gold crashes caused by the sandbox itself: pipe stdin breaks the `os.read(0, os.fstat(0).st_size)` fast-IO idiom, and -S removes exit().",
+     "protocol": "One default-off switch, `judge_fidelity`: the runner writes stdin to a temp file and passes it as the child's stdin handle, and defines `exit = quit = sys.exit` in the child's namespace without enabling site. The numpy arm (adding site-packages) is separate because it changes the sandbox's isolation posture; it needs the user's decision. Re-record the EXT-dev deep50 store (108 statements) and the APPS DEV store with the switch. Replay call-style+deep50. Run the sandbox tests on the CI matrix, since the pipe behaviour was measured on Windows only.",
+     "baseline": "EXT-dev call-style+deep50 NDCG@10 0.75431 (my replay, 1.7B); APPS DEV all-family 0.95327.",
+     "min_effect": "EXT-dev at least +0.01 with sign-flip p < 0.05 (5 statements can move; 6/6 up gives p about 0.03). APPS DEV at least -0.002 (non-inferiority; APPS prevalence is tiny). Confirm once on EXT-lockbox after the freeze, because EXT-dev has already been reused (STRESS_TEST F6).",
+     "cost": "Laptop CPU. Re-recording takes about 12 min per APPS half (store header: 716.8 s) and about 5 min for EXT-dev. Query-time cost is one temp-file write per run.",
+     "risks": "Low effect on APPS-like data (17 exit and 24 fast-IO docs out of 8,765). The fix is not yet verified on Linux or macOS. Binding exit() makes a program that calls exit mid-output look like a clean exit; the negative control showed no new non-gold verifications (13/81 before and after).",
+     "cheapest_falsifying_check": "Done on EXT-dev, live: 7/9 crashing golds MATCH with stdin as a file plus exit bound (0/9 before). Non-gold top-10 verifications unchanged at 13/81. Next: run the same 9 programs on Linux CI. If the pipe variant does not crash there, the fast-IO half is Windows-only; report it as such.",
+     "expected_value": "Estimate: EXT-dev +0.015 to +0.025 (ceiling 0.0296 from the 9 statements); APPS 0 to +0.0005. On the unseen set it depends on its solutions' style (unverified)."
+    },
+    {
+     "name": "C3: PRE-4 offline spec cards, restricted to the no-example class (the untested plan item, falsified cheaply first)",
+     "scope_goal": "P0 on statements with no machine-readable examples. They are 40% of APPS train and the largest all-family loss (DEV 0.0198 of 0.0467), and execution cannot help them.",
+     "scope_quote": "FAQ: \"We do not have a restriction on using closed-source or commercial APIs during the pre/post processing phase, but as mentioned earlier, these are also subject to evaluation.\"; \"The theme focuses on pre/post processing\"",
+     "prior_art": [
+      {
+       "title": "EnrichIndex",
+       "url": "https://arxiv.org/html/2504.03598",
+       "finding": "Averages +10.6 NDCG@10. The strongest hybrid (BM25+Snowflake) on BRIGHT gains only 33.0 -> 34.7. Retrievers are small encoders.",
+       "verified": true
+      },
+      {
+       "title": "CodeBridge",
+       "url": "https://arxiv.org/html/2504.07740",
+       "finding": "SQL/Solidity/CoSQA MRR gains over UniXcoder and CoCoSoDa (e.g. CoSQA 0.482 -> 0.544). Not tested on APPS. LLM-based embeddings (DeepSeek-Coder-1.3B) performed very poorly.",
+       "verified": true
+      },
+      {
+       "title": "Tools are under-documented: Simple Document Expansion Boosts Tool Retrieval",
+       "url": "https://arxiv.org/html/2510.22670v1",
+       "finding": "Qwen3-Embedding-8B 46.21 -> 46.23 and e5-mistral-7b 40.02 -> 38.85 NDCG@10 with expansion: roughly zero or negative for strong LLM embedders (as read by the fetch tool).",
+       "verified": true
+      }
+     ],
+     "novelty_vs_trodden": "Untested, listed in the plan. Different this time: it is targeted only at the no-example class, where every post-processing lever measured today (identifier match, PRF, shape tier) was null or harmful. It gets a kill-first check before any full build.",
+     "protocol": "Kaggle T4. Take 150 TUNE no-example statements with gold at dense rank 2-10, plus 150 with gold at rank 1 as the harm control. Generate cards (task, I/O format, algorithm tags) for the union of their top-10 pools with a permissively licensed open-weights code LLM of 1.5B or less (licence to be checked), and encode the cards with F2LLM-1.7B. Fuse s = cos(q,d) + w*cos(q,card) and report in-sample the best w on TUNE. Only if that is net positive, card the full corpus and decide on the DEV no-example subset plus all-family with a pre-registered w. Report GPU-hours, tokens, and the P1 rebuild cost per changed document.",
+     "baseline": "DEV all-family 0.95327; DEV no-example-class loss 0.0229 (sum of per-family losses, per 2,500 statements).",
+     "min_effect": "At least +0.003 all-family on DEV with sign-flip p < 0.05, and stdin at least -0.002. If the best in-sample w on the 300-statement probe has up <= down, kill.",
+     "cost": "Kaggle T4. Estimate: about 3,000 docs x about 150 generated tokens, under 1 h, plus under 10 min of encoding for the probe. Full corpus about 3x that. No query-time cost: one extra dot product per candidate.",
+     "risks": "Prior art says strong LLM embedders gain little. The LLM may regurgitate memorised APPS statements, inflating APPS without transfer (contamination). The target class is kata-heavy while the test split is 98% stdin, so the screening effect is about 0. It adds offline LLM cost that the FAQ says is evaluated.",
+     "cheapest_falsifying_check": "The 300-statement probe above, about 1 Kaggle GPU-hour. Kill if the best in-sample w moves no more golds up than down.",
+     "expected_value": "Estimate: +0.000 to +0.003 all-family on DEV; about 0 on the stdin/test split. Low. Worth one probe only because it is the last untested lever for the largest loss class."
+    }
+   ],
+   "rejected": [
+    {
+     "name": "Dense Rocchio / vector PRF",
+     "reason": "Measured on TUNE with stored vectors: worse at every k and beta at both 1.7B and 0.6B (1.7B 0.93779 -> 0.92767 to 0.93696)."
+    },
+    {
+     "name": "Crash-as-negative-evidence demotion",
+     "reason": "TUNE replay -0.01227 [-0.01601, -0.00867]. Golds crash for input-rendering reasons (C1), so crashes are not evidence of irrelevance. Keeping top-1 fixed is null (-0.00016)."
+    },
+    {
+     "name": "Perturbation-survival tie-break among multiple verified candidates (test-based program selection idea)",
+     "reason": "Measured live on 82 TUNE statements: the competing verified programs survive perturbed inputs more often than golds (4.78 vs 4.39 of 5), and NDCG on those statements falls 0.892 -> 0.853."
+    },
+    {
+     "name": "Ungated same-shape weak tier / judge-aware checker ladder again",
+     "reason": "Trodden (+0.0004 at 1.7B). The case-insensitive class is empty among stdin failures here; the shape tier replays at +0.00016 n.s. The residual CodeContests YES/Yes and multi-answer misses are 3 statements."
+    },
+    {
+     "name": "Function-name / identifier matching for no-example statements",
+     "reason": "The crude version breaks 298 correct rank-1s. The rare-identifier bonus is null (+0.00023) or harmful (-0.0025). It is also Codewars-specific."
+    },
+    {
+     "name": "PRE-2 prose-only query encoding",
+     "reason": "Examples are 3.2% of stdin train statement characters, so the CPU saving on APPS-train-like text is negligible and the accuracy prior is neutral. It needs a Kaggle re-encode for little expected value."
+    },
+    {
+     "name": "Deeper deepening (50 -> 100)",
+     "reason": "Deepening 20 -> 50 was already neutral at 1.7B (R1). The recall misses are tiny formula or lookup-table golds at ranks 51-8,433; the ceiling is small against the cost of about 50 extra runs per unverified statement."
+    },
+    {
+     "name": "k-reciprocal re-ID re-ranking / hubness variants",
+     "reason": "Equivalent to the query-bank hubness correction, which did not replicate with execution on TUNE. Needs a query bank, which risks benchmark-structure exploitation."
+    },
+    {
+     "name": "Multi-verified tie-breaks via near-duplicate detection",
+     "reason": "22.6% of these cases are near-duplicate problems (query cosine >= 0.95), which are unfixable. The rest are single-sample coincidences that consumption and perturbation evidence do not separate (E1 LR about 1.2; measured above)."
+    },
+    {
+     "name": "Extending the call-style parser to more kata example forms",
+     "reason": "Call-arrow examples in no-example TUNE statements carry only 0.0006 of loss. Most 'Example' mentions are prose, and the family is about 0% of the test split."
+    },
+    {
+     "name": "PRE-3 snippet repair (body-only 'return', nonlocal, `print((*x))`) as a standalone experiment",
+     "reason": "411 corpus docs fail to compile, but on stdin golds it explains only about 5 crashes across DEV+TUNE (ceiling about 0.001 or less). At most fold it into C2 as an extra arm."
+    },
+    {
+     "name": "Query-time LLM rerank / HyDE / Query2doc",
+     "reason": "FAQ: an API or LLM at retrieval \"also counts as utilizing the GPU\" and is \"not efficient\"."
+    }
+   ]
+  },
+  {
+   "goal": "P1: rebuild indexes and caches after any version or change in a reasonable time. The FAQ allows incremental or full rebuilds but says \"we would consider the time and resource utilization during the evalution\", and allows the GPU \"during pre/post processing (including incremental updates)\". Bonus: \"retrieve code snippets across all versions\", where versions \"would still be very similar, which would make them hard to rank properly\". Both are judged hands-on, on an unseen Python dataset \"representative of the APPS dataset\", so the FAQ's advice against overfitting to APPS applies. The FAQ does not say how the Bonus is scored or what a \"version\" will look like in the unseen set. Nothing in this cycle touches the P0 screening score.",
+   "landscape": "P1, what industry does. Production tools content-address the corpus and re-embed only what changed.\n- Cursor hashes every file into a Merkle tree and caches embeddings by chunk content. Reusing an index cuts median time-to-first-query \"from 7.87 seconds to 525 milliseconds\" (https://cursor.com/blog/secure-codebase-indexing).\n- GitHub's Blackbird shards the index by git blob ID. \"Content deduplication and delta indexing\" cut 115 TB to about 28 TB of unique content, and delta indexing halves re-crawl (18 h against 36 h) (https://github.blog/engineering/architecture-optimization/the-technology-behind-githubs-new-code-search/).\n- CodeDoctor already does this (sha256 per file and per chunk in `app/indexing/incremental.py`, a recipe-keyed corpus cache in `app/pipeline/encoder.py`, content addressing in `lineage.py`). This path is trodden. What is missing is measurement, plus one cache-key defect.\n\nBonus, prior art.\n- ExecRetrieval found embeddings rank the canonical code below a single-edit buggy clone in 67\u201378% of queries (https://arxiv.org/abs/2609.01865).\n- Outside retrieval, the tools for telling near-identical programs apart are:\n  - extra inputs from type-aware mutation (EvalPlus: 80x more HumanEval tests, pass@k down 19.3\u201328.9%; https://arxiv.org/abs/2305.01210);\n  - choosing by execution agreement without ground-truth outputs (MBR-exec, https://arxiv.org/abs/2204.11454; CodeT dual agreement, 65.8% pass@1 on HumanEval, https://arxiv.org/abs/2207.10397);\n  - patch-correctness assessment in program repair, which is the closest analogue because overfitting patches pass the given tests (PATCH-SIM blocked 56.3% of incorrect patches and no correct ones, https://arxiv.org/abs/1706.09120v2; RGT uses a ground-truth reference, https://arxiv.org/abs/1909.13694).\n\nAll of these need either an oracle or independent errors. My pilot suggests the missing oracle is the limit, not the lack of inputs.",
+   "readonly_measurements": [
+    "CODE READ (P1 defect, verified by reading): `compute_embedding_key` in `app/indexing/cache.py` defaults `encoder_revision`, `tokenizer_revision` and `template_revision` to \"v1\". `app/indexing/incremental.py:142,190`, `app/server.py:78` and `app/workbench.py:849,869` call it with the text only, so the shared demo cache (`build/cache.db`) is keyed without model or recipe. Switching tier (accuracy 1.7B at 2048-d, interactive 0.6B at 1024-d, both in `config/frozen.yaml`) or changing the prompt serves stale vectors. The scored path (`app/pipeline/encoder.py:document_cache_key`) does key on model@revision, max_seq, EOS, normalisation and prefix, so P0 is not affected. Not yet shown by a failing test.",
+    "python pilot_vectors.py (stored versions_apps vectors, 150 E5 lineages on APPS DEV). 0.6B: dense exec@1 0.160, lineage@1 0.780. E5 reported 0.167 / 0.793; the gap of 1\u20132 statements is unexplained, so this is an approximate reproduction. 1.7B: exec@1 0.227 (chance 0.25), lineage@1 0.853. Correct vs buggy version: cosine median 0.9963 (5th percentile 0.919, minimum 0.481); query-score gap median +0.0016 (median absolute gap 0.0040). Reusing each lineage's v1 vector for every version: lineage@1 0.853 -> 0.833 at 1.7B and 0.780 -> 0.760 at 0.6B, i.e. 3 of 150 lineages. Negative control (random other document's vector): 0.000 at both sizes, so the control collapses as expected.",
+    "python pilot_nearmiss.py 64 24 (TUNE half, stdin family, APPS train only; official tests used only as the judge; 57 statements; 7,782 sandbox runs; 464.5 s, over the 5-minute budget). 1,389 single-edit mutants; 440 pass the worked examples (31.7%). Of those, 329 also pass up to 8 official tests (behaviourally equivalent) and 111 fail them. True sample-passing near-misses are therefore 8.0% of mutants. 33 lineages (gold plus 1\u20133 near-misses). 24 type-aware integer mutations of the sample inputs expose 59.7% of near-misses (outputs differ from gold); official inputs expose 97.4%. Picking the gold with no oracle: chance 0.326; MBR on generated inputs 0.460; MBR on official inputs 0.465; MBR on both 0.543; per-input plurality 0.460; fewest-crashes rule 0.409. With 3+ versions (n=25): chance 0.27, MBR 0.447. Pilot only: no confidence interval, and it ran on TUNE so a decision run must use DEV.",
+    "python pilot_nearmiss.py 5 and 22 (earlier, smaller runs of the same pilot): sample-pass rate 26\u201330%, MBR on generated inputs 0.46\u20130.47. These were superseded by the larger run above.",
+    "python ceiling_extcc.py (recorded stores f2llm{17b,06b}_extcc_dev, EXT-dev only, 108 statements, call-style policy). 1.7B: NDCG@10 0.7589; gold at rank 1 in 51 statements; a sample-verified incorrect submission (ccx) at rank 1 in 42; gold verified but outranked in 29. Ceiling if every verified tie were resolved: 0.8702 (+0.1113). 0.6B: 0.7534 -> ceiling 0.8982 (+0.1448), 37 reachable statements.",
+    "Inline replay on the same stores: 65/108 statements have 2 or more verified candidates; the gold sits in a verified tie in 58. Within those ties the dense order already puts the gold first 29/58 = 0.500 at 1.7B (chance 0.349) and 21/58 = 0.362 at 0.6B. Of the incorrect submissions in the top 20, 151 of 640 (23.6%) pass the samples at 1.7B.",
+    "HF_HUB_OFFLINE=1 python doc_encode_cpu.py (this laptop, 0.6B interactive tier, float32, 6 threads, batch 1, 40 seeded APPS corpus documents, mean 474 characters). Model load plus warm-up 37.8 s. Per document: mean 1.183 s, median 1.110 s, p95 2.261 s. Cosine to the stored GPU vectors: median 0.99940, minimum 0.99869 (below the repo's 0.999 bar for some documents). Estimate, not measured: a full CPU rebuild of 8,765 documents at 0.6B takes about 2.9\u20133.3 h on this laptop.",
+    "Read from artifacts/apps/manifest.json and artifacts/ext_cc/encode_f2llm17b.json: a full 1.7B corpus encode (8,765 documents) took 450 s on a Kaggle T4 in fp16; the 0.6B corpus took 480.3 s on local CUDA. Text lengths (computed): corpus median 332 characters (mean 575); train queries median 1,051 (mean 1,254)."
+   ],
+   "candidates": [
+    {
+     "name": "P1-A: incremental re-index cost curve and equivalence to a full rebuild (scored path and demo path)",
+     "scope_goal": "P1",
+     "scope_quote": "your solution should be able to rebuild any indexes, caches, etc for any version/change in a reasonable amount of time. / FAQ: we would consider the time and resource utilization during the evalution",
+     "prior_art": [
+      {
+       "title": "Securely indexing large codebases (Cursor)",
+       "url": "https://cursor.com/blog/secure-codebase-indexing",
+       "finding": "Merkle tree of file hashes plus embeddings cached by chunk content; median time-to-first-query 7.87 s -> 525 ms with index reuse",
+       "verified": true
+      },
+      {
+       "title": "The technology behind GitHub's new code search",
+       "url": "https://github.blog/engineering/architecture-optimization/the-technology-behind-githubs-new-code-search/",
+       "finding": "Sharded by blob ID; dedup and delta indexing cut 115 TB to about 28 TB of unique content; delta indexing re-indexes the corpus in about 18 h instead of 36 h",
+       "verified": true
+      }
+     ],
+     "novelty_vs_trodden": "The mechanism is built and trodden. What has never been done is measuring it end to end on CPU with the shipped encoders against the changed fraction, or showing that an incremental index gives the same ranking as a full rebuild. One new trap: old GPU fp16 vectors mixed with new CPU fp32 vectors (cosine 0.9994) is a mixed operating point that could flip ranks.",
+     "protocol": "Pre-register first. Seed the scored-path corpus cache from the stored GPU vectors (8,765 documents). Apply change sets taken from the versions_apps single-edit mutants: 1, 10, 100 and 450 changed snippets, plus one 10%-replacement batch. For each, record: wall time split into hash lookup, encoding, CorpusStatistics rebuild and matrix assembly; peak RSS; cache hits and misses; and top-10 identity against a from-scratch run over the same text set, measured on the 150 version queries plus 200 DEV queries. Run 0.6B on this laptop (6 threads) and 1.7B on the codedoctor-cpu-bench Kaggle CPU kernel (2 cores, as in R2). Also run an all-GPU-vector control and an all-CPU-vector control to size the mixed-origin rank-flip rate. Controls: (a) sanity: reproduce 1.18 s per document at 0.6B within 15%; (b) negative: change the document prefix; the scored path must miss 100%. The demo path (incremental.py and workbench) is predicted to miss 0% (the defect). Stop rule: 20 minutes per arm.",
+     "baseline": "Full rebuild: 450 s on a T4 at 1.7B (measured). On CPU at 0.6B about 2.9 h (estimate from 1.18 s per document measured on 40 documents). Incremental end-to-end time has never been measured.",
+     "min_effect": "Claims only, no score change. The incremental claim ships if updating 10 changed snippets takes 60 s or less at 0.6B CPU including a cold model load, and top-10 identity is at least 99.5% of queries against a full rebuild at the same operating point. Otherwise README and deck report the measured numbers and the rank-flip rate instead of the claim.",
+     "cost": "Laptop CPU: about 10 min at 0.6B. Kaggle CPU kernel: about 30 min at 1.7B. Works from stored vectors; no GPU needed.",
+     "risks": "Seeding from GPU vectors and adding CPU vectors mixes operating points, and ranks can flip near ties. Timings depend on load (run nothing else, 3 repetitions). The hands-on dataset may be a snippet corpus rather than a git repository, so the git or Merkle path may never run there.",
+     "cheapest_falsifying_check": "A 20-line unit test: put a vector under the 0.6B recipe, switch the Workbench encoder to the 1.7B tier, and assert a cache miss. Code reading predicts this assertion fails today, which confirms the defect before any timing work. Then one 10-change update at 0.6B on this laptop, timed and compared for top-10 identity.",
+     "expected_value": "Estimate: no P0 or NDCG change. The value is a measured P1 number for the hands-on (seconds per change against hours per CPU rebuild) and a fixed defect that could silently serve wrong-model vectors in the demo if the tier changes."
+    },
+    {
+     "name": "Bonus-A: hard version lineages (sample-passing near-misses) with a differential-testing tie-break (MBR-exec on type-aware mutated sample inputs)",
+     "scope_goal": "Bonus",
+     "scope_quote": "retrieve code snippets across all versions ... would still be very similar, which would make them hard to rank properly",
+     "prior_art": [
+      {
+       "title": "ExecRetrieval",
+       "url": "https://arxiv.org/abs/2609.01865",
+       "finding": "Best system exec@10 = 1.00 but exec@1 = 0.331; the canonical scores below a buggy single-edit distractor in 67-78% of queries",
+       "verified": true
+      },
+      {
+       "title": "EvalPlus (Is Your Code Generated by ChatGPT Really Correct?)",
+       "url": "https://arxiv.org/abs/2305.01210",
+       "finding": "Type-aware input mutation extends HumanEval tests 80x; pass@k drops 19.3-28.9%",
+       "verified": true
+      },
+      {
+       "title": "MBR-exec (Natural Language to Code Translation with Execution)",
+       "url": "https://arxiv.org/abs/2204.11454",
+       "finding": "Selects programs by agreement of execution results on test inputs; beats execution-unaware selection without ground-truth outputs",
+       "verified": true
+      },
+      {
+       "title": "CodeT",
+       "url": "https://arxiv.org/abs/2207.10397",
+       "finding": "Dual execution agreement; 65.8% pass@1 on HumanEval",
+       "verified": true
+      },
+      {
+       "title": "Identifying Patch Correctness in Test-Based Program Repair (PATCH-SIM)",
+       "url": "https://arxiv.org/abs/1706.09120v2",
+       "finding": "Generated tests plus behaviour similarity prevented 56.3% of incorrect patches without blocking correct ones",
+       "verified": true
+      }
+     ],
+     "novelty_vs_trodden": "E5 used only mutants that FAIL the samples (an upper bound). E8's metamorphic relations and the judge-aware comparator re-read the existing sample evidence. This candidate adds new evidence (new inputs) and a new decision rule (agreement among versions), and it applies only where the current rule is blind: ties of versions that all pass the samples. The version-difference part is query-independent, so it can be computed at index time as P1 pre-processing.",
+     "protocol": "Pre-register first. Build E5-hard on DEV (the pilot used TUNE): gold plus up to 3 single-edit mutants that pass the worked examples but fail APPS official tests. Official tests are the judge only; the pipeline never sees them. Target about 150 lineages. Encode the new versions for dense scores on Kaggle T4 (1.7B, fp16) or reuse the build script. Arms: (1) the shipped rule (verified first, then dense order); (2) plus MBR-exec among verified versions using 24 integer-mutated sample inputs, counting only inputs where most versions run, with dense order breaking ties. Metrics: exec@1, buggy_above, and share of lineages with a distinguishing input found. Paired bootstrap plus sign-flip test, Holm correction. Controls: (a) replaying E5 must still give 0.953, since the rule only acts inside ties; (b) negative control: official inputs with outputs shuffled across versions must give chance; (c) a correlated-history arm (mutant A, mutant A plus an equivalent edit, gold) where MBR is predicted to pick the buggy majority, reported as a limit.",
+     "baseline": "Within sample-passing ties the shipped rule falls back to dense order. Dense exec@1 is 0.227 at 1.7B on E5 lineages (chance 0.25), and the query-score gap between correct and buggy has median +0.0016. Pilot (TUNE, 33 lineages): chance 0.326.",
+     "min_effect": "At least +0.10 absolute exec@1 over the shipped rule on E5-hard, with the interval excluding zero and sign-flip p < 0.05, from 15 or more changed lineages, and no change on E5.",
+     "cost": "Laptop CPU: about 10k sandbox runs, around 8 min with 6 workers. A T4 encode of about 450 new versions takes about 1 min.",
+     "risks": "Real version histories share bugs (a bug introduced and carried until fixed), so majority voting then picks the bug; the correlated arm quantifies this. Integer-only mutation can create invalid inputs (handled by the majority-runs filter). With 2-version lineages MBR can only tie. Single-edit mutants are synthetic, and the FAQ says nothing about what versions the hands-on uses.",
+     "cheapest_falsifying_check": "Already run as a pilot on TUNE. Kill rule: if MBR using official inputs (the ceiling) is at most chance + 0.05, stop. Measured 0.465 against 0.326, so the idea survives, but the ceiling is low: better inputs do not help much (0.460 generated vs 0.465 official), so the oracle, not the inputs, is the bottleneck.",
+     "expected_value": "Estimate: +0.10 to +0.15 exec@1 on sample-passing lineages (pilot +0.13 over chance, n=33, no interval). No effect on the P0 APPS score, which has no version lineages. It also yields a demo-able witness input ('v2 prints 5, v3 prints 6 on this input') for about 60% of near-misses."
+    },
+    {
+     "name": "Bonus-B: the same tie-break on real near-identical submissions (CodeContests EXT-dev incorrect submissions)",
+     "scope_goal": "Bonus (realism arm; guards FAQ generalisation)",
+     "scope_quote": "FAQ: your approach should ideally generalize and not overfit on a dataset / brief: very similar, which would make them hard to rank properly",
+     "prior_art": [
+      {
+       "title": "MBR-exec",
+       "url": "https://arxiv.org/abs/2204.11454",
+       "finding": "Execution-agreement selection without reference outputs",
+       "verified": true
+      },
+      {
+       "title": "Automated Patch Assessment for Program Repair at Scale (RGT)",
+       "url": "https://arxiv.org/abs/1909.13694",
+       "finding": "Tests generated from a ground-truth reference identify overfitting patches (638 Defects4J patches); needs a known-correct reference, which retrieval lacks",
+       "verified": true
+      }
+     ],
+     "novelty_vs_trodden": "E3 showed that 62 of 66 rank-1 errors were incorrect submissions to the same problem and that samples cannot separate them. No new evidence has been tried on them since; E8 rejected 1 of 111. These are human bugs, which may be more independent than mutants and so suit MBR better, or more correlated through shared misconceptions, which would hurt it.",
+     "protocol": "Pre-register first. EXT-dev only (108 statements; never the lockbox). For each statement whose top 20 holds 2 or more sample-verified candidates, run the verified candidates on 24 type-aware mutated sample inputs, then reorder only within the verified tier by MBR score, with dense order breaking ties. Compare NDCG@10 and gold-first-within-tie against the recorded call-style replay. Paired bootstrap, sign-flip test, count of changed statements. Stop after 10 min of CPU.",
+     "baseline": "1.7B EXT-dev call-style NDCG@10 0.7589; within verified ties dense already puts the gold first 29/58 = 0.500 (chance 0.349); ceiling 0.8702 (+0.111, 29 reachable statements). All measured read-only today.",
+     "min_effect": "Gold-first within ties of 0.60 or more (6 or more net statements) and an NDCG gain with an interval excluding zero; any loss on the 29 ties dense already gets right counts against it.",
+     "cost": "Laptop CPU: about 58 statements x 3.5 verified x 24 inputs, roughly 5k runs, about 5 min. No GPU.",
+     "risks": "Multiple comparisons on a reused EXT-dev set, and n = 58 ties is underpowered for small effects. Some incorrect submissions are wrong only on time limits, so their outputs match the gold on small inputs and give no signal. 47 of 108 statements come from the valid split (contamination is plausible but unverified).",
+     "cheapest_falsifying_check": "Run MBR on the first 20 tie statements (about 1 min). If gold-first within ties is 0.50 or less, the dense order it would replace, kill it. The mutant pilot's MBR (0.46) sits below this bar, so the prior is that it fails.",
+     "expected_value": "Estimate: -0.02 to +0.03 NDCG@10 on EXT-dev; likely null. It is worth running because it is the realistic test of whether Bonus-A generalises beyond synthetic mutants, and a null result bounds what the Bonus can claim."
+    }
+   ],
+   "rejected": [
+    {
+     "name": "Merkle tree over directories (Cursor-style) for change detection",
+     "reason": "The repo already hashes every file and chunk with sha256 and caches vectors by content. A Merkle tree only speeds up detecting changes, which costs milliseconds, while embedding costs about 1.2 s per snippet. A snippet corpus like APPS has no directory tree anyway. Trodden, with no measurable gain."
+    },
+    {
+     "name": "Reuse the previous version's vector for near-identical edits (lazy re-embedding)",
+     "reason": "Measured today: unconditional reuse costs lineage@1 0.853 -> 0.833 at 1.7B (3 of 150 lineages) and saves about 1.2 s of CPU per changed snippet. That is a real correctness loss for a saving the FAQ's time criterion does not need; a Jaccard-gated variant would still need texts that are not stored locally."
+    },
+    {
+     "name": "Length-sorted batching for CPU document encoding",
+     "reason": "Already in `app/retrieval/encode.py:plan_batches`. R2 measured batching slower than batch 1 on CPU (15.3 s vs 7.8 s per query at 1.7B)."
+    },
+    {
+     "name": "bfloat16 or int8 quantisation for CPU re-indexing",
+     "reason": "R2 measured bfloat16 as slower (39.4 s vs 7.83 s) and failing the 0.999 fidelity bar. int8 is an unverified speedup that would change query vectors on the scored path. It needs its own fidelity pre-registration and is a P0 risk, not a P1 lever."
+    },
+    {
+     "name": "LLM-generated tests at query time (CodeT-style)",
+     "reason": "FAQ: 'Usage of an API during the retrieval also counts as utilizing the GPU' and a large model per query 'is not efficient'. The query-independent part (inputs that separate versions) is folded into Bonus-A as index-time work instead."
+    },
+    {
+     "name": "Metamorphic relations and judge-aware comparator for near-misses",
+     "reason": "Trodden. E8 rejected 1 of 111 real near-misses; the judge-aware comparator gave +0.0004 at 1.7B. Neither adds new evidence."
+    },
+    {
+     "name": "PATCH-SIM execution-trace similarity",
+     "reason": "Needs instrumentation and a passing/failing test split that a query does not provide. The cheaper output-level differential in Bonus-A covers the same idea."
+    },
+    {
+     "name": "RGT-style reference-based differential testing",
+     "reason": "Needs a known-correct reference version, which does not exist at query time."
+    },
+    {
+     "name": "'Latest version wins' recency prior as the primary Bonus rule",
+     "reason": "The FAQ does not say how the hands-on versions are ordered. E5 randomises the correct version's position on purpose, and lineage.py already uses recency only as the last tie-break. Promoting it would be a guess about the judge's data."
+    },
+    {
+     "name": "Consensus with other correct solutions of the same problem in the corpus",
+     "reason": "The APPS corpus holds one solution per problem, and the unseen set is 'representative of the APPS dataset', so there is usually nothing to agree with outside the lineage."
+    }
+   ]
+  }
+ ],
+ "critique": null
+}

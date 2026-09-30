@@ -1,0 +1,9 @@
+[11:32:01] rec_17b_dev
+[11:44:07] rec_17b_dev done
+[11:44:07] rec_17b_tune
+[11:55:56] rec_17b_tune done
+[11:55:56] deepen_17b_dev
+[12:03:56] deepen_17b_dev done
+[12:03:56] deepen_17b_tune
+[12:11:57] deepen_17b_tune done
+[12:11:57] cpu queue 17b complete

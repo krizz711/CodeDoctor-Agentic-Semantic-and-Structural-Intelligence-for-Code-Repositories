@@ -1,0 +1,87 @@
+# CANDIDATE v2 configuration -- NOT the submitted one.
+#
+# config/frozen.yaml still describes the run behind appsretrieval_results.json
+# (0.96558).  This file differs from it ONLY in the pipeline switches below.
+# Evidence: experiments/RESULTS.md (round 1, F2LLM-v2-0.6B pools) and
+# experiments/R1_17b (re-measured with the shipped 1.7B encoder), stress-tested
+# in experiments/STRESS_TEST.md.  Adopting it means ONE new logged test-split
+# run; STRESS_TEST.md F5 estimates ~0 change on that split (it is ~99% stdin).
+#
+#   execution_call_style: true     1.7B: DEV +0.0041 [+0.0022, +0.0064], TUNE +0.0032
+#                                  [+0.0016, +0.0049] vs the submitted rule; gains only
+#                                  in the Codewars/LeetCode families; positive in 100%
+#                                  of 200 re-splits (0.6B: DEV +0.0071, TUNE +0.0053).
+#   execution_max_dense_gap: null  the 0.20 gate is OFF.  It keeps the correct
+#                                  solution out of execution 20x more often on
+#                                  CodeContests than on APPS (4/107 vs 1-3/~1450,
+#                                  Fisher p 1e-4 / 6e-4): an APPS-tuned constant
+#                                  (FAQ 4).  A post-hoc decision -- at 1.7B the gate
+#                                  met the letter of R1's EXT rule; see F4.
+#   execution_deepen_to: 50        when nothing in the top 20 verifies, execute ranks
+#                                  21-50.  1.7B: neutral (DEV +0.0007, TUNE +0.0016,
+#                                  both n.s.; non-inferior in 100% of re-splits);
+#                                  0.6B +0.0047, UniXcoder +0.0120.  Kept for weaker
+#                                  first passes, as R1's prereg allows; not a claimed
+#                                  APPS gain.  Final say: R2 (encoder choice).
+#   execution_skip_interactive: true  a judge-interaction transcript is not stdin
+#                                  (2 of 5,000 APPS train statements; correctness,
+#                                  no score claim; V3_parser_gold/prereg_fixes.md).
+#   execution_blank_line_fallback: true  a stdin sample rendered with blank lines
+#                                  (APPS's CodeChef statements) gets one re-run of a
+#                                  failed candidate on the input without them, counted
+#                                  only if the program read all of it.  1.7B DEV stdin
+#                                  +0.0078 [+0.0031, +0.0131], exact sign-flip p 0.001,
+#                                  11 up / 1 down (all families +0.0028); placebo and
+#                                  plain-retry controls 0.  Pre-registered:
+#                                  experiments/C3_cycle (E1).  No screening gain is
+#                                  projected: its test-split prevalence is unknown.
+#   execution_judge_like_io: true  stdin is a file and exit/quit exist, as under a judge
+#                                  (fast-IO idiom os.read(0, os.fstat(0).st_size); bare
+#                                  exit()).  A fidelity fix, no score claim: DEV 0 changes
+#                                  (83 candidates re-run); CodeContests EXT-dev +0.0069
+#                                  n.s., 5 up / 3 down, in-sample.  experiments/C3_cycle.
+#   execution_timeout_mode: cpu    CPU-time limits (POSIX; wall clock elsewhere):
+#                                  wall-clock verdicts depend on machine load.
+#   execution_workers: 0           one per physical core (override with
+#                                  --execution-workers).
+#
+# Deliberately OFF (measured, below the +0.003 minimum): judge_rules (+0.0021 at
+# 0.6B, +0.0004 at 1.7B), extended_stdin (0), learned fusion (-0.0021), cascade
+# (-0.0076), metamorphic tests (+0.0002), hubness (did not replicate on TUNE).
+
+encoder:
+  production_model: codefuse-ai/F2LLM-v2-1.7B
+  revision: 3766d46e7a68545ed6190c15330983f9b39ab718
+  similarity_metric: cosine
+  device: cpu
+  max_seq_length: 8192
+  query_max_seq_length: 8192
+  document_max_seq_length: 8192
+  query_prefix: 'Instruct: Retrieve the most relevant code snippet for the given query.
+
+    Query: '
+  document_prefix: ''
+  add_eos_token: true
+  normalize_embeddings: true
+  attention_budget: 67000000
+  max_batch: 64
+interactive_encoder:
+  production_model: codefuse-ai/F2LLM-v2-0.6B
+  revision: 54b4e2dc74e01be7126d4cf5f016af6b21edc563
+pipeline:
+  enabled: true
+  candidate_depth: 50
+  execution_rerank: true
+  execution_candidates: 20
+  execution_timeout_seconds: 2.0
+  execution_numeric_tolerance: 1.0e-06
+  execution_call_style: true
+  execution_max_dense_gap: null
+  execution_timeout_mode: cpu
+  execution_workers: 0
+  execution_extended_stdin: false
+  execution_judge_rules: false
+  execution_deepen_to: 50
+  execution_skip_interactive: true
+  execution_blank_line_fallback: true
+  execution_judge_like_io: true

@@ -1,0 +1,4 @@
+external set ext_cc: 108 queries in ext_dev
+executing 2,160 (query, candidate) pairs with 6 workers ...
+  2,000/2,160 in 108s
+recorded 2,160 pairs over 108 queries in 118s -> data\outcomes\f2llm06b_extcc_dev.jsonl.gz

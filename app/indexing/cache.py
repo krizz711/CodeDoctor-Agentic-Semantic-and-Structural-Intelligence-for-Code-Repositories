@@ -31,6 +31,53 @@ def compute_embedding_key(
     return hasher.hexdigest()
 
 
+def recipe_cache_key(encoder: object, text: str, mode: str = "document") -> str:
+    """Content address of one vector under ``encoder``'s full recipe.
+
+    Everything that changes the vector is in the key: model and revision, the
+    exact prompt string handed to the tokenizer, the sequence cap, EOS and
+    normalisation.  The ``mode`` namespace (``document`` by default, or
+    ``query``) means a query can never be served from a document cache even if
+    its text equals a document's.
+
+    This is the one key for every document cache -- the scored path's corpus
+    cache and the demo's -- so a model, revision or prefix change can never
+    serve another recipe's vectors (it did in the demo until cycle 3, E3).
+    Device and dtype are deliberately not in it: GPU and CPU vectors of the
+    same recipe share an address (measured cosine >= 0.9994).  Document keys
+    are byte-identical to what they were before ``mode`` existed.
+    """
+    if mode not in ("document", "query"):
+        raise ValueError(f"mode must be 'document' or 'query', got {mode!r}")
+    if hasattr(encoder, "get_prompt_text"):
+        prompt = encoder.get_prompt_text(text, mode)
+    else:
+        prefix = getattr(encoder, "query_prefix" if mode == "query" else "document_prefix", "")
+        prompt = f"{prefix}{text}"
+    return compute_embedding_key(
+        encoder_input=f"{mode}\x00" + prompt,
+        encoder_revision=f"{getattr(encoder, 'model_name', '?')}@{getattr(encoder, 'revision', None)}",
+        tokenizer_revision=(
+            f"max{getattr(encoder, 'max_seq_length', '?')}"
+            f"|eos{int(bool(getattr(encoder, 'add_eos_token', True)))}"
+            f"|norm{int(bool(getattr(encoder, 'normalize_embeddings', True)))}"
+        ),
+        template_revision=repr(getattr(encoder, "document_prefix", "")),
+    )
+
+
+def stack_cached(vectors: list, expected_dim: int | None = None) -> np.ndarray:
+    """``np.vstack`` for cached vectors that refuses mixed dimensions loudly."""
+    dims = sorted({int(np.asarray(v).size) for v in vectors})
+    if len(dims) > 1 or (expected_dim is not None and dims and dims[0] != expected_dim):
+        raise ValueError(
+            f"embedding cache returned vectors of dimension {dims}"
+            + (f", encoder produces {expected_dim}" if expected_dim is not None else "")
+            + "; the cache mixes recipes -- rebuild it or point it at a new file"
+        )
+    return np.vstack([np.asarray(v, dtype=np.float32) for v in vectors])
+
+
 class EmbeddingCache:
     """
     Persistent embedding cache keyed by K_emb.
@@ -100,6 +147,33 @@ class EmbeddingCache:
             (cache_key, dim, blob, is_real_val),
         )
         self.conn.commit()
+
+    def get_many(self, cache_keys: list[str]) -> dict[str, np.ndarray]:
+        """Real vectors for whichever of ``cache_keys`` are present."""
+        found: dict[str, np.ndarray] = {}
+        for start in range(0, len(cache_keys), 500):
+            chunk = cache_keys[start : start + 500]
+            placeholders = ",".join("?" * len(chunk))
+            rows = self.conn.execute(
+                f"SELECT cache_key, vector, dim FROM embedding_cache "
+                f"WHERE is_real = 1 AND cache_key IN ({placeholders})",
+                chunk,
+            ).fetchall()
+            for row in rows:
+                found[row["cache_key"]] = np.frombuffer(row["vector"], dtype=np.float32).reshape(row["dim"])
+        return found
+
+    def put_many(self, items: list[tuple[str, np.ndarray]]) -> None:
+        """Insert many vectors in one transaction (one commit, not one per row)."""
+        rows = []
+        for cache_key, vector in items:
+            arr = np.asarray(vector, dtype=np.float32)
+            rows.append((cache_key, arr.size, arr.tobytes(), 1))
+        with self.conn:
+            self.conn.executemany(
+                "INSERT OR REPLACE INTO embedding_cache (cache_key, dim, vector, is_real) VALUES (?, ?, ?, ?)",
+                rows,
+            )
 
     def has(self, cache_key: str, real_only: bool = True) -> bool:
         if real_only:
