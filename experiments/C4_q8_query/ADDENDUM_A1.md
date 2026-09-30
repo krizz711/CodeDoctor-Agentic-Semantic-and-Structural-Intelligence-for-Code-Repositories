@@ -52,3 +52,16 @@ controls. It uses the train-only dataset and the smoke output. Stage 2's live
 replay and ranking analysis remains to be implemented after stage 1 passes;
 the user requested a pause before that complex part to increase reasoning
 depth. Do not weaken the registered gates if time or compute runs short.
+
+## Infrastructure retry submitted
+
+The user confirmed phone verification and Internet enabled in the editor.
+Version 2 was submitted with the prepared DNS/HTTPS preflight and public PyPI
+index. See [attempt record](runs/smoke_v2.json). It is the one permitted
+infrastructure retry; a submitted/running state establishes no model result.
+
+Before Stage 1, the scorer was hardened to reject zero-norm treatment/control
+vectors explicitly: NaN cosine from a zero vector must never pass the F32
+threshold checks. Six synthetic invalid-vector cases (zero/NaN/Inf for both
+F32 and Q8) pass alongside the three existing gate tests. No decision data
+was used for this correction.

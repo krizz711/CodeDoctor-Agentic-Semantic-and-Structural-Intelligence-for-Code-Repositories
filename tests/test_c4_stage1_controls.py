@@ -1,6 +1,7 @@
 """Synthetic tests for the C4 validity boundary, not benchmark evidence."""
 import json
 import numpy as np
+import pytest
 from scripts.c4_stage1 import compare
 
 
@@ -43,3 +44,16 @@ def test_token_mismatch_voids_control(tmp_path):
     write_arm(tmp_path, "torch", baseline)
     write_arm(tmp_path, "f32", baseline, tokens=[[2, 151645]] * 100)
     assert compare(tmp_path, {"peak_process_tree_rss_bytes": 10})["status"] == "void"
+
+
+@pytest.mark.parametrize("bad_value", [0.0, float("nan"), float("inf")])
+@pytest.mark.parametrize("backend,expected", [("f32", "void"), ("q8", "negative")])
+def test_invalid_vector_cannot_pass(tmp_path, bad_value, backend, expected):
+    baseline = vectors()
+    write_arm(tmp_path, "torch", baseline)
+    write_arm(tmp_path, "f32", baseline)
+    invalid = baseline.copy()
+    invalid[0, :] = bad_value
+    write_arm(tmp_path, backend, invalid)
+    treatment = {"peak_process_tree_rss_bytes": 5} if backend == "q8" else None
+    assert compare(tmp_path, {"peak_process_tree_rss_bytes": 10}, treatment)["status"] == expected

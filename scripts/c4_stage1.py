@@ -143,7 +143,8 @@ def compare(out: Path, baseline: dict, treatment: dict | None = None) -> dict:
     metrics = {}
     for name in names[1:]:
         vec = np.load(out / f"{name}-vectors.npy", allow_pickle=False).astype(np.float64)
-        if vec.shape != base.shape or vec.shape != (100, 2048) or not np.isfinite(vec).all():
+        if (vec.shape != base.shape or vec.shape != (100, 2048)
+                or not np.isfinite(vec).all() or np.any(np.linalg.norm(vec, axis=1) == 0)):
             return {"status": "void" if name == "f32" else "negative", "reason": f"invalid {name} vectors"}
         cos = (base*vec).sum(axis=1)/(np.linalg.norm(base, axis=1)*np.linalg.norm(vec, axis=1))
         metrics[name] = {"median_cosine": float(np.median(cos)), "minimum_cosine": float(np.min(cos)),

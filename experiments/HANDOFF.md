@@ -7,9 +7,8 @@ the output version, as disclosed in that record. C4-E1 Q8_0 was
 [preregistered](C4_q8_query/PREREG.md) before decision runs. Its first Kaggle
 synthetic smoke [failed on DNS](C4_q8_query/ADDENDUM_A1.md) before conversion;
 no C4 decision result exists. Train-only TUNE/DEV inputs are prepared in the
-private `lifemeansfun/codedoctor-c4-train-inputs` Kaggle dataset. Confirm
-notebook Internet availability before the single permitted infrastructure
-retry. If F32 conversion fidelity fails, pause for higher-depth analysis; if
+private `lifemeansfun/codedoctor-c4-train-inputs` Kaggle dataset. The user confirmed notebook Internet availability; the single permitted
+infrastructure retry is submitted as version 2 (see the addendum). If F32 conversion fidelity fails, pause for higher-depth analysis; if
 stage 1 passes, pause before stage 2 replay design as the user requested.
 
 **Experiment tracking (2026-09-29):** [REGISTER.md](REGISTER.md) indexes outcomes,
