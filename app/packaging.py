@@ -24,9 +24,12 @@ PAYLOAD_PATHS: tuple[str, ...] = (
     "app/pipeline",
     "app/retrieval",
     "app/evaluation.py",
+    "app/submission.py",
+    "app/indexing",
     "app/evaluation_harness.py",
     "app/packaging.py",
     "config/frozen.yaml",
+    "config/submission.yaml",
     "config/retrieval.yaml",
     "config/reranker.json",
     "scripts/__init__.py",
@@ -48,7 +51,7 @@ PAYLOAD_PATHS: tuple[str, ...] = (
 
 
 def _keep(info: tarfile.TarInfo) -> tarfile.TarInfo | None:
-    if "__pycache__" in info.name or info.name.endswith(".pyc"):
+    if "__pycache__" in info.name or info.name.endswith((".pyc", ".DS_Store")):
         return None
     return info
 

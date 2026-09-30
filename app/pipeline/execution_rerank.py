@@ -1169,6 +1169,7 @@ def apply_execution_rerank(
         "examples_found": 0,
         "candidates_executed": 0,
         "candidates_verified": 0,
+        "per_result": [{"state": "not_run"} for _ in candidate_texts],
     }
     if not config.enabled:
         audit["reason"] = "execution rerank disabled by configuration"
@@ -1236,6 +1237,7 @@ def apply_execution_rerank(
             break
         audit["candidates_executed"] = int(audit["candidates_executed"]) + 1
         passed, by_call = precomputed[index] if precomputed is not None else check(index)
+        audit["per_result"][index] = {"state": "verified" if passed else "failed", "by_call": by_call}
         if passed:
             audit["candidates_verified"] = int(audit["candidates_verified"]) + 1
             if by_call:
@@ -1269,6 +1271,7 @@ def apply_execution_rerank(
         for offset, (passed, by_call) in enumerate(deep_results):
             index = limit + offset
             audit["candidates_executed"] = int(audit["candidates_executed"]) + 1
+            audit["per_result"][index] = {"state": "verified" if passed else "failed", "by_call": by_call}
             if passed:
                 audit["candidates_verified"] = int(audit["candidates_verified"]) + 1
                 if by_call:

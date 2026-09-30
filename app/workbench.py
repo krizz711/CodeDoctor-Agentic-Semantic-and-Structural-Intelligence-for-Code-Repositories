@@ -27,8 +27,9 @@ Three deliberate choices:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import json
+import os
 from pathlib import Path
 import threading
 import time
@@ -44,7 +45,7 @@ from app.parser.edges import StructuralExtractor
 from app.pipeline.execution_rerank import (
     ExecutionConfig,
     parse_worked_examples,
-    run_candidate,
+    apply_execution_rerank,
 )
 from app.retrieval.hybrid import Document, RankedDocument
 
@@ -54,41 +55,7 @@ APPS_ARTIFACTS = REPO_ROOT / "artifacts" / "apps"
 #: Extensions the chunker has a tree-sitter grammar for.
 SOURCE_SUFFIXES = {".py", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}
 
-FROZEN_CONFIG = REPO_ROOT / "config" / "frozen.yaml"
-
-_EXECUTION_CONFIG: ExecutionConfig | None = None
-
-
-def execution_config() -> ExecutionConfig:
-    """The execution pass exactly as the submission froze it.
-
-    Read from ``config/frozen.yaml`` rather than restated here, so the demo
-    cannot drift into being a friendlier configuration than the one the
-    leaderboard number was measured with. Depth, timeout and the numeric
-    tolerance all come from that file.
-    """
-    global _EXECUTION_CONFIG
-    if _EXECUTION_CONFIG is not None:
-        return _EXECUTION_CONFIG
-
-    settings: dict[str, Any] = {}
-    if FROZEN_CONFIG.exists():
-        try:
-            import yaml
-
-            settings = (yaml.safe_load(FROZEN_CONFIG.read_text(encoding="utf-8")) or {}).get(
-                "pipeline", {}
-            ) or {}
-        except Exception:
-            settings = {}
-
-    _EXECUTION_CONFIG = ExecutionConfig(
-        enabled=bool(settings.get("execution_rerank", True)),
-        max_candidates=int(settings.get("execution_candidates", 20)),
-        timeout_seconds=float(settings.get("execution_timeout_seconds", 2.0)),
-        numeric_tolerance=settings.get("execution_numeric_tolerance"),
-    )
-    return _EXECUTION_CONFIG
+from app.submission import execution_config, SUBMISSION_CONFIG
 
 
 #: Chunks whose encoder input is longer than this get no dense vector.
@@ -823,7 +790,7 @@ class Workbench:
         if self._encoder is None:
             from app.retrieval.encode import get_shared_encoder
 
-            self._encoder = get_shared_encoder(tier="interactive")
+            self._encoder = get_shared_encoder(tier=os.environ.get("CODEDOCTOR_TIER", "accuracy"))
         return self._encoder
 
     def _warm_encoder(self) -> None:
@@ -997,7 +964,7 @@ class Workbench:
         # fire, because the whole point of that pass is to lift something out
         # of the depth the first two passes left it at. Depth 20 is the frozen
         # submission's setting, not a number chosen for the demo.
-        depth = max(limit, config.max_candidates) if verify else limit
+        depth = max(limit, config.max_candidates, config.deepen_to) if verify else limit
 
         # Plan before retrieving. The router reads cheap signals off the query
         # and decides which passes are worth running; an identifier lookup is
@@ -1030,13 +997,9 @@ class Workbench:
         order = list(range(len(hits)))
         bonus = [0.0] * len(hits)
         if verification["ran"]:
-            for i in order:
-                bonus[i] = (
-                    config.verified_bonus
-                    if verification["per_result"][i]["state"] == "verified"
-                    else config.failure_penalty
-                )
-            order.sort(key=lambda i: (-(hits[i].score + bonus[i]), i))
+            adjusted = verification["adjusted_scores"]
+            bonus = [adjusted[i] - hits[i].score for i in order]
+            order.sort(key=lambda i: (-adjusted[i], i))
 
         shown = order[:limit]
 
@@ -1193,47 +1156,20 @@ class Workbench:
                 "reason": f"pass executes Python; this corpus is {built.target.language}",
                 "per_result": blank, "executed": 0, "verified": 0,
             }
-        examples = parse_worked_examples(query, limit=config.max_examples)
-        if not examples:
-            return {
-                "ran": False,
-                "reason": "statement has no machine-readable worked examples",
-                "per_result": blank, "executed": 0, "verified": 0,
-            }
-
-        per_result: list[dict[str, Any]] = []
-        executed = verified = 0
-        for position, hit in enumerate(hits):
-            if position >= config.max_candidates:
-                per_result.append({"state": "not_run", "examples": len(examples),
-                                   "note": "below the configured execution depth"})
-                continue
-            executed += 1
-            matched = True
-            note = ""
-            for example in examples:
-                ok, detail = run_candidate(hit.document.content, example, config)
-                if not ok:
-                    matched = False
-                    note = detail
-                    break
-            if matched:
-                verified += 1
-            per_result.append(
-                {
-                    "state": "verified" if matched else "failed",
-                    "examples": len(examples),
-                    "note": "" if matched else str(note)[:160],
-                }
-            )
+        raw = [float(hit.score) for hit in hits]
+        bonus = (max(raw) - min(raw) + 1.0) if raw else 1.0
+        adjusted, audit = apply_execution_rerank(
+            query, [hit.document.content for hit in hits], raw,
+            replace(config, verified_bonus=bonus),
+        )
+        executed = int(audit["candidates_executed"])
+        verified = int(audit["candidates_verified"])
         return {
-            "ran": True,
-            "reason": f"{executed} candidates executed against "
-                      f"{len(examples)} worked example(s) in a sandboxed subprocess "
-                      f"({config.timeout_seconds:g}s timeout), {verified} reproduced them",
-            "per_result": per_result,
-            "executed": executed,
-            "verified": verified,
+            "ran": executed > 0,
+            "reason": audit.get("reason", f"{executed} candidates executed; {verified} verified"),
+            "per_result": audit["per_result"],
+            "executed": executed, "verified": verified,
+            "adjusted_scores": adjusted, "audit": audit,
         }
 
     # -- versions ----------------------------------------------------------
@@ -1267,8 +1203,17 @@ class Workbench:
         comparable = left_dense == right_dense
 
         started = time.perf_counter()
-        left_hits = built.index.retrieve(query, left, limit=limit)
-        right_hits = built.index.retrieve(query, right, limit=limit)
+        config = execution_config()
+        depth = max(limit, config.max_candidates, config.deepen_to)
+        def verified_hits(ref):
+            hits = built.index.retrieve(query, ref, limit=depth)
+            verification = self._verify(query, hits, built, enabled=True, config=config)
+            if verification["ran"]:
+                order = sorted(range(len(hits)), key=lambda i: (-verification["adjusted_scores"][i], i))
+                hits = [hits[i] for i in order]
+            return hits[:limit]
+        left_hits = verified_hits(left)
+        right_hits = verified_hits(right)
         elapsed = (time.perf_counter() - started) * 1000
 
         def key(hit: RankedDocument) -> str:
@@ -1338,11 +1283,11 @@ class Workbench:
         """The Bonus goal: one ranking over every indexed version at once."""
         built = self._require(target_key)
         started = time.perf_counter()
-        collapsed = built.index.retrieve_across_versions(query, limit=limit)
-        elapsed = (time.perf_counter() - started) * 1000
-        ungrouped = built.index.retrieve_across_versions(
-            query, limit=limit, collapse_identical=False
+        collapsed, ungrouped = built.index.retrieve_across_versions(
+            query, limit=limit, return_ungrouped=True,
+            execution=execution_config() if built.target.language == "Python" else None,
         )
+        elapsed = (time.perf_counter() - started) * 1000
 
         def cross(hit: CrossVersionHit, rank: int) -> dict[str, Any]:
             return {
@@ -1368,6 +1313,7 @@ class Workbench:
             "target": target_key,
             "elapsed_ms": round(elapsed, 1),
             "versions_searched": len(built.versions),
+            "configuration": str(SUBMISSION_CONFIG.relative_to(REPO_ROOT)),
             "collapsed": [cross(h, i + 1) for i, h in enumerate(collapsed)],
             "ungrouped": [cross(h, i + 1) for i, h in enumerate(ungrouped)],
             "distinct_collapsed": distinct_collapsed,

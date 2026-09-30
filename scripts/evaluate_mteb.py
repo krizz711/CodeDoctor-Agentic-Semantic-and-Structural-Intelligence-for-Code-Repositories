@@ -14,50 +14,31 @@ baseline.  Both write the same schema.
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from app.pipeline.encoder import PrePostPipelineEncoder  # noqa: E402
-from app.pipeline.execution_rerank import ExecutionConfig  # noqa: E402
 from app.pipeline.reranker import RerankerConfig  # noqa: E402
 from app.retrieval.encode import (  # noqa: E402
-    DEFAULT_CONFIG_PATH,
-    FROZEN_CONFIG_PATH,
     CodeEncoder,
     _select_device,
     select_dtype,
 )
 
 
-def get_default_config_path() -> Path:
-    """The submission path reads the frozen config, never the live one."""
-    if FROZEN_CONFIG_PATH.exists():
-        return FROZEN_CONFIG_PATH
-    return DEFAULT_CONFIG_PATH
-
-
-def _read_config(path: Path) -> dict:
-    """The YAML config at ``path``.
-
-    A missing or malformed config used to become ``{}``, which silently turned
-    execution verification off; both are now errors.
-    """
-    if not path.exists():
-        raise FileNotFoundError(f"config not found: {path}")
-    try:
-        return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except (yaml.YAMLError, UnicodeDecodeError) as error:
-        raise ValueError(f"config {path} is not valid YAML: {error}") from error
+from app.submission import (  # noqa: E402
+    get_default_config_path, get_pipeline_config, read_config as _read_config,
+    resolve_workers, execution_config as load_execution_config,
+)
 
 
 def get_default_model(config_path: Path | None = None) -> str:
@@ -67,42 +48,6 @@ def get_default_model(config_path: Path | None = None) -> str:
 
 #: CoIR AppsRetrieval test split, fixed by the dataset revision this pins.
 APPS_TEST_QUERIES = 3765
-
-
-def get_pipeline_config(config_path: Path | None = None) -> dict:
-    """The ``pipeline`` block of the frozen config, with safe fallbacks."""
-    data = _read_config(config_path or get_default_config_path())
-    block = data.get("pipeline", {}) or {}
-    return {
-        "execution_rerank": bool(block.get("execution_rerank", False)),
-        "execution_candidates": int(block.get("execution_candidates", 10)),
-        "execution_timeout_seconds": float(block.get("execution_timeout_seconds", 2.0)),
-        "execution_numeric_tolerance": (
-            None
-            if block.get("execution_numeric_tolerance") in (None, "", False)
-            else float(block["execution_numeric_tolerance"])
-        ),
-        "execution_max_dense_gap": (
-            None
-            if block.get("execution_max_dense_gap") in (None, "", False)
-            else float(block["execution_max_dense_gap"])
-        ),
-        # 0 or absent means "one per CPU"; parallelism never changes a result.
-        "execution_workers": int(block.get("execution_workers", 0) or 0),
-        # v2 switches -- all default off, so config/frozen.yaml is unchanged.
-        "execution_call_style": bool(block.get("execution_call_style", False)),
-        "execution_extended_stdin": bool(block.get("execution_extended_stdin", False)),
-        "execution_judge_rules": bool(block.get("execution_judge_rules", False)),
-        "execution_timeout_mode": str(block.get("execution_timeout_mode", "wall")),
-        "execution_deepen_to": int(block.get("execution_deepen_to", 0) or 0),
-        "execution_skip_interactive": bool(block.get("execution_skip_interactive", False)),
-        "execution_blank_line_fallback": bool(block.get("execution_blank_line_fallback", False)),
-        "execution_judge_like_io": bool(block.get("execution_judge_like_io", False)),
-        # PRE-5 hubness correction: off unless a bank is configured.
-        "hubness_bank": block.get("hubness_bank") or None,
-        "hubness_beta": float(block.get("hubness_beta", 0.3)),
-        "hubness_k": int(block.get("hubness_k", 10)),
-    }
 
 
 def load_hubness_bank(path_value):
@@ -117,59 +62,12 @@ def load_hubness_bank(path_value):
     return np.load(path).astype(np.float32)
 
 
-def resolve_workers(requested: int) -> int:
-    """``0`` means one worker per physical core.
-
-    Sandbox runs are CPU-bound and their wall-clock timeouts are load-sensitive
-    (experiments/RESULTS.md, "Timeouts are load-dependent"), so hyperthreads do
-    not count.  Falls back to the logical count when psutil cannot tell.
-    """
-    if requested > 0:
-        return requested
-    try:
-        import psutil
-
-        physical = psutil.cpu_count(logical=False)
-    except ImportError:
-        physical = None
-    return physical or os.cpu_count() or 1
-
-
 def get_tier_model(tier: str, config_path: Path | None = None) -> tuple[str | None, str | None]:
     """``(model_name, revision)`` for the requested tier, or ``(None, None)``."""
     data = _read_config(config_path or get_default_config_path())
     section = "interactive_encoder" if tier == "interactive" else "encoder"
     block = data.get(section, {}) or {}
     return block.get("production_model"), block.get("revision")
-
-
-def build_query_encoder(config_path: Path | None, encoder: CodeEncoder, *, tier: str = "accuracy"):
-    """Load the optional experimental query tower without touching documents."""
-    if config_path is None:
-        return None
-    from app.retrieval.llama_query import LlamaQueryEncoder
-
-    query_settings = _read_config(config_path)
-    if query_settings.get("backend") != "llama_cpp_q8_0":
-        raise ValueError("query encoder config must set backend: llama_cpp_q8_0")
-    if tier != "accuracy" or encoder.device != "cpu":
-        raise ValueError("C4 query encoder requires --tier accuracy --device cpu")
-    if encoder.model_name != "codefuse-ai/F2LLM-v2-1.7B" or encoder.revision != "3766d46e7a68545ed6190c15330983f9b39ab718":
-        raise ValueError("C4 query encoder requires the preregistered model and revision")
-    root = config_path.resolve().parent
-    def artifact_path(key: str) -> Path:
-        value = Path(str(query_settings[key]))
-        return value if value.is_absolute() else root / value
-    query_encoder = LlamaQueryEncoder(
-        binary=artifact_path("binary"), model=artifact_path("model"),
-        model_name=encoder.model_name, revision=encoder.revision,
-        query_prefix=encoder.query_prefix, max_seq_length=encoder.max_seq_length,
-        threads=int(query_settings.get("threads", 2)),
-        startup_timeout=float(query_settings.get("startup_timeout", 120)),
-        request_timeout=float(query_settings.get("request_timeout", 120)),
-        log_path=artifact_path("log_path"),
-    )
-    return query_encoder
 
 
 def build_mteb_encoder(pipeline: PrePostPipelineEncoder, model_name: str) -> Any:
@@ -189,9 +87,7 @@ def build_mteb_encoder(pipeline: PrePostPipelineEncoder, model_name: str) -> Any
     class CodeDoctorMTEBEncoder(AbsEncoder):
         def __init__(self) -> None:
             self.pipeline = pipeline
-            # A cached-corpus C4 run must not load the FP32 document model just
-            # to construct the MTEB wrapper. Cache misses still use it below.
-            self.model = pipeline.encoder if pipeline.query_encoder is not None else pipeline.encoder.model
+            self.model = pipeline.encoder.model
             self.mteb_model_meta = model_meta
 
         def encode(self, inputs, **kwargs) -> np.ndarray:
@@ -214,10 +110,6 @@ def main() -> None:
         help="accuracy = submission encoder; interactive = the live-service encoder",
     )
     parser.add_argument("--config", type=Path, default=None)
-    parser.add_argument(
-        "--query-encoder-config", type=Path, default=None,
-        help="experimental C4 llama.cpp query-only configuration (default: Torch)",
-    )
     parser.add_argument("--weights", type=Path, default=None, help="reranker weights JSON")
     parser.add_argument("--no-rerank", action="store_true", help="dense only (ablation baseline)")
     execution_group = parser.add_mutually_exclusive_group()
@@ -245,7 +137,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("appsretrieval_results.json"))
     parser.add_argument("--predictions", type=Path, default=None, help="also write ranked CSVs here")
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto")
+    parser.add_argument("--device", choices=["auto", "cuda", "cpu"], default="cpu")
     parser.add_argument(
         "--corpus-cache",
         type=Path,
@@ -284,10 +176,6 @@ def main() -> None:
     print(f"Document prefix : {encoder.document_prefix!r}")
     print(f"max_seq_length  : {encoder.max_seq_length}   add_eos_token: {encoder.add_eos_token}")
 
-    query_encoder = build_query_encoder(args.query_encoder_config, encoder, tier=args.tier)
-    if query_encoder is not None:
-        print(f"Query encoder   : llama.cpp Q8_0 ({query_encoder.model})")
-
     reranker_config = RerankerConfig.load(args.weights)
     if args.no_rerank:
         reranker_config = RerankerConfig()
@@ -298,32 +186,16 @@ def main() -> None:
         print(f"Reranker        : {reranker_config.describe()}")
 
     pipeline_defaults = get_pipeline_config(config_path)
-    execution_config = ExecutionConfig(
-        enabled=(
-            pipeline_defaults["execution_rerank"] if args.execution is None else args.execution
-        ),
-        max_candidates=args.execution_candidates or pipeline_defaults["execution_candidates"],
-        timeout_seconds=args.execution_timeout or pipeline_defaults["execution_timeout_seconds"],
-        numeric_tolerance=pipeline_defaults["execution_numeric_tolerance"],
-        max_dense_gap=(
-            args.execution_max_dense_gap
-            if args.execution_max_dense_gap is not None
-            else pipeline_defaults["execution_max_dense_gap"]
-        ),
-        workers=resolve_workers(
-            args.execution_workers
-            if args.execution_workers is not None
-            else pipeline_defaults["execution_workers"]
-        ),
-        call_style=pipeline_defaults["execution_call_style"],
-        extended_stdin=pipeline_defaults["execution_extended_stdin"],
-        judge_rules=pipeline_defaults["execution_judge_rules"],
-        timeout_mode=pipeline_defaults["execution_timeout_mode"],
-        deepen_to=pipeline_defaults["execution_deepen_to"],
-        skip_interactive=pipeline_defaults["execution_skip_interactive"],
-        blank_line_fallback=pipeline_defaults["execution_blank_line_fallback"],
-        judge_like_io=pipeline_defaults["execution_judge_like_io"],
-    )
+    execution_config = load_execution_config(config_path)
+    overrides = {}
+    for value, key in ((args.execution, "enabled"), (args.execution_candidates, "max_candidates"),
+                       (args.execution_timeout, "timeout_seconds"),
+                       (args.execution_max_dense_gap, "max_dense_gap")):
+        if value is not None:
+            overrides[key] = value
+    if args.execution_workers is not None:
+        overrides["workers"] = resolve_workers(args.execution_workers)
+    execution_config = replace(execution_config, **overrides)
     if execution_config.enabled:
         print(f"Execution pass  : ON (top {execution_config.max_candidates}, "
               f"{execution_config.timeout_seconds}s timeout, "
@@ -349,7 +221,6 @@ def main() -> None:
         encoder, reranker_config, execution_config=execution_config, corpus_cache=corpus_cache,
         hubness_bank=hubness_bank, hubness_beta=pipeline_defaults["hubness_beta"],
         hubness_k=pipeline_defaults["hubness_k"],
-        query_encoder=query_encoder,
     )
     if args.hubness and args.hubness.exists():
         pipeline.hub_profile_path = args.hubness
@@ -357,6 +228,16 @@ def main() -> None:
 
     mteb_model = build_mteb_encoder(pipeline, model_name)
 
+    # Persist intent before task loading/evaluation. Failure to write this log
+    # aborts before test access; completed metrics are recorded below.
+    from app.evaluation_harness import record_persistent_audit
+    import hashlib
+    record_persistent_audit(
+        reason="final_run_started", row_count=0, caller="scripts/evaluate_mteb.py",
+        extra={"expected_queries": APPS_TEST_QUERIES,
+               "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),
+               "model": model_name, "revision": revision, "device": device},
+    )
     print("\nFetching task AppsRetrieval ...")
     task = mteb.get_task("AppsRetrieval")
     print("Evaluating ...")
@@ -383,11 +264,7 @@ def main() -> None:
     # The submitted 0.96558 predates this hazard only because it was produced
     # on a machine with a cold cache. Disabling the cache is what makes the
     # number belong to this pipeline.
-    try:
-        results = mteb.evaluate(mteb_model, [task], **evaluate_kwargs)
-    finally:
-        if query_encoder is not None:
-            query_encoder.close()
+    results = mteb.evaluate(mteb_model, [task], **evaluate_kwargs)
     task_result = list(results.task_results)[0]
     payload = task_result.to_dict()
 

@@ -1,0 +1,37 @@
+# Final submission recipe. Historical recipe remains in frozen.yaml.
+encoder:
+  production_model: codefuse-ai/F2LLM-v2-1.7B
+  revision: 3766d46e7a68545ed6190c15330983f9b39ab718
+  similarity_metric: cosine
+  device: cpu
+  max_seq_length: 8192
+  query_max_seq_length: 8192
+  document_max_seq_length: 8192
+  query_prefix: 'Instruct: Retrieve the most relevant code snippet for the given query.
+
+    Query: '
+  document_prefix: ''
+  add_eos_token: true
+  normalize_embeddings: true
+  attention_budget: 67000000
+  max_batch: 64
+interactive_encoder:
+  production_model: codefuse-ai/F2LLM-v2-0.6B
+  revision: 54b4e2dc74e01be7126d4cf5f016af6b21edc563
+pipeline:
+  enabled: true
+  candidate_depth: 50
+  execution_rerank: true
+  execution_candidates: 20
+  execution_timeout_seconds: 2.0
+  execution_numeric_tolerance: 1.0e-06
+  execution_call_style: true
+  execution_max_dense_gap: null
+  execution_timeout_mode: cpu
+  execution_workers: 0
+  execution_extended_stdin: false
+  execution_judge_rules: false
+  execution_deepen_to: 50
+  execution_skip_interactive: true
+  execution_blank_line_fallback: true
+  execution_judge_like_io: true

@@ -9,7 +9,7 @@ from scripts.reconcile_e2 import assess
 
 @pytest.fixture
 def real_run():
-    return json.loads((Path(__file__).parents[1] / "experiments/C3_cycle/E2_runs/e2_A_run1_VOID.json").read_text())
+    return json.loads((Path(__file__).parents[1] / "archive/research/experiments/C3_cycle/E2_runs/e2_A_run1_VOID.json").read_text())
 
 
 def valid_negative(real_run):

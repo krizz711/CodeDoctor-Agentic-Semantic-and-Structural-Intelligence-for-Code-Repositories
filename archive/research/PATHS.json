@@ -1,0 +1,218 @@
+[
+  {
+    "original": "experiments/cpu_queue2.sh",
+    "archive": "archive/research/experiments/cpu_queue2.sh"
+  },
+  {
+    "original": "experiments/C4_q8_query",
+    "archive": "archive/research/experiments/C4_q8_query"
+  },
+  {
+    "original": "experiments/E3_external",
+    "archive": "archive/research/experiments/E3_external"
+  },
+  {
+    "original": "experiments/STRESS_TEST.md",
+    "archive": "archive/research/experiments/STRESS_TEST.md"
+  },
+  {
+    "original": "experiments/cpu_queue3.sh",
+    "archive": "archive/research/experiments/cpu_queue3.sh"
+  },
+  {
+    "original": "experiments/cpu_queue.sh",
+    "archive": "archive/research/experiments/cpu_queue.sh"
+  },
+  {
+    "original": "experiments/P0_ceiling_anomaly",
+    "archive": "archive/research/experiments/P0_ceiling_anomaly"
+  },
+  {
+    "original": "experiments/R2_encoder_choice",
+    "archive": "archive/research/experiments/R2_encoder_choice"
+  },
+  {
+    "original": "experiments/logs_gpu_queue.txt",
+    "archive": "archive/research/experiments/logs_gpu_queue.txt"
+  },
+  {
+    "original": "experiments/E1_verification_policies",
+    "archive": "archive/research/experiments/E1_verification_policies"
+  },
+  {
+    "original": "experiments/E6_hubness",
+    "archive": "archive/research/experiments/E6_hubness"
+  },
+  {
+    "original": "experiments/E2_E7_prereg.md",
+    "archive": "archive/research/experiments/E2_E7_prereg.md"
+  },
+  {
+    "original": "experiments/logs_cpu_queue2.txt",
+    "archive": "archive/research/experiments/logs_cpu_queue2.txt"
+  },
+  {
+    "original": "experiments/E7_unixcoder",
+    "archive": "archive/research/experiments/E7_unixcoder"
+  },
+  {
+    "original": "experiments/cpu_queue_17b.sh",
+    "archive": "archive/research/experiments/cpu_queue_17b.sh"
+  },
+  {
+    "original": "experiments/logs_cpu_queue3.txt",
+    "archive": "archive/research/experiments/logs_cpu_queue3.txt"
+  },
+  {
+    "original": "experiments/cpu_queue_17b_ext.sh",
+    "archive": "archive/research/experiments/cpu_queue_17b_ext.sh"
+  },
+  {
+    "original": "experiments/logs_cpu_queue_17b.txt",
+    "archive": "archive/research/experiments/logs_cpu_queue_17b.txt"
+  },
+  {
+    "original": "experiments/cpu_queue_r2.sh",
+    "archive": "archive/research/experiments/cpu_queue_r2.sh"
+  },
+  {
+    "original": "experiments/RESULTS.md",
+    "archive": "archive/research/experiments/RESULTS.md"
+  },
+  {
+    "original": "experiments/logs",
+    "archive": "archive/research/experiments/logs"
+  },
+  {
+    "original": "experiments/E2_cascade",
+    "archive": "archive/research/experiments/E2_cascade"
+  },
+  {
+    "original": "experiments/R1_17b",
+    "archive": "archive/research/experiments/R1_17b"
+  },
+  {
+    "original": "experiments/stress_test_result.json",
+    "archive": "archive/research/experiments/stress_test_result.json"
+  },
+  {
+    "original": "experiments/gpu_queue.sh",
+    "archive": "archive/research/experiments/gpu_queue.sh"
+  },
+  {
+    "original": "experiments/logs_cpu_queue.txt",
+    "archive": "archive/research/experiments/logs_cpu_queue.txt"
+  },
+  {
+    "original": "experiments/E8_metamorphic",
+    "archive": "archive/research/experiments/E8_metamorphic"
+  },
+  {
+    "original": "experiments/logs_cpu_queue_r2.txt",
+    "archive": "archive/research/experiments/logs_cpu_queue_r2.txt"
+  },
+  {
+    "original": "experiments/V3_parser_gold",
+    "archive": "archive/research/experiments/V3_parser_gold"
+  },
+  {
+    "original": "experiments/C3_cycle",
+    "archive": "archive/research/experiments/C3_cycle"
+  },
+  {
+    "original": "experiments/E5_versions",
+    "archive": "archive/research/experiments/E5_versions"
+  },
+  {
+    "original": "experiments/logs_cpu_queue_17b_ext.txt",
+    "archive": "archive/research/experiments/logs_cpu_queue_17b_ext.txt"
+  },
+  {
+    "original": "experiments/E4_fusion",
+    "archive": "archive/research/experiments/E4_fusion"
+  },
+  {
+    "original": "data/outcomes",
+    "archive": "archive/research/data/outcomes"
+  },
+  {
+    "original": "scripts/exp_e1_armb.py",
+    "archive": "archive/research/scripts/exp_e1_armb.py"
+  },
+  {
+    "original": "scripts/exp_e1_blank_fallback.py",
+    "archive": "archive/research/scripts/exp_e1_blank_fallback.py"
+  },
+  {
+    "original": "scripts/exp_e2_replay.py",
+    "archive": "archive/research/scripts/exp_e2_replay.py"
+  },
+  {
+    "original": "scripts/exp_e3_p1_timing.py",
+    "archive": "archive/research/scripts/exp_e3_p1_timing.py"
+  },
+  {
+    "original": "scripts/e2_ov_kernel.py",
+    "archive": "archive/research/scripts/e2_ov_kernel.py"
+  },
+  {
+    "original": "scripts/build_e2_kernels.py",
+    "archive": "archive/research/scripts/build_e2_kernels.py"
+  },
+  {
+    "original": "scripts/simulate_cascade.py",
+    "archive": "archive/research/scripts/simulate_cascade.py"
+  },
+  {
+    "original": "scripts/fit_evidence_fusion.py",
+    "archive": "archive/research/scripts/fit_evidence_fusion.py"
+  },
+  {
+    "original": "scripts/metamorphic_eval.py",
+    "archive": "archive/research/scripts/metamorphic_eval.py"
+  },
+  {
+    "original": "scripts/r2_compare.py",
+    "archive": "archive/research/scripts/r2_compare.py"
+  },
+  {
+    "original": "scripts/stress_analysis.py",
+    "archive": "archive/research/scripts/stress_analysis.py"
+  },
+  {
+    "original": "scripts/union_replay.py",
+    "archive": "archive/research/scripts/union_replay.py"
+  },
+  {
+    "original": "scripts/c3_stats.py",
+    "archive": "archive/research/scripts/c3_stats.py"
+  },
+  {
+    "original": "scripts/record_blank_fallback.py",
+    "archive": "archive/research/scripts/record_blank_fallback.py"
+  },
+  {
+    "original": "scripts/p0_headroom.py",
+    "archive": "archive/research/scripts/p0_headroom.py"
+  },
+  {
+    "original": "scripts/measure_cascade.py",
+    "archive": "archive/research/scripts/measure_cascade.py"
+  },
+  {
+    "original": "scripts/analyze_promotion_gate.py",
+    "archive": "archive/research/scripts/analyze_promotion_gate.py"
+  },
+  {
+    "original": "scripts/measure_dense_gap.py",
+    "archive": "archive/research/scripts/measure_dense_gap.py"
+  },
+  {
+    "original": "scripts/diagnose_verification_misses.py",
+    "archive": "archive/research/scripts/diagnose_verification_misses.py"
+  },
+  {
+    "original": "scripts/instrument_execution.py",
+    "archive": "archive/research/scripts/instrument_execution.py"
+  }
+]

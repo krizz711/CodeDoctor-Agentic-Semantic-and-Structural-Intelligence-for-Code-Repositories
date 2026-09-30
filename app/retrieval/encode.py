@@ -7,7 +7,6 @@ from typing import Any, Sequence, Union
 
 import numpy as np
 import torch
-import yaml
 
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "retrieval.yaml"
@@ -164,16 +163,15 @@ class CodeEncoder:
         document_max_seq_length: int | None = None,
         revision: str | None = None,
         torch_dtype: str | None = None,
-        tier: str = "interactive",
+        tier: str = "accuracy",
         backend: str = "torch",
         ov_path: str | Path | None = None,
     ) -> None:
         if config_path is not None:
             self.config_path = config_path
-        elif FROZEN_CONFIG_PATH.exists():
-            self.config_path = FROZEN_CONFIG_PATH
         else:
-            self.config_path = DEFAULT_CONFIG_PATH
+            from app.submission import SUBMISSION_CONFIG
+            self.config_path = SUBMISSION_CONFIG
         if tier not in ("accuracy", "interactive"):
             raise ValueError(f"tier must be 'accuracy' or 'interactive', got {tier!r}")
         self.tier = tier
@@ -231,12 +229,8 @@ class CodeEncoder:
         recipe value, so a tier can only change *which* model, never *how* it
         is prompted or truncated.
         """
-        if not self.config_path.exists():
-            return {}
-        try:
-            content = yaml.safe_load(self.config_path.read_text(encoding="utf-8")) or {}
-        except Exception:
-            return {}
+        from app.submission import read_config
+        content = read_config(self.config_path)
         base = dict(content.get("encoder", {}) or {})
         if self.tier == "interactive":
             base.update(content.get("interactive_encoder", {}) or {})
@@ -442,12 +436,11 @@ class CodeEncoder:
 _GLOBAL_ENCODER: CodeEncoder | None = None
 
 
-def get_shared_encoder(tier: str = "interactive") -> CodeEncoder:
+def get_shared_encoder(tier: str = "accuracy") -> CodeEncoder:
     """The process-wide encoder for the live service.
 
-    Defaults to the interactive tier: the developer UI answers queries in a
-    browser, so it runs the smaller model.  The submission path asks for
-    ``tier="accuracy"`` explicitly.
+    Accuracy (1.7B) is the judge-facing default. The smaller interactive
+    model is available only through an explicit tier selection.
     """
     global _GLOBAL_ENCODER
     if _GLOBAL_ENCODER is None or _GLOBAL_ENCODER.tier != tier:

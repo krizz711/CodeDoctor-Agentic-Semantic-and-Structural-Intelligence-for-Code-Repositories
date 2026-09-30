@@ -296,7 +296,10 @@ class VersionedIndex:
         query: str,
         limit: int = 10,
         collapse_identical: bool = True,
-    ) -> list["CrossVersionHit"]:
+        *,
+        execution=None,
+        return_ungrouped: bool = False,
+    ):
         """Search every indexed version at once — the Bonus goal.
 
         The brief states the difficulty directly: across versions the snippets
@@ -322,24 +325,40 @@ class VersionedIndex:
             by_id = {item.document.document_id: item for item in items}
             # Over-fetch: after collapsing, a version contributes at most one
             # row per identity, so the per-version top-`limit` is not enough.
-            for hit in retriever.search(query, limit=limit * 4):
+            depth = max(limit, execution.max_candidates, execution.deepen_to) if execution else limit
+            for hit in retriever.search(query, limit=depth * 4):
                 versioned = by_id.get(hit.document.document_id)
                 if versioned is not None:
                     scored.append((hit.score, commit, versioned, hit.sources))
 
         scored.sort(key=lambda row: row[0], reverse=True)
+        if execution is not None and execution.enabled and scored:
+            from dataclasses import replace
+            from app.pipeline.execution_rerank import apply_execution_rerank
+
+            # Execute each unique content once, then propagate its evidence to
+            # every version. No version identity or recency enters verification.
+            unique = {}
+            for row in scored:
+                unique.setdefault(row[2].content_hash, row)
+            pool = list(unique.values())[:max(execution.max_candidates, execution.deepen_to)]
+            original = [row[0] for row in pool]
+            bonus = scored[0][0] - scored[-1][0] + 1.0
+            adjusted, audit = apply_execution_rerank(
+                query, [row[2].document.content for row in pool], original,
+                replace(execution, verified_bonus=bonus),
+            )
+            deltas = {row[2].content_hash: adjusted[i] - original[i] for i, row in enumerate(pool)}
+            scored = [(score + deltas.get(item.content_hash, 0.0), commit, item,
+                       sources + (("execution",) if deltas.get(item.content_hash, 0.0) > 0 else ()))
+                      for score, commit, item, sources in scored]
+            scored.sort(key=lambda row: row[0], reverse=True)
+        raw_hits = [CrossVersionHit(
+            document=item.document, score=score, versions=[commit],
+            content_hash=item.content_hash, variants=1, sources=sources,
+        ) for score, commit, item, sources in scored[:limit]]
         if not collapse_identical:
-            return [
-                CrossVersionHit(
-                    document=item.document,
-                    score=score,
-                    versions=[commit],
-                    content_hash=item.content_hash,
-                    variants=1,
-                    sources=sources,
-                )
-                for score, commit, item, sources in scored[:limit]
-            ]
+            return (raw_hits, raw_hits) if return_ungrouped else raw_hits
 
         groups: dict[tuple[str, str], dict[str, Any]] = {}
         for score, commit, item, sources in scored:
@@ -367,7 +386,7 @@ class VersionedIndex:
                 )
 
         ordered = sorted(groups.values(), key=lambda g: g["score"], reverse=True)
-        return [
+        grouped_hits = [
             CrossVersionHit(
                 document=g["document"],
                 score=g["score"],
@@ -378,6 +397,7 @@ class VersionedIndex:
             )
             for g in ordered[:limit]
         ]
+        return (grouped_hits, raw_hits) if return_ungrouped else grouped_hits
 
     def warm(self, commit: str) -> bool:
         """Build this snapshot's retriever now rather than on the first query.
