@@ -90,3 +90,34 @@ def execution_config(path: Path | None = None) -> ExecutionConfig:
               for k, v in values.items() if k.startswith("execution_")}
     kwargs["workers"] = resolve_workers(kwargs["workers"])
     return ExecutionConfig(**kwargs)
+
+
+def identify(tier: str | None = None, path: Path | None = None) -> dict:
+    """Which configuration and model a response was produced under.
+
+    Reads the file only (no model is loaded): the path, a short content hash,
+    the tier, the model and revision that tier selects, and the accepted
+    execution switches, so a saved result can be tied to a configuration.
+    """
+    import hashlib
+
+    path = path or SUBMISSION_CONFIG
+    data = read_config(path)
+    tier = tier or os.environ.get("CODEDOCTOR_TIER", "accuracy")
+    encoder = dict(data.get("encoder", {}) or {})
+    if tier == "interactive":
+        encoder.update(data.get("interactive_encoder", {}) or {})
+    pipeline = get_pipeline_config(path)
+    try:
+        shown = str(path.resolve().relative_to(Path(__file__).resolve().parents[1])).replace("\\", "/")
+    except ValueError:
+        shown = str(path)
+    return {
+        "configuration": shown,
+        "config_sha256": hashlib.sha256(path.read_bytes()).hexdigest()[:16],
+        "tier": tier,
+        "model": encoder.get("production_model"),
+        "revision": encoder.get("revision"),
+        "execution": {key.removeprefix("execution_"): value for key, value in pipeline.items()
+                      if key.startswith("execution_")},
+    }

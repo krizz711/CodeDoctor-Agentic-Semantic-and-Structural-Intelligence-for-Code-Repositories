@@ -15,6 +15,8 @@ encoder:
   normalize_embeddings: true
   attention_budget: 67000000
   max_batch: 64
+  # CPU only: one sequence per forward pass (batching measured 1.95x slower at 1.7B, R2).
+  cpu_max_batch: 1
 interactive_encoder:
   production_model: codefuse-ai/F2LLM-v2-0.6B
   revision: 54b4e2dc74e01be7126d4cf5f016af6b21edc563

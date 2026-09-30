@@ -31,27 +31,31 @@ def compute_embedding_key(
     return hasher.hexdigest()
 
 
-def recipe_cache_key(encoder: object, text: str) -> str:
-    """Content address of one *document* vector under ``encoder``'s full recipe.
+def recipe_cache_key(encoder: object, text: str, mode: str = "document") -> str:
+    """Content address of one vector under ``encoder``'s full recipe.
 
     Everything that changes the vector is in the key: model and revision, the
     exact prompt string handed to the tokenizer, the sequence cap, EOS and
-    normalisation.  The ``document`` namespace means a query can never be
-    served from this cache even if its text equals a document's.
+    normalisation.  The ``mode`` namespace (``document`` by default, or
+    ``query``) means a query can never be served from a document cache even if
+    its text equals a document's.
 
     This is the one key for every document cache -- the scored path's corpus
     cache and the demo's -- so a model, revision or prefix change can never
     serve another recipe's vectors (it did in the demo until cycle 3, E3).
     Device and dtype are deliberately not in it: GPU and CPU vectors of the
-    same recipe share an address (measured cosine >= 0.9994).
+    same recipe share an address (measured cosine >= 0.9994).  Document keys
+    are byte-identical to what they were before ``mode`` existed.
     """
-    prompt = (
-        encoder.get_prompt_text(text, "document")
-        if hasattr(encoder, "get_prompt_text")
-        else f"{getattr(encoder, 'document_prefix', '')}{text}"
-    )
+    if mode not in ("document", "query"):
+        raise ValueError(f"mode must be 'document' or 'query', got {mode!r}")
+    if hasattr(encoder, "get_prompt_text"):
+        prompt = encoder.get_prompt_text(text, mode)
+    else:
+        prefix = getattr(encoder, "query_prefix" if mode == "query" else "document_prefix", "")
+        prompt = f"{prefix}{text}"
     return compute_embedding_key(
-        encoder_input="document\x00" + prompt,
+        encoder_input=f"{mode}\x00" + prompt,
         encoder_revision=f"{getattr(encoder, 'model_name', '?')}@{getattr(encoder, 'revision', None)}",
         tokenizer_revision=(
             f"max{getattr(encoder, 'max_seq_length', '?')}"

@@ -64,8 +64,7 @@ def select_dtype(device: str) -> str:
     return "bfloat16" if major >= 8 else "float16"
 
 
-#: keyed on (model, device, dtype, backend, OpenVINO path): an int8 query model
-#: must never be handed to a caller that asked for the torch document model
+#: keyed on (model, device, dtype)
 _LOADED_MODELS: dict[tuple, Any] = {}
 
 
@@ -164,8 +163,6 @@ class CodeEncoder:
         revision: str | None = None,
         torch_dtype: str | None = None,
         tier: str = "accuracy",
-        backend: str = "torch",
-        ov_path: str | Path | None = None,
     ) -> None:
         if config_path is not None:
             self.config_path = config_path
@@ -208,17 +205,13 @@ class CodeEncoder:
         )
         self.attention_budget = int(config.get("attention_budget", DEFAULT_ATTENTION_BUDGET))
         self.max_batch = int(config.get("max_batch", DEFAULT_MAX_BATCH))
-        # ``openvino`` runs a saved OpenVINO IR of the same model (cycle 3, E2:
-        # an int8 query tower on CPU).  Same tokenizer, prompt, EOS, pooling and
-        # normalisation; only the transformer forward pass changes.  Never used
-        # for documents: the document cache key has no backend in it.
-        if backend not in ("torch", "openvino"):
-            raise ValueError(f"backend must be 'torch' or 'openvino', got {backend!r}")
-        if backend == "openvino" and not ov_path:
-            raise ValueError("backend='openvino' needs ov_path (a saved sentence-transformers OpenVINO folder)")
-        self.backend = backend
-        self.ov_path = str(ov_path) if ov_path else None
-
+        # On a CPU, batching is slower than one sequence at a time (measured at every size: 1.95x at
+        # 1.7B, 2.19x at 0.6B, 2.55x at 160M; archive/research/experiments/R2_encoder_choice). The
+        # submission configuration therefore caps CPU batches; GPU encoding keeps ``max_batch``.
+        # Vectors are the same recipe either way: batch size only changes padding.
+        cpu_cap = config.get("cpu_max_batch")
+        if cpu_cap is not None and self.device == "cpu":
+            self.max_batch = max(1, min(self.max_batch, int(cpu_cap)))
         self._model = None
 
     def _load_config(self) -> dict:
@@ -239,28 +232,13 @@ class CodeEncoder:
     @property
     def model(self):
         if self._model is None:
-            cache_key = (self.model_name, self.device, self.torch_dtype, self.backend, self.ov_path)
+            cache_key = (self.model_name, self.device, self.torch_dtype)
             cached = _LOADED_MODELS.get(cache_key)
             if cached is not None:
                 self._model = cached
                 return self._model
 
             from sentence_transformers import SentenceTransformer
-
-            if self.backend == "openvino":
-                model = SentenceTransformer(
-                    self.ov_path,
-                    backend="openvino",
-                    device="cpu",
-                    model_kwargs={"ov_config": {"PERFORMANCE_HINT": "LATENCY"}},
-                    tokenizer_kwargs={"add_eos_token": self.add_eos_token,
-                                      "model_max_length": self.max_seq_length},
-                )
-                model.max_seq_length = self.max_seq_length
-                self._verify_recipe_applied(model)
-                _LOADED_MODELS[cache_key] = model
-                self._model = model
-                return self._model
 
             if str(self.device).startswith("cuda"):
                 _keep_sdpa_off_the_math_kernel()

@@ -995,12 +995,22 @@ def run_blank_line_fallback(code: str, example: WorkedExample, config: Execution
     return consumed_all(outcome.stdin_chars_read, outcome.stdin_tracked, collapsed) is not False
 
 
-def verify_candidate(code: str, examples: list[WorkedExample], config: ExecutionConfig) -> bool:
-    """``True`` only when every supplied example is reproduced exactly."""
+def verify_candidate(
+    code: str,
+    examples: list[WorkedExample],
+    config: ExecutionConfig,
+    detail: list[str] | None = None,
+) -> bool:
+    """``True`` only when every supplied example is reproduced exactly.
+
+    When ``detail`` is given and the candidate fails, the reason for the first
+    failing example (``output mismatch``, ``timeout``, ``exit 1 (ValueError)``)
+    is appended to it.  The verdict never depends on it.
+    """
     if not examples:
         return False
     for example in examples:
-        matched, _ = run_candidate(code, example, config)
+        matched, why = run_candidate(code, example, config)
         if (
             not matched
             and config.blank_line_fallback
@@ -1008,6 +1018,8 @@ def verify_candidate(code: str, examples: list[WorkedExample], config: Execution
         ):
             matched = run_blank_line_fallback(code, example, config)
         if not matched:
+            if detail is not None:
+                detail.append(str(why)[:160])
             return False
     return True
 
@@ -1194,6 +1206,15 @@ def apply_execution_rerank(
     audit["promotions_blocked"] = 0
     audit["stopped_early"] = False
 
+    # Records the demo has always shown per result: how many worked examples
+    # were used, and why a candidate did not run or did not verify.
+    n_examples = len(examples) if examples else (len(call_facts.call_examples) if call_facts is not None else 0)
+    for position in range(len(candidate_texts)):
+        audit["per_result"][position] = {
+            "state": "not_run", "examples": n_examples,
+            "note": "below the configured execution depth",
+        }
+
     best = scores[0] if scores else 0.0
     limit = min(config.max_candidates, len(candidate_texts))
     runnable = limit
@@ -1209,6 +1230,8 @@ def apply_execution_rerank(
             (i for i in range(limit, deep_limit) if best - scores[i] > config.max_dense_gap), deep_limit
         )
 
+    notes: dict[int, str] = {}
+
     def check(i: int) -> tuple[bool, bool]:
         """``(passed, by_call)`` for candidate ``i``.
 
@@ -1217,11 +1240,16 @@ def apply_execution_rerank(
         call-style examples.  A strict superset of the old verifications.
         """
         text = candidate_texts[i]
-        if examples and verify_candidate(text, examples, config):
+        why: list[str] = []
+        if examples and verify_candidate(text, examples, config, detail=why):
+            notes[i] = ""
             return True, False
         if call_facts is not None and is_function_style(text):
             result = verify_call_candidate(text, call_facts, config)
-            return call_verification_promotable(result, call_facts, config), True
+            promotable = call_verification_promotable(result, call_facts, config)
+            notes[i] = "" if promotable else "; ".join(result.details)[:160] or "did not reproduce the call examples"
+            return promotable, True
+        notes[i] = why[0] if why else ""
         return False, False
 
     precomputed: list[tuple[bool, bool]] | None = None
@@ -1237,7 +1265,8 @@ def apply_execution_rerank(
             break
         audit["candidates_executed"] = int(audit["candidates_executed"]) + 1
         passed, by_call = precomputed[index] if precomputed is not None else check(index)
-        audit["per_result"][index] = {"state": "verified" if passed else "failed", "by_call": by_call}
+        audit["per_result"][index] = {"state": "verified" if passed else "failed", "by_call": by_call,
+                                      "examples": n_examples, "note": notes.get(index, "")}
         if passed:
             audit["candidates_verified"] = int(audit["candidates_verified"]) + 1
             if by_call:
@@ -1271,7 +1300,8 @@ def apply_execution_rerank(
         for offset, (passed, by_call) in enumerate(deep_results):
             index = limit + offset
             audit["candidates_executed"] = int(audit["candidates_executed"]) + 1
-            audit["per_result"][index] = {"state": "verified" if passed else "failed", "by_call": by_call}
+            audit["per_result"][index] = {"state": "verified" if passed else "failed", "by_call": by_call,
+                                          "examples": n_examples, "note": notes.get(index, "")}
             if passed:
                 audit["candidates_verified"] = int(audit["candidates_verified"]) + 1
                 if by_call:

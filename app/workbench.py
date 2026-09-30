@@ -55,7 +55,7 @@ APPS_ARTIFACTS = REPO_ROOT / "artifacts" / "apps"
 #: Extensions the chunker has a tree-sitter grammar for.
 SOURCE_SUFFIXES = {".py", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}
 
-from app.submission import execution_config, SUBMISSION_CONFIG
+from app.submission import SUBMISSION_CONFIG, execution_config, identify
 
 
 #: Chunks whose encoder input is longer than this get no dense vector.
@@ -790,8 +790,16 @@ class Workbench:
         if self._encoder is None:
             from app.retrieval.encode import get_shared_encoder
 
-            self._encoder = get_shared_encoder(tier=os.environ.get("CODEDOCTOR_TIER", "accuracy"))
+            self._encoder = get_shared_encoder(tier=self._tier())
         return self._encoder
+
+    @staticmethod
+    def _tier() -> str:
+        """The encoder tier the demo loads: 1.7B unless 0.6B is asked for by name."""
+        tier = os.environ.get("CODEDOCTOR_TIER", "accuracy")
+        if tier not in ("accuracy", "interactive"):
+            raise ValueError(f"CODEDOCTOR_TIER must be 'accuracy' or 'interactive', got {tier!r}")
+        return tier
 
     def _warm_encoder(self) -> None:
         """Load the weights and run one forward pass now, not on first query.
@@ -1061,6 +1069,7 @@ class Workbench:
                 "leaked": 0 if built.index.verify_no_cross_commit_leakage(hits, ref) else -1,
             },
             "encoder": self._encoder_info(dense),
+            "submission": identify(self._tier()),
         }
 
     def _encoder_info(self, dense: bool) -> dict[str, Any]:
@@ -1266,6 +1275,7 @@ class Workbench:
                 "left_clean": built.index.verify_no_cross_commit_leakage(left_hits, left),
                 "right_clean": built.index.verify_no_cross_commit_leakage(right_hits, right),
             },
+            "submission": identify(self._tier()),
             "comparable": comparable,
             "comparable_reason": (
                 ""
@@ -1314,6 +1324,7 @@ class Workbench:
             "elapsed_ms": round(elapsed, 1),
             "versions_searched": len(built.versions),
             "configuration": str(SUBMISSION_CONFIG.relative_to(REPO_ROOT)),
+            "submission": identify(self._tier()),
             "collapsed": [cross(h, i + 1) for i, h in enumerate(collapsed)],
             "ungrouped": [cross(h, i + 1) for i, h in enumerate(ungrouped)],
             "distinct_collapsed": distinct_collapsed,

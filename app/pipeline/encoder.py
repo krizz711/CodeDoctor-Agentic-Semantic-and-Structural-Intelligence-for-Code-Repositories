@@ -24,11 +24,13 @@ opens the raw dataset during a scored run.
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import random
 import time
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 
@@ -45,6 +47,36 @@ from app.pipeline.search import load_hub_profile
 from app.retrieval.encode import CodeEncoder
 
 logger = logging.getLogger(__name__)
+
+
+class CorpusCacheIncomplete(RuntimeError):
+    """The corpus cache lacks documents the evaluation asked for.
+
+    Raised *before* anything is encoded when a complete cache was required: a
+    judge-facing run must never fall back to encoding thousands of documents
+    with the 1.7B model on a CPU without saying so.
+    """
+
+
+class QueryShardEncoded(Exception):
+    """A query shard finished encoding its share; the evaluation stops here."""
+
+
+def mteb_document_text(row: Mapping[str, Any]) -> str:
+    """The exact string MTEB passes to ``encode`` for one corpus row.
+
+    MTEB joins title and text and strips the result.  3,687 of the 8,765 APPS
+    documents carry leading or trailing whitespace, so a cache keyed on the raw
+    dataset text misses every one of them.  This delegates to MTEB's own
+    function (the version is pinned), so the two cannot drift apart.
+    """
+    try:
+        from mteb._create_dataloaders import _corpus_to_dict
+    except ImportError as error:  # pragma: no cover - guarded by the version pin
+        raise RuntimeError("cannot import MTEB's corpus-text function; install the pinned mteb") from error
+    return _corpus_to_dict(
+        {"id": str(row.get("id", "")), "title": row.get("title") or "", "text": row["text"]}
+    )["text"]
 
 
 def _texts_from_batch(batch: Any) -> list[str]:
@@ -78,8 +110,23 @@ class PrePostPipelineEncoder:
         hubness_bank: np.ndarray | None = None,
         hubness_beta: float = 0.3,
         hubness_k: int = 10,
+        require_complete_corpus_cache: bool = False,
+        query_store: Any = None,
+        query_shard: tuple[int, int] | None = None,
+        query_verify: int = 0,
     ) -> None:
         self.encoder = encoder
+        self.require_complete_corpus_cache = bool(require_complete_corpus_cache)
+        #: Optional crash-safe store of *query* vectors (same class and recipe
+        #: key as the corpus cache, ``query`` namespace).  Every vector is
+        #: computed by ``encoder.encode(mode="query")``; the store only lets a
+        #: multi-hour CPU run survive a crash or be split across machines.
+        self.query_store = query_store
+        self.query_shard = query_shard
+        self.query_verify = int(query_verify)
+        self.query_stats: dict[str, Any] = {"hits": 0, "encoded": 0}
+        self.query_verification: dict[str, Any] | None = None
+        self.shard_done = False
         #: PRE-5 hubness correction.  ``hubness_bank`` holds *query* embeddings
         #: (same encoder, same prompt) of statements whose answers are NOT in
         #: the corpus being searched -- otherwise the penalty also pushes down
@@ -154,9 +201,78 @@ class PrePostPipelineEncoder:
             dimension = self.encoder.model.get_sentence_embedding_dimension()
             return np.empty((0, dimension), dtype=np.float32)
 
-        if is_query or self.corpus_cache is None:
+        if is_query:
+            if self.query_store is not None:
+                return self._encode_queries_stored(texts)
+            return self.encoder.encode(texts, mode=mode)
+        if self.corpus_cache is None:
             return self.encoder.encode(texts, mode=mode)
         return self._encode_documents_cached(texts)
+
+    #: Queries are stored after every chunk, so a crash loses at most this many.
+    QUERY_CHUNK = 4
+
+    def _in_shard(self, key: str) -> bool:
+        if self.query_shard is None:
+            return True
+        index, count = self.query_shard
+        return int(hashlib.sha256(key.encode("utf-8")).hexdigest()[:12], 16) % count == index
+
+    def _encode_queries_stored(self, texts: list[str]) -> np.ndarray:
+        from app.indexing.cache import recipe_cache_key
+
+        keys = [recipe_cache_key(self.encoder, t, "query") for t in texts]
+        wanted = [i for i, k in enumerate(keys) if self._in_shard(k)]
+        found = self.query_store.get_many(list(dict.fromkeys(keys[i] for i in wanted)))
+        first: dict[str, int] = {}
+        for i in wanted:
+            if keys[i] not in found:
+                first.setdefault(keys[i], i)
+        pending = list(first.values())
+        self.query_stats["hits"] = len({keys[i] for i in wanted}) - len(pending)
+        started = time.perf_counter()
+        for start in range(0, len(pending), self.QUERY_CHUNK):
+            chunk = pending[start:start + self.QUERY_CHUNK]
+            fresh = np.asarray(self.encoder.encode([texts[i] for i in chunk], mode="query"), dtype=np.float32)
+            self.query_store.put_many([(keys[i], fresh[row]) for row, i in enumerate(chunk)])
+            for row, i in enumerate(chunk):
+                found[keys[i]] = fresh[row]
+            done = start + len(chunk)
+            each = (time.perf_counter() - started) / done
+            print(f"  queries encoded {done}/{len(pending)}  {each:.1f}s each  "
+                  f"ETA {each * (len(pending) - done) / 60:.0f} min", flush=True)
+        self.query_stats["encoded"] = len(pending)
+        if self.query_shard is not None:
+            self.shard_done = True
+            dimension = next(iter(found.values())).shape[0] if found else 0
+            out = np.zeros((len(texts), dimension), dtype=np.float32)
+            for i in wanted:
+                out[i] = found[keys[i]]
+            return out
+        matrix = np.vstack([found[k] for k in keys]).astype(np.float32)
+        if self.query_verify > 0:
+            self._verify_stored_queries(texts, matrix)
+        return matrix
+
+    def _verify_stored_queries(self, texts: list[str], matrix: np.ndarray) -> None:
+        """Re-encode a fixed sample live and compare with what the store returned.
+
+        Stored vectors may come from other processes or machines; this checks
+        that this machine's encoder reproduces them (float32 CPU, same recipe).
+        """
+        rng = random.Random(20260930)
+        sample = sorted(rng.sample(range(len(texts)), min(self.query_verify, len(texts))))
+        cosines = []
+        for i in sample:
+            live = np.asarray(self.encoder.encode([texts[i]], mode="query"), dtype=np.float32)[0]
+            stored = matrix[i]
+            cosines.append(float(np.dot(live, stored) / (np.linalg.norm(live) * np.linalg.norm(stored))))
+        self.query_verification = {
+            "sampled": len(sample), "seed": 20260930, "min_cosine": min(cosines),
+            "median_cosine": float(np.median(cosines)), "indices": sample,
+        }
+        if min(cosines) < 0.999:
+            raise RuntimeError(f"stored query vectors do not reproduce on this machine: {self.query_verification}")
 
     def document_cache_key(self, text: str) -> str:
         """Content address of one document vector under the current recipe.
@@ -174,6 +290,12 @@ class PrePostPipelineEncoder:
         keys = [self.document_cache_key(t) for t in texts]
         found = self.corpus_cache.get_many(list(dict.fromkeys(keys)))
         missing = [i for i, k in enumerate(keys) if k not in found]
+        if missing and self.require_complete_corpus_cache:
+            raise CorpusCacheIncomplete(
+                f"{len(missing)} of {len(texts)} documents are not in the corpus cache; refusing to encode "
+                "them on this machine. Rebuild the cache with scripts/prepare_document_cache.py (its texts "
+                "must be MTEB's stripped corpus texts, see mteb_document_text)."
+            )
         if missing:
             fresh = np.asarray(self.encoder.encode([texts[i] for i in missing], mode="document"),
                                dtype=np.float32)
@@ -186,6 +308,8 @@ class PrePostPipelineEncoder:
         return np.vstack([found[k] for k in keys]).astype(np.float32)
 
     def similarity(self, embeddings1: Any, embeddings2: Any) -> Any:
+        if self.shard_done:
+            raise QueryShardEncoded(self.query_stats)
         query_embeddings = np.asarray(embeddings1, dtype=np.float32)
         document_embeddings = np.asarray(embeddings2, dtype=np.float32)
         scores = self.encoder.similarity(query_embeddings, document_embeddings)

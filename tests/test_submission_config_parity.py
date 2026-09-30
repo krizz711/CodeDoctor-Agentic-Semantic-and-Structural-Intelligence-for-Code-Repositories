@@ -35,6 +35,8 @@ def load(path: Path) -> dict:
 
 def test_the_encoder_recipe_is_the_published_one():
     frozen, submission = load(FROZEN), load(SUBMISSION)
+    # The one documented addition: a CPU-only batch cap (batching is slower on CPU; it only changes padding).
+    assert submission["encoder"].pop("cpu_max_batch") == 1
     assert submission["encoder"] == frozen["encoder"]
     assert submission["interactive_encoder"] == frozen["interactive_encoder"]
     assert submission["encoder"]["production_model"] == "codefuse-ai/F2LLM-v2-1.7B"
@@ -83,3 +85,11 @@ def test_an_unreadable_or_empty_configuration_fails_visibly(tmp_path, bad):
 def test_a_missing_configuration_fails_visibly(tmp_path):
     with pytest.raises(FileNotFoundError):
         get_pipeline_config(tmp_path / "absent.yaml")
+
+
+def test_cpu_encoding_is_one_sequence_at_a_time_and_the_gpu_and_frozen_recipes_are_not_touched():
+    from app.retrieval.encode import CodeEncoder
+
+    assert CodeEncoder(device="cpu").max_batch == 1
+    assert CodeEncoder(device="cuda").max_batch == 64
+    assert CodeEncoder(device="cpu", config_path=FROZEN).max_batch == 64

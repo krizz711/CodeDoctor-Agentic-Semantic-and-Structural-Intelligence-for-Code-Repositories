@@ -27,6 +27,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from app.pipeline.encoder import PrePostPipelineEncoder  # noqa: E402
+from app.pipeline.execution_rerank import spawn_failures as pipeline_spawn_failures  # noqa: E402
 from app.pipeline.reranker import RerankerConfig  # noqa: E402
 from app.retrieval.encode import (  # noqa: E402
     CodeEncoder,
@@ -145,7 +146,46 @@ def main() -> None:
         help="content-addressed SQLite store of DOCUMENT vectors: filled on first use "
              "(offline, GPU allowed), reused afterwards so only queries are encoded",
     )
+    parser.add_argument(
+        "--require-complete-corpus-cache",
+        action="store_true",
+        help="abort before encoding anything if a document is missing from --corpus-cache "
+             "(the judge-facing run must never quietly encode a corpus on CPU)",
+    )
+    parser.add_argument(
+        "--query-store",
+        type=Path,
+        default=None,
+        help="crash-safe SQLite store of QUERY vectors. Every vector is still computed by the CPU "
+             "encoder at evaluation time; the store lets a multi-hour run resume or be split into "
+             "shards. Without it queries are simply encoded in one pass, as a judge's run does.",
+    )
+    parser.add_argument(
+        "--query-shard",
+        default=None,
+        metavar="I/N",
+        help="encode only shard I of N (by hash of the query) into --query-store, then stop; "
+             "--output then receives a shard report instead of an MTEB result",
+    )
+    parser.add_argument(
+        "--query-verify",
+        type=int,
+        default=0,
+        help="re-encode this many stored queries live and require them to match (cosine >= 0.999)",
+    )
     args = parser.parse_args()
+
+    query_shard = None
+    if args.query_shard:
+        try:
+            index, count = (int(part) for part in args.query_shard.split("/"))
+        except ValueError:
+            raise SystemExit("--query-shard must look like 1/3 (shard index 0-based / shard count)")
+        if not (0 <= index < count):
+            raise SystemExit("--query-shard index must satisfy 0 <= I < N")
+        if args.query_store is None:
+            raise SystemExit("--query-shard needs --query-store")
+        query_shard = (index, count)
 
     try:
         import mteb
@@ -213,6 +253,14 @@ def main() -> None:
         args.corpus_cache.parent.mkdir(parents=True, exist_ok=True)
         corpus_cache = EmbeddingCache(args.corpus_cache)
         print(f"Corpus cache    : {args.corpus_cache} ({corpus_cache.count()} vectors)")
+    query_store = None
+    if args.query_store is not None:
+        from app.indexing.cache import EmbeddingCache
+
+        args.query_store.parent.mkdir(parents=True, exist_ok=True)
+        query_store = EmbeddingCache(args.query_store)
+        print(f"Query store     : {args.query_store} ({query_store.count()} vectors)"
+              + (f"  SHARD {query_shard[0]}/{query_shard[1]}" if query_shard else ""))
     hubness_bank = load_hubness_bank(pipeline_defaults["hubness_bank"])
     if hubness_bank is not None:
         print(f"Hubness bank    : {pipeline_defaults['hubness_bank']} ({len(hubness_bank)} statements, "
@@ -221,6 +269,8 @@ def main() -> None:
         encoder, reranker_config, execution_config=execution_config, corpus_cache=corpus_cache,
         hubness_bank=hubness_bank, hubness_beta=pipeline_defaults["hubness_beta"],
         hubness_k=pipeline_defaults["hubness_k"],
+        require_complete_corpus_cache=args.require_complete_corpus_cache,
+        query_store=query_store, query_shard=query_shard, query_verify=args.query_verify,
     )
     if args.hubness and args.hubness.exists():
         pipeline.hub_profile_path = args.hubness
@@ -233,10 +283,13 @@ def main() -> None:
     from app.evaluation_harness import record_persistent_audit
     import hashlib
     record_persistent_audit(
-        reason="final_run_started", row_count=0, caller="scripts/evaluate_mteb.py",
+        reason="query_shard_started" if query_shard else "final_run_started",
+        row_count=0, caller="scripts/evaluate_mteb.py",
         extra={"expected_queries": APPS_TEST_QUERIES,
                "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),
-               "model": model_name, "revision": revision, "device": device},
+               "model": model_name, "revision": revision, "device": device,
+               "query_shard": list(query_shard) if query_shard else None,
+               "query_store": bool(query_store), "require_complete_corpus_cache": args.require_complete_corpus_cache},
     )
     print("\nFetching task AppsRetrieval ...")
     task = mteb.get_task("AppsRetrieval")
@@ -264,7 +317,20 @@ def main() -> None:
     # The submitted 0.96558 predates this hazard only because it was produced
     # on a machine with a cold cache. Disabling the cache is what makes the
     # number belong to this pipeline.
-    results = mteb.evaluate(mteb_model, [task], **evaluate_kwargs)
+    try:
+        results = mteb.evaluate(mteb_model, [task], **evaluate_kwargs)
+    except Exception as error:
+        # A shard stops on purpose after encoding its share (the pipeline sets
+        # ``shard_done`` and raises from similarity()); MTEB may wrap that error.
+        if not pipeline.shard_done:
+            raise
+        report = {"shard": list(query_shard), "encoded": pipeline.query_stats["encoded"],
+                  "already_stored": pipeline.query_stats["hits"],
+                  "store_vectors": query_store.count(), "stopped_by": type(error).__name__}
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        print(f"\nShard {query_shard[0]}/{query_shard[1]} finished: {report}")
+        return
     task_result = list(results.task_results)[0]
     payload = task_result.to_dict()
 
@@ -299,6 +365,10 @@ def main() -> None:
                 "execution_candidates": execution_config.max_candidates,
                 "execution_numeric_tolerance": execution_config.numeric_tolerance,
                 "execution_max_dense_gap": execution_config.max_dense_gap,
+                "corpus_cache": pipeline.cache_stats if corpus_cache is not None else None,
+                "query_store": pipeline.query_stats if query_store is not None else None,
+                "query_verification": pipeline.query_verification,
+                "spawn_failures": pipeline_spawn_failures(),
                 "enforced": False,
             },
         )
