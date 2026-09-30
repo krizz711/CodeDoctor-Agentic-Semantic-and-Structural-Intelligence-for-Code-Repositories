@@ -473,16 +473,27 @@ def workbench_across(request: WorkbenchQuery) -> dict[str, Any]:
         raise HTTPException(status_code=409, detail=str(error))
 
 
+FINAL_RESULTS = REPO_ROOT / "results" / "final"
+
+
 @app.get("/api/workbench/benchmark")
 def workbench_benchmark() -> dict[str, Any]:
-    """The submitted screening result, read from the artifact rather than typed.
+    """The screening result, read from the artifact rather than typed.
 
-    Every number on the benchmark panel comes out of the files that are
-    attached to the release, so the panel cannot drift from the submission.
+    Every number on the benchmark panel comes out of a result file, so the panel cannot drift
+    from it. ``results/final`` (the measured final submission) is preferred when it exists;
+    otherwise the first release's artifact at the repository root is shown, labelled as
+    historical so the two are never confused.
     """
     payload: dict[str, Any] = {"available": False}
-    results_path = REPO_ROOT / "appsretrieval_results.json"
-    audit_path = REPO_ROOT / "execution_audit.json"
+    final = FINAL_RESULTS / "appsretrieval_results.json"
+    if final.exists():
+        results_path, audit_path = final, FINAL_RESULTS / "execution_audit.json"
+        payload.update(kind="final", label="final submission (results/final)")
+    else:
+        results_path = REPO_ROOT / "appsretrieval_results.json"
+        audit_path = REPO_ROOT / "execution_audit.json"
+        payload.update(kind="historical", label="first release (historical, frozen configuration)")
     if results_path.exists():
         results = json.loads(results_path.read_text(encoding="utf-8"))
         scores = results.get("scores", {}).get("test", [{}])[0]

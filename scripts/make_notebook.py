@@ -1,10 +1,14 @@
-"""Generate a Colab notebook that runs the evaluation on a hosted GPU.
-
-The pipeline is embedded as a base64 tarball built from the working tree at
-generation time — the same packer the Kaggle kernel builder uses — so the
-notebook can never ship code that has drifted from this repository.
+"""Generate a minimal notebook that runs the submission evaluation on a hosted machine.
 
     python scripts/make_notebook.py --out running.ipynb
+
+The notebook is a thin runner around the documented commands: it unpacks the pipeline
+source (embedded, so a private repository needs no clone), installs the pinned
+requirements, builds the offline document cache (a GPU is allowed for that step by the
+FAQ), runs ``scripts/evaluate_mteb.py`` with CPU query inference, and validates the
+result. It contains no evaluation logic of its own; everything runs through the same
+entrypoint a judge would run. The recorded, multi-stage version of the same commands is
+``scripts/submission_run.py`` (see ``scripts/build_submission_kernel.py``).
 """
 
 from __future__ import annotations
@@ -39,38 +43,37 @@ def build_notebook(payload: str) -> dict:
     return {
         "cells": [
             markdown(
-                "# CodeDoctor — AppsRetrieval evaluation on a hosted GPU",
+                "# CodeDoctor: AppsRetrieval evaluation (submission configuration)",
                 "",
-                "Runs the two-pass retrieval pipeline through `mteb.evaluate` and writes the",
-                "submission artifact. The pipeline source is embedded below, generated from",
-                "the repository by `scripts/make_notebook.py` — there is no stale bundle to",
-                "drift out of sync.",
+                "Runs `scripts/evaluate_mteb.py`, the official MTEB `AppsRetrieval` evaluation, with",
+                "`config/submission.yaml`: F2LLM-v2-1.7B, **queries encoded on the CPU**, and the",
+                "accepted execution-verification settings. The pipeline source is embedded below,",
+                "generated from the repository by `scripts/make_notebook.py`.",
                 "",
-                "The *solution* is CPU-only; a GPU is used here purely to encode 17,530 texts",
-                "once. Everything downstream runs on cached vectors.",
+                "Document vectors are built once, offline (the FAQ allows a GPU for pre-processing),",
+                "and the evaluation refuses to run if any document is missing from that cache.",
+                "Encoding 3,765 queries with a 1.7B model on a CPU takes many hours; `--query-store`",
+                "checkpoints each vector so an interrupted run resumes instead of restarting.",
+                "",
+                "The evaluation **executes Python that came from the dataset** in a sandboxed",
+                "subprocess (a resource limiter, not a security boundary: no network or filesystem",
+                "isolation). Run it in a disposable environment.",
             ),
             code(
                 "# 1. Environment",
-                "import torch",
-                "",
+                "import os, platform, psutil, torch",
+                "print(platform.platform())",
+                "print('cores', psutil.cpu_count(logical=False), '/', os.cpu_count(),",
+                "      ' RAM', round(psutil.virtual_memory().total / 1e9, 1), 'GB')",
                 "print('torch', torch.__version__, 'cuda', torch.cuda.is_available())",
-                "if torch.cuda.is_available():",
-                "    name = torch.cuda.get_device_name(0)",
-                "    major = torch.cuda.get_device_capability(0)[0]",
-                "    mem = torch.cuda.get_device_properties(0).total_memory / 1e9",
-                "    print(f'{name}  compute {major}.x  {mem:.1f} GB')",
-                "    # Turing (T4, compute 7.5) has no native bfloat16: torch emulates it and",
-                "    # the encode slows by roughly 10x. select_dtype handles this for us.",
-                "else:",
-                "    print('No GPU. This will work but the encode takes hours.')",
             ),
             code(
-                "# 2. Unpack the pipeline (generated from the repo working tree)",
+                "# 2. Unpack the pipeline (generated from the repository)",
                 f'PAYLOAD = "{payload}"',
                 "",
-                "import base64, io, os, sys, tarfile",
+                "import base64, io, sys, tarfile",
                 "",
-                "WORK = '/content/codedoctor'",
+                "WORK = os.environ.get('CODEDOCTOR_WORK', '/content/codedoctor')",
                 "os.makedirs(WORK, exist_ok=True)",
                 "with tarfile.open(fileobj=io.BytesIO(base64.b64decode(PAYLOAD)), mode='r:gz') as tar:",
                 "    tar.extractall(WORK)",
@@ -79,49 +82,45 @@ def build_notebook(payload: str) -> dict:
                 "print(sorted(os.listdir(WORK)))",
             ),
             code(
-                "# 3. Dependencies (mteb pinned: it decides the result-JSON schema)",
-                "!pip install -q -U 'mteb==2.21.0' 'sentence-transformers>=5.0' "
-                "'transformers>=4.57' datasets pyyaml",
+                "# 3. Pinned requirements (mteb decides the result schema and the dataset revision)",
+                "!pip install -q -r requirements-submission.txt",
             ),
             markdown(
-                "## Encode once",
+                "## Offline document cache",
                 "",
-                "Dumps texts, qrels and embeddings to `artifacts/apps`. Reranker tuning then",
-                "runs on those cached vectors in seconds instead of hours.",
+                "Encodes the 8,765 corpus documents once and records the model, revision, dtype and",
+                "checksums in `documents/manifest.json`. Use a GPU if there is one (about ten minutes on a",
+                "T4); on a CPU this step alone takes hours.",
             ),
             code(
-                "!python scripts/encode_apps.py --tier interactive --device auto --tag f2llm06b",
-                "!python scripts/encode_apps.py --tier accuracy    --device auto --tag f2llm17b",
+                "DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'",
+                "print('document cache on', DEVICE)",
+                "!python scripts/prepare_document_cache.py --device $DEVICE --out documents",
             ),
             markdown(
-                "## Fit the second pass on TRAIN, report on held-out DEV",
+                "## The evaluation",
                 "",
-                "The dev split is seeded-random and filtered to the query family the test",
-                "split is actually made of — see `app/pipeline/splits.py` for why a",
-                "contiguous half-split of this corpus is not exchangeable.",
-            ),
-            code("!python scripts/tune_reranker.py --model f2llm17b --depth 50"),
-            markdown("## Stage-by-stage ablation, each gain gated on a paired bootstrap"),
-            code(
-                "!python scripts/dev_eval.py --model f2llm17b",
-                "!python scripts/dev_eval.py --model f2llm17b --execution",
-            ),
-            markdown(
-                "## The submission artifact",
-                "",
-                "Produced by `mteb.evaluate` itself — no score is assembled by hand.",
+                "Query inference is on the CPU. Results go to `results/` (an existing output is never",
+                "overwritten without `--overwrite`).",
             ),
             code(
-                "!python scripts/evaluate_mteb.py --device auto --predictions build/predictions",
-                "!python scripts/validate_submission.py appsretrieval_results.json",
+                "!python scripts/evaluate_mteb.py --device cpu \\",
+                "    --corpus-cache documents/corpus.sqlite --require-complete-corpus-cache \\",
+                "    --query-store results/queries.sqlite \\",
+                "    --predictions results/predictions --output results/appsretrieval_results.json",
+                "!python scripts/validate_submission.py results/appsretrieval_results.json",
             ),
             code(
-                "# Download the artifacts",
-                "from google.colab import files  # noqa: F401",
-                "for name in ('appsretrieval_results.json', 'submission_predictions.csv',",
-                "             'submission_metrics.csv', 'config/reranker.json'):",
-                "    if os.path.exists(name):",
-                "        files.download(name)",
+                "# Download the artifacts (Colab); on Kaggle they are already under /kaggle/working",
+                "try:",
+                "    from google.colab import files  # noqa: F401",
+                "    for name in ('results/appsretrieval_results.json', 'results/submission_predictions.csv',",
+                "                 'results/submission_metrics.csv', 'results/execution_audit.json',",
+                "                 'documents/manifest.json'):",
+                "        if os.path.exists(name):",
+                "            files.download(name)",
+                "except ImportError:",
+                "    print('not on Colab: collect the files under', os.path.abspath('results'))",
             ),
         ],
         "metadata": {

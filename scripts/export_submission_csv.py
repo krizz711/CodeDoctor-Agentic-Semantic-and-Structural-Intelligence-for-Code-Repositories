@@ -97,7 +97,7 @@ def export_from_predictions(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--predictions", type=Path, required=True, help="MTEB prediction_folder")
-    parser.add_argument("--results", type=Path, default=Path("appsretrieval_results.json"))
+    parser.add_argument("--results", type=Path, default=Path("results/appsretrieval_results.json"))
     parser.add_argument("--output-dir", type=Path, default=Path("."))
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
     args = parser.parse_args()

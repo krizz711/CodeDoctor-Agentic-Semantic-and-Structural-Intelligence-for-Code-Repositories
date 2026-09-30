@@ -50,6 +50,8 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          # the pinned MTEB: tests pin that document-cache keys equal the strings MTEB passes to encode
+          python -m pip install "mteb==2.21.0"
 
       - name: Tests
         run: pytest -q -m "not model and not data"

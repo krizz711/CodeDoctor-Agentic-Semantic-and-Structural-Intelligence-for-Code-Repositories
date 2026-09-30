@@ -150,10 +150,10 @@ def build_cells(payload: str, included: list[str], tasks: list[tuple[str, int, s
             "!pip -q install 'mteb==2.21.0' 'sentence-transformers>=5.0,<7' 'datasets>=3.0' 2>&1 | tail -3",
         ),
         code(
-            "# 4. The recipe this run uses, printed from the frozen config rather than",
+            "# 4. The recipe this run uses, printed from the submission config rather than",
             "#    described. Four of these decide the score.",
             "import yaml",
-            "cfg = yaml.safe_load(open('config/frozen.yaml', encoding='utf-8'))",
+            "cfg = yaml.safe_load(open('config/submission.yaml', encoding='utf-8'))",
             "enc = cfg['encoder']",
             "for key in ('production_model', 'revision', 'query_prefix', 'document_prefix',",
             "            'add_eos_token', 'max_seq_length', 'normalize_embeddings'):",
