@@ -29,6 +29,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from datetime import datetime, timezone
@@ -266,8 +267,11 @@ def main(argv: list[str] | None = None) -> int:
         if source is None:
             raise SystemExit("provide the verified document cache with --corpus-cache")
         environment["document_cache"] = verify_document_cache(source)
-        cache = out / "documents-cache"          # sqlite needs a writable directory
+        # sqlite needs a writable directory, and a second corpus.sqlite in this stage's output would make
+        # the next stage's input discovery ambiguous: work on a copy under the temp directory
+        cache = Path(tempfile.mkdtemp(prefix="codedoctor-documents-")) / "cache"
         shutil.copytree(source, cache)
+        shutil.copyfile(source / "manifest.json", out / "document-cache-manifest.json")
     if args.stage == "p0":
         from scripts.merge_query_stores import merge
 
