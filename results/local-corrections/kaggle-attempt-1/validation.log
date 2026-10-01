@@ -1,0 +1,36 @@
+Error in sitecustomize; set PYTHONVERBOSE for traceback:
+ModuleNotFoundError: No module named 'wrapt'
+
+==================================== ERRORS ====================================
+________________ ERROR collecting tests/test_replay_outcomes.py ________________
+ImportError while importing test module '/kaggle/working/source/tests/test_replay_outcomes.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_replay_outcomes.py:5: in <module>
+    from scripts.replay_outcomes import Policy, call_verdict, metrics, rerank, stdin_verdict
+E   ModuleNotFoundError: No module named 'scripts.replay_outcomes'
+______________ ERROR collecting tests/test_blank_line_fallback.py ______________
+ImportError while importing test module '/kaggle/working/source/tests/test_blank_line_fallback.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_blank_line_fallback.py:12: in <module>
+    from scripts.replay_outcomes import Policy, candidate_tier
+E   ModuleNotFoundError: No module named 'scripts.replay_outcomes'
+_____________ ERROR collecting tests/test_submission_validation.py _____________
+ImportError while importing test module '/kaggle/working/source/tests/test_submission_validation.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_submission_validation.py:4: in <module>
+    from scripts.evaluate import main as evaluate_main
+E   ModuleNotFoundError: No module named 'scripts.evaluate'
+!!!!!!!!!!!!!!!!!!! Interrupted: 3 errors during collection !!!!!!!!!!!!!!!!!!!!
+3 errors in 2.82s

@@ -94,6 +94,17 @@ The account's notebook inventory was checked before launch: no correction-P0
 notebook was listed. Preserve this run's audit log separately from historical
 APPS exposure records; APPS test is previously exposed, not a fresh lockbox.
 
+Attempt 1 (Kaggle version 1) stopped during test collection, before model/APPS
+loading, because the notebook package omitted the replay and sample-evaluation
+helper scripts. The sample fixture was also missing. Preserve its original
+payload, setup environment, package freeze, full output checksums and raw logs
+under `results/local-corrections/kaggle-attempt-1/` and
+`build/local-correction/kaggle-attempt-1/`. Commit `74a9ddd` adds only those
+packaging support files and an isolated-package regression test. Model, app,
+encoder, evaluator and candidate configuration remain byte-identical to `d2fb22a`.
+After isolated-package validation, use the single permitted infrastructure retry
+as Kaggle version 2. A valid completed result will not be repeated for its score.
+
 This continues final reporting, not a model or ranking experiment. Keep the
 selected encoder, revision, instruction, pooling, sequence limits and execution
 settings unchanged. Repair artifact validation, the demo's tier mismatch,

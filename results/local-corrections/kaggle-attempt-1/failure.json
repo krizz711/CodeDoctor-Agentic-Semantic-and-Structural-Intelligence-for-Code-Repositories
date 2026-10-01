@@ -1,0 +1,15 @@
+{
+  "status": "failed_before_model_or_APPS",
+  "recorded_at_utc": "2026-10-01T15:53:39.719035+00:00",
+  "kernel_version": 1,
+  "phase": "focused Linux test collection",
+  "pytest_exit_code": 2,
+  "cause": "Notebook payload omitted scripts/replay_outcomes.py and scripts/evaluate.py; sample_eval.jsonl was also required after collection.",
+  "corrective_action": "Include exact committed helper scripts and sample fixture; regression test isolated archive collection and sample execution; run all focused tests from isolated archive before the single infrastructure retry.",
+  "retrieval_model_or_ranking_changes": false,
+  "final_metric_produced": false,
+  "APPS_access_in_this_attempt": false,
+  "retry_count_so_far": 0,
+  "source_log": "codedoctor-correction-p0.log",
+  "nonfatal_environment_warning": "Kaggle sitecustomize reports missing wrapt; retained in raw logs; this was not the stopping exception."
+}

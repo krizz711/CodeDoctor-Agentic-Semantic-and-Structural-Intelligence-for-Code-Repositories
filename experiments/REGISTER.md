@@ -16,8 +16,11 @@ under their original identities. Reconciliation and blockers are in the
 [local correction record](../docs/submission/LOCAL-CORRECTIONS.md). No Q8/OpenVINO
 adoption, EXT access, fresh score claim, merge or tag change follows from this
 work. The user's 2026-10-01 clarification permits other platforms while forbidding
-GitHub changes. Private Kaggle correction-P0 version 1 is running from freeze
-`d2fb22a`; launch records are in `results/local-corrections/kaggle-attempt-1/`.
+GitHub changes. Private Kaggle correction-P0 version 1 failed at test collection
+before model/APPS loading because validation helpers were missing from its
+package. Packaging correction `74a9ddd` does not change retrieval or model
+settings. Attempt records are in `results/local-corrections/kaggle-attempt-1/`;
+one infrastructure retry is permitted after isolated-package validation.
 No current CPU score is reported until all acceptance checks complete.
 
 ## How to maintain this register

@@ -75,8 +75,12 @@ The prepared notebook is `build/local-correction/kaggle-p0`, private CPU-only,
 packaged from clean commit `d2fb22a`. Version 1 was uploaded successfully on
 2026-10-01 following the user's clarification and is running at
 https://www.kaggle.com/code/lifemeansfun/codedoctor-correction-p0 . Launch evidence
-is retained in `results/local-corrections/kaggle-attempt-1/`; no result exists
-until its checks and official evaluation complete. Read-only `git ls-remote`
+is retained in `results/local-corrections/kaggle-attempt-1/`. It stopped before
+model or APPS loading because test helper scripts were absent from the package.
+The helpers and sample fixture are included by packaging fix `74a9ddd`, with
+an isolated-archive regression test; retrieval/model/settings are unchanged.
+No result exists until the permitted retry's checks and evaluation complete.
+Read-only `git ls-remote`
 confirmed both public main and the official
 tag still resolve to submitted408a61f after all local work.
 
