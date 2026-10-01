@@ -27,8 +27,10 @@ or causal validation of combining experiments. No tuning or rerun follows.
 Historical GPU P0 and older synthetic P1/Bonus retain their identities.
 
 This work adopts no Q8/OpenVINO treatment and accesses no EXT-lockbox. The user
-permits other platforms but forbids GitHub changes; submitted main/tag remain
-`408a61f`. Human disclosure/video review and amendment permission are unresolved.
+reports judge approval following an extension and explicitly authorizes GitHub
+publication on2026-10-01, superseding the prior restriction. Original submitted
+base: `408a61f`. Human disclosure/video review remains unresolved. See
+[publication record](../docs/submission/PUBLICATION.md).
 
 ## How to maintain this register
 

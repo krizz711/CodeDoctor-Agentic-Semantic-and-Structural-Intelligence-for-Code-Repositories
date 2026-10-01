@@ -1,5 +1,11 @@
 # Final submission reporting protocol — VITV / Doctors
 
+> Publication amendment,2026-10-01: the user reports judge approval following a
+> deadline extension and explicitly authorizes publishing the prepared corrections
+> to GitHub. Earlier local-only/no-GitHub statements below record the preparation
+> history and are superseded for this authorized publication. See
+> [PUBLICATION.md](PUBLICATION.md). Human disclosure/video review is still required.
+
 Authorized by the user on 2026-09-30: finish main with accepted upgrades,
 measure the final implementation, complete the template, and publish a release.
 C4 is stopped/incomplete. This is final reporting, not another optimization sweep.

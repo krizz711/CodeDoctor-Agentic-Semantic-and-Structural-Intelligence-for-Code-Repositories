@@ -6,7 +6,9 @@ failed at test collection before model/APPS loading; the single infrastructure
 retry repaired packaging only. Both attempts are retained in
 `results/local-corrections/kaggle-attempt-{1,2}/` and their full local downloads
 under the ignored `build/local-correction/` directory. No final-score tuning or
-repeat evaluation followed. GitHub main/tag/release remain unchanged.
+repeat evaluation followed. Publication was subsequently authorized by the
+user on2026-10-01; original submission identity and amendment history are recorded
+in `docs/submission/PUBLICATION.md`.
 
 ## Measurements
 
@@ -112,4 +114,5 @@ No new evaluation is required to inspect these authentic results.
 Older P1/Bonus fixture measurements remain under `results/hands-on/` with their
 original source identity; the current cold check does not replace their timing
 benchmark. Human disclosure/video review, unexecuted Docker/remote-CI checks
-and Samsung's amendment permission remain outside this completed CPU run.
+remain outside this completed CPU run. The user subsequently authorized publication
+after reporting judge approval; this does not complete human attestations.

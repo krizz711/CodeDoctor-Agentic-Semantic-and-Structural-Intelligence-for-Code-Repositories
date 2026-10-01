@@ -78,6 +78,11 @@ jobs:
       - name: The submitted artifact is still valid
         run: python scripts/validate_submission.py appsretrieval_results.json
 
+      - name: Corrected CPU result and measured source
+        run: |
+          python scripts/validate_submission.py results/final/p0/appsretrieval_results.json --official-apps
+          python scripts/verify_measured_source.py --environment results/final/p0/environment.json --commit HEAD
+
       - name: Retrieval on an unseen repository
         run: python scripts/judge_endtoend.py --repo test_repos/commander
 

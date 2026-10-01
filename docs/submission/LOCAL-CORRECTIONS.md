@@ -1,5 +1,11 @@
 # Local submission correction record — 2026-10-01
 
+> Publication amendment,2026-10-01: the user reports judge approval following a
+> deadline extension and explicitly authorizes publishing the prepared corrections
+> to GitHub. Earlier local-only/no-GitHub statements below record the preparation
+> history and are superseded for this authorized publication. See
+> [PUBLICATION.md](PUBLICATION.md). Human disclosure/video review is still required.
+
 This is an engineering correction and evidence reconciliation, not a new model
 experiment. The user authorized local work only. The submitted `main` and tag
 `PRISM_GENAI_HACKATHON_Y2026` stay at

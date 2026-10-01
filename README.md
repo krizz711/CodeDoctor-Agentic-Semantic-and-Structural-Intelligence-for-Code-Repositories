@@ -141,7 +141,8 @@ by 0.00025 and Recall@10 by 0.00186; MRR@10 decreased by 0.0003187251. These are
 small descriptive differences across configurations and encoding precision,
 without a significance analysis or isolated experiment attribution. Prior APPS
 test exposure prevents an unseen-generalization claim. No configuration was
-changed in response to the final score. The GitHub submission remains unchanged.
+changed in response to the final score. The corrected candidate is the authorized submission amendment; see
+[publication record](docs/submission/PUBLICATION.md).
 
 P1 and Bonus fixtures exercise the real workbench. Bonus intentionally includes
 incorrect variants that fail the supplied examples; its outcome is a synthetic
@@ -237,7 +238,7 @@ the repository does not currently include a top-level license grant.
 | **Presentation deck and PDF** | `VITV_Doctors_Submission.pptx`, `VITV_Doctors_Submission.pdf` | Must agree with the final evidence and limitations |
 | **Demo video** | [Existing walkthrough](https://youtu.be/0k2UUJOp-Tc) | Original local recording is 5:46; the supplied template requires at most 5 minutes |
 | **AI disclosure** | [`LangAI3.0_AI_Disclosure.docx`](LangAI3.0_AI_Disclosure.docx) | Preserved official form; human attribution review, attestations and signature pending |
-| **GitHub Release** | `PRISM_GENAI_HACKATHON_Y2026` | Existing submitted release at `408a61f`; it does not include these local corrections |
+| **GitHub Release** | `PRISM_GENAI_HACKATHON_Y2026` | Corrected CPU result and materials; original submission identity retained in the publication record |
 
 ### Demo Video Walkthrough
 - **Recording Link:** [CodeDoctor Demo Walkthrough (YouTube)](https://youtu.be/0k2UUJOp-Tc)

@@ -1,9 +1,11 @@
 # Submission handoff
 
-## Current state — 2026-10-01 local corrections
+## Current state — 2026-10-01 authorized publication
 
-The submitted release is at `408a61f`; the user explicitly forbids GitHub changes.
-Their 2026-10-01 clarification permits the private Kaggle CPU evaluation.
+The user reports that the judges extended the deadline and approved amendments,
+and explicitly authorized GitHub publication on2026-10-01. This supersedes the
+earlier local-only restriction. The original submission was `408a61f`; see
+[publication record](../docs/submission/PUBLICATION.md).
 Work is on `fix/submission-corrections-local`. See the
 [correction record](../docs/submission/LOCAL-CORRECTIONS.md) and committed
 [protocol amendment](../docs/submission/PROTOCOL.md). Historical sections below
@@ -32,9 +34,10 @@ new evaluation, Q8/OpenVINO adoption or EXT-lockbox access follows.
 
 Local README, protocol/register, deck/PDF and delivery backups include this
 result. Historical GPU P0 and older synthetic P1/Bonus keep their identities.
-Human disclosure sign-off, video narration/missing demonstrations, remote CI/
-Docker verification and Samsung's amendment permission remain outstanding.
-Never move the official tag or upload a correction without explicit permission.
+Human disclosure sign-off and video narration/missing demonstrations remain
+outstanding; no signature or completed-video assertion is invented. Remote CI
+is checked during publication; Docker verification remains separate. GitHub
+publication and moving the required submission tag are now authorized.
 
 The user ended C4. The original handoff remains at research-archive-2026-09-30.
 Current reporting plan: [protocol](../docs/submission/PROTOCOL.md).
