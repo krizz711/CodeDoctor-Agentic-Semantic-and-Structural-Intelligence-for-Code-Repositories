@@ -1,0 +1,16 @@
+{
+  "recorded_at_utc": "2026-10-01T17:20:12.713128+00:00",
+  "scheduled_at_utc": "2026-10-01T17:16:51.638Z",
+  "kernel": "lifemeansfun/codedoctor-correction-p0",
+  "version": 2,
+  "kernel_status_check_exit_code": 1,
+  "kernel_status_error": "Permission kernels.get denied",
+  "control_document_status_exit_code": 1,
+  "control_document_status_error": "Permission kernels.get denied",
+  "account_inventory_exit_code": 1,
+  "account_inventory_error": "Authentication required to call the Kaggle API.",
+  "remote_job_state": "unknown - cannot authenticate; this is not evidence of a failed run",
+  "user_action_requested": "Renew .venv/bin/kaggle auth login locally; do not share credentials",
+  "evaluation_relaunched": false,
+  "github_changes": false
+}

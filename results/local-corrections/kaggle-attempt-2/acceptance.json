@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "candidate_commit": "17d9b276b28a555e86cfed3b37cc2fc1a95a1f78",
+  "measured_commit": "18c4b6cbd097437bfb8498fefe572cddb658bc42",
+  "p0_source_files": 56,
+  "cold_source_files": 39,
+  "queries": 3765,
+  "csv_rows": 37650,
+  "metrics": {
+    "ndcg_at_10": 0.96583,
+    "mrr_at_10": 0.9582509116971268
+  },
+  "metric_verification": "Notebook recomputation confirmed by recorded artifact and matching measured source.",
+  "limits": "No independent APPS rerun; cold Python is a synthetic functional check; preserve historical audit separately.",
+  "result_sha256": "84c8404a9ab43770dad45c2df0460b5d8cbec4f1e62fb741d954c52339192b84",
+  "environment_sha256": "ae82a3ba1ba270200c74e57b741fd26917b59b86e435802552992ac610aa64b3",
+  "raw_prediction_sha256": "e8e95f5dcb9963097f115bfbc02d9539f3f2f4734fd5df364eeb9efd10a171dc",
+  "compressed_prediction_sha256": "56d4ac5d175bc33927a537cbd4758488e3f39ffef233d7a91bb0a9a735734069"
+}

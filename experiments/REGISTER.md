@@ -9,19 +9,26 @@ mean candidate adoption unless a submitted result explicitly establishes otherwi
 
 ## Current reporting status
 
-Local correction work is engineering validation, not a new model experiment.
-The four CPU query shards completed, but a complete source-matched CPU P0 result
-is still absent. Historical GPU-query P0, hosted P1 and constructed Bonus remain
-under their original identities. Reconciliation and blockers are in the
-[local correction record](../docs/submission/LOCAL-CORRECTIONS.md). No Q8/OpenVINO
-adoption, EXT access, fresh score claim, merge or tag change follows from this
-work. The user's 2026-10-01 clarification permits other platforms while forbidding
-GitHub changes. Private Kaggle correction-P0 version 1 failed at test collection
-before model/APPS loading because validation helpers were missing from its
-package. Packaging correction `74a9ddd` does not change retrieval or model
-settings. Attempt records are in `results/local-corrections/kaggle-attempt-1/`;
-one infrastructure retry is permitted after isolated-package validation.
-No current CPU score is reported until all acceptance checks complete.
+Local correction work is engineering validation and final reporting, not a new
+model experiment. The four CPU query shards and private Kaggle correction-P0
+version 2 completed. **Accepted current result: NDCG@10 0.96583, MRR@10
+0.9582509116971268, Recall@10 0.98805**, all 3,765 queries and 8,765 documents.
+See [authentic evidence](../results/final/p0/README.md),
+[acceptance](../results/local-corrections/kaggle-attempt-2/acceptance.json) and
+[correction record](../docs/submission/LOCAL-CORRECTIONS.md).
+
+Version 1 failed before model/APPS loading because test support was omitted.
+Packaging fix `74a9ddd` changed no retrieval/model settings. The single
+infrastructure retry measured `18c4b6c`, passed 273 Linux tests (one optional
+fixture skip), a real-model cold functional check and all acceptance gates.
+NDCG/recall rose slightly and MRR fell slightly relative to historical GPU P0;
+this mixed comparison changes configuration/precision and is not a statistical
+or causal validation of combining experiments. No tuning or rerun follows.
+Historical GPU P0 and older synthetic P1/Bonus retain their identities.
+
+This work adopts no Q8/OpenVINO treatment and accesses no EXT-lockbox. The user
+permits other platforms but forbids GitHub changes; submitted main/tag remain
+`408a61f`. Human disclosure/video review and amendment permission are unresolved.
 
 ## How to maintain this register
 

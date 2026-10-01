@@ -1,0 +1,77 @@
+{
+  "queries_with_examples": 3699,
+  "candidates_executed": 100530,
+  "candidates_verified": 3540,
+  "spawn_failures": 0,
+  "seconds": 2063.3,
+  "configuration": {
+    "configuration": "config/submission.yaml",
+    "config_sha256": "9039497b871733c5",
+    "tier": "accuracy",
+    "model": "codefuse-ai/F2LLM-v2-1.7B",
+    "revision": "3766d46e7a68545ed6190c15330983f9b39ab718",
+    "execution": {
+      "rerank": true,
+      "candidates": 20,
+      "timeout_seconds": 2.0,
+      "numeric_tolerance": 1e-06,
+      "max_dense_gap": null,
+      "workers": 0,
+      "call_style": true,
+      "extended_stdin": false,
+      "judge_rules": false,
+      "timeout_mode": "cpu",
+      "deepen_to": 50,
+      "skip_interactive": true,
+      "blank_line_fallback": true,
+      "judge_like_io": true
+    }
+  },
+  "corpus_cache": {
+    "hits": 8765,
+    "misses": 0
+  },
+  "query_store": {
+    "hits": 3765,
+    "encoded": 0
+  },
+  "query_verification": {
+    "sampled": 30,
+    "seed": 20260930,
+    "min_cosine": 1.0,
+    "median_cosine": 1.0,
+    "indices": [
+      90,
+      109,
+      163,
+      204,
+      910,
+      1133,
+      1260,
+      1660,
+      1714,
+      1760,
+      1895,
+      1912,
+      2037,
+      2055,
+      2320,
+      2393,
+      2582,
+      2620,
+      2637,
+      2764,
+      2897,
+      2919,
+      2945,
+      2988,
+      3072,
+      3100,
+      3328,
+      3366,
+      3548,
+      3555
+    ]
+  },
+  "prediction_identity_setup_seconds": 4.524626987000033
+}

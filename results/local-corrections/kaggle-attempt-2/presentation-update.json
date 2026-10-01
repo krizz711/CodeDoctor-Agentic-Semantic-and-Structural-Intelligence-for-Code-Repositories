@@ -1,0 +1,40 @@
+{
+  "status": "draft-needs-finalization-and-visual-review",
+  "source": "VITV_Doctors_Submission.pptx",
+  "source_sha256": "810edc42d6eee39d8df4320a414193f84961ac01f6075933da7d4d325c302bb0",
+  "candidate": "build/local-correction/slides/accepted-result-2/candidate.pptx",
+  "candidate_sha256": "68c50465f4c82aee30b1b3672a32734572149c2dfd543349bf0900a834047fbb",
+  "changed_slide_bodies": [
+    8,
+    11
+  ],
+  "changed_slide_notes": [
+    4,
+    8,
+    11
+  ],
+  "total_slides": 12,
+  "accepted_report": {
+    "path": "results/local-corrections/kaggle-attempt-2/acceptance.json",
+    "sha256": "f17ef57be2ca75f9331324cf066c5c4dc4884446f97d59c338ca670ecb358a10"
+  },
+  "result": {
+    "path": "results/final/p0/appsretrieval_results.json",
+    "sha256": "84c8404a9ab43770dad45c2df0460b5d8cbec4f1e62fb741d954c52339192b84"
+  },
+  "environment": {
+    "path": "results/final/p0/environment.json",
+    "sha256": "ae82a3ba1ba270200c74e57b741fd26917b59b86e435802552992ac610aa64b3"
+  },
+  "historical_result": {
+    "path": "appsretrieval_results.json",
+    "sha256": "a079fbbc148287744a15e282ca8e628f7bc4107faf76a42dc5502d05a53e60c1"
+  },
+  "measured_commit": "18c4b6cbd097437bfb8498fefe572cddb658bc42",
+  "metrics": {
+    "ndcg_at_10": 0.96583,
+    "mrr_at_10": 0.9582509116971268,
+    "recall_at_10": 0.98805
+  },
+  "limitations": "Only a local draft. Full slide inspection and finalizer validation remain required. No full-live CPU latency, speedup or unseen-generalization claim. No tracked or remote files changed."
+}

@@ -1,0 +1,83 @@
+[
+  {
+    "access_index": 1,
+    "timestamp": "2026-10-01T15:59:33.193820+00:00",
+    "reason": "final_run_started",
+    "caller": "scripts/evaluate_mteb.py",
+    "split": "test",
+    "rows": 0,
+    "status": "COMPLETED",
+    "expected_queries": 3765,
+    "config_sha256": "9039497b871733c5236eb6060b0cf074c3d98ebeb30664c2ce711e4882f0aaf5",
+    "model": "codefuse-ai/F2LLM-v2-1.7B",
+    "revision": "3766d46e7a68545ed6190c15330983f9b39ab718",
+    "device": "cpu",
+    "query_shard": null,
+    "query_store": true,
+    "require_complete_corpus_cache": true
+  },
+  {
+    "access_index": 2,
+    "timestamp": "2026-10-01T16:42:29.764039+00:00",
+    "reason": "final_run",
+    "caller": "scripts/evaluate_mteb.py",
+    "split": "test",
+    "rows": 3765,
+    "status": "COMPLETED",
+    "metric_ndcg_at_10": 0.96583,
+    "metric_mrr_at_10": 0.9582509116971268,
+    "model": "codefuse-ai/F2LLM-v2-1.7B",
+    "execution_rerank": true,
+    "execution_candidates": 20,
+    "execution_numeric_tolerance": 1e-06,
+    "execution_max_dense_gap": null,
+    "corpus_cache": {
+      "hits": 8765,
+      "misses": 0
+    },
+    "query_store": {
+      "hits": 3765,
+      "encoded": 0
+    },
+    "query_verification": {
+      "sampled": 30,
+      "seed": 20260930,
+      "min_cosine": 1.0,
+      "median_cosine": 1.0,
+      "indices": [
+        90,
+        109,
+        163,
+        204,
+        910,
+        1133,
+        1260,
+        1660,
+        1714,
+        1760,
+        1895,
+        1912,
+        2037,
+        2055,
+        2320,
+        2393,
+        2582,
+        2620,
+        2637,
+        2764,
+        2897,
+        2919,
+        2945,
+        2988,
+        3072,
+        3100,
+        3328,
+        3366,
+        3548,
+        3555
+      ]
+    },
+    "spawn_failures": 0,
+    "enforced": false
+  }
+]

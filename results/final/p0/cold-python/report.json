@@ -1,0 +1,418 @@
+{
+  "status": "passed",
+  "platform": "Linux-6.18.48+-x86_64-with-glibc2.35",
+  "machine": "x86_64",
+  "processor": "x86_64",
+  "logical_cpus": 4,
+  "physical_cpus": 2,
+  "memory_bytes": 33658314752,
+  "packages": {
+    "torch": "2.8.0+cpu",
+    "sentence-transformers": "5.0.0",
+    "transformers": "4.57.6",
+    "numpy": "2.5.3",
+    "tree-sitter": "0.26.0",
+    "PyYAML": "6.0.3"
+  },
+  "source_hashes": {
+    "app/__init__.py": "8d44b110ef5e88774ff5132c867ced2e24d3b011cf4ac3ce50e3adf5b2fcf6c6",
+    "app/agent/__init__.py": "07be51cd2c19a5ac89aad3457575e66e40d7153406a66651b8095c702aa3c313",
+    "app/agent/router.py": "ffe9a6d8972eaecb4d72551348c133d7c06cf0c8a5809ed2600fa909b9c683bf",
+    "app/evaluation.py": "4d74d6016f3da3b3e8fc46ed655b36e6e5cff3dbc809ab35649ebf61761a5232",
+    "app/evaluation_harness.py": "8ceebcb0e89670526031217b8d702848ae5722f8f6b19b716f58930207b4fada",
+    "app/indexing/cache.py": "0b0aa447aef7ce031042a133cdd660e2cf8a0f62ce7f4d509450a6f7b6b2b612",
+    "app/indexing/cache_validation.py": "61f0da7878f50dfa86ca2e4c012bc3a0461a0a1563ed81eebeed06efabb2a046",
+    "app/indexing/incremental.py": "76b7812baefb99b187f5960bfd6ae0142d50c201237d68b63ab5fc10ae5809e8",
+    "app/indexing/lineage.py": "bd7b8b764e4b3ecd2f63010bc12064462170f25b85698bdc55c44e9a58893b83",
+    "app/indexing/sqlite_index.py": "5b7d46358b7cdce5d711ee2e32e9b789392b2667365d4778c691066ef1edf403",
+    "app/indexing/versioned.py": "44a22d8b12f920d00a9b966434ae104e95938af47e36d35e8a8403f1660cf3fa",
+    "app/models/__init__.py": "a466b2893585fcfeee9483e2617640e3cfe22aeae75f194f2276a396664597d8",
+    "app/models/catalog.py": "6a9af5208136ec0b1716c1034650f1778600fac956a1893c76152efb6f7ac9de",
+    "app/packaging.py": "b9385e97f14afb7207ab583f90598b3eeb1963ca303a7bd5eafdcf35015b84fe",
+    "app/parser/__init__.py": "e5a7f0c6eb79fd5a94848c2842c25bd7e613d9b3e6bd152d371b784bbc93f7de",
+    "app/parser/chunker.py": "9f2d69c418de34455bed5109ded84383e2d37f51b02a13d53ccc7943003798ac",
+    "app/parser/edges.py": "c15fe6574ac6a4ac0a1c2bd6ca11c7d480e20686fe2e2214257a23a465d753e5",
+    "app/pipeline/__init__.py": "5568054b0019ed3a9607c040f7e1c74e6fb2f39beff313ba5a06d67aeed0bb1e",
+    "app/pipeline/code_analysis.py": "fa466dcf6975d31a0b356e9e5ff015b8ef7dcee2b30561e2de87870319ab2259",
+    "app/pipeline/encoder.py": "6711750c737ccf43e69c339286d2e2bce4421f345d1137d3403baea1a357825b",
+    "app/pipeline/execution_rerank.py": "6ae1aad8b69b1687d9a69b175a65ea2cb0f0b99c34ffd1fd372ef40a00d474b8",
+    "app/pipeline/features.py": "03d436a82a9ab9f7062bae85de969993e326957de14b0d454b623b94d7a3e990",
+    "app/pipeline/metamorphic.py": "22aed80302a257c43e4f2686c27253fbea237c948608ae81ca68157035c94d0b",
+    "app/pipeline/metrics.py": "06d766425cace8646e34e64ed34846c8e4069eaeeba2be4e04616f7c20bb306f",
+    "app/pipeline/query_analysis.py": "47fdb64d07a1853de13a591f865eda48d91deab36e8d2a64078e64fe49988f5e",
+    "app/pipeline/reranker.py": "9a9512d84f817639688b138e519ab8bca404ef0e75ef17725762f21d2a03e4b3",
+    "app/pipeline/search.py": "2b7156a2318adfbddb8ccdab6075618484fc42ce8af75cbe566a22569bf1b9b1",
+    "app/pipeline/splits.py": "171dd77101312a86e7d7be2d2c5dc54fa02713a623a98e17cabd6a5df86addcd",
+    "app/pipeline/statement.py": "569f3f4c65204e2612224aaf1f16b106a8e4b9fa02fffe12687213ec64de6690",
+    "app/pipeline/tuning.py": "c4e021972c8cd43bf143ea1e6b2759e5589cc9ea13fcb3caa97b4958edeaac09",
+    "app/retrieval/__init__.py": "11d79cf3957d283d5350bd082c046c3664baa568c15b3f67c3ba93c800f18428",
+    "app/retrieval/encode.py": "879e594fc374f9ae32f1231e7e60785df9dd77f5867fb49c4e89f6328e43a536",
+    "app/retrieval/hybrid.py": "4728774ec97ac1b7d366abe65feed2e624b66bd85ce3ddaf9529d0abe4db740f",
+    "app/retrieval/structural.py": "6f15fb7ce75d4eb37ca75353f3ec74ccd7694d83a6f2bf0d30bba11284585156",
+    "app/server.py": "c00034194decadbe9e86e3f04d3a40eec4aeeda8b6e8830377a1730dfa27635a",
+    "app/submission.py": "2690d535aa3c8304078877e41983a75d2fb9e8b9a5605b4c7bffa8f8873b79a4",
+    "app/workbench.py": "766e83816a0adbd65e4bffa14102cb05b95d10fb8eef90112449888df5a1036d",
+    "config/submission.yaml": "9039497b871733c5236eb6060b0cf074c3d98ebeb30664c2ce711e4882f0aaf5",
+    "scripts/validate_cold_python.py": "2964e7f4e8d8fee67137f06be0d95c346a0400d627ea619e614ae333c59b0f75"
+  },
+  "command": [
+    "/tmp/codedoctor-env/bin/python",
+    "/kaggle/working/source/scripts/validate_cold_python.py",
+    "--out",
+    "/kaggle/working/cold-python"
+  ],
+  "model_weight_cache": "May be populated; document cache starts empty and query vectors are never cached.",
+  "git_commit": "18c4b6cbd097437bfb8498fefe572cddb658bc42",
+  "git_worktree_dirty": false,
+  "encoder": {
+    "model": "codefuse-ai/F2LLM-v2-1.7B",
+    "revision": "3766d46e7a68545ed6190c15330983f9b39ab718",
+    "tier": "accuracy",
+    "device": "cpu",
+    "dtype": "float32",
+    "max_seq_length": 8192,
+    "max_batch": 1
+  },
+  "kind": "functional synthetic Python check; not an unseen-accuracy estimate",
+  "query": "Where does this code calculate the combined total of two input amounts?",
+  "initial_cache_entries": 0,
+  "snapshot_kind": "constructed code versions, not Git commits",
+  "builds": [
+    {
+      "version": "v1",
+      "seconds": 42.725688881999986,
+      "includes_encoder_load_and_warmup": true,
+      "chunks": 5,
+      "encoded": 5,
+      "reused": 0,
+      "file_sha256": {
+        "amounts.py": "9edd2171378c1d338dfd94a784aaf413000d44c77496cfb564e17e89865c97fa",
+        "formatting.py": "14b5fbbf5fa590f452a24ba98cb259ff1d4427baeba5d1a8fb4a4061eb8f934d"
+      }
+    },
+    {
+      "version": "v2",
+      "seconds": 4.085077338000019,
+      "includes_encoder_load_and_warmup": false,
+      "chunks": 5,
+      "encoded": 2,
+      "reused": 3,
+      "file_sha256": {
+        "amounts.py": "6760bee27ace119a2c6eb4ce60f6f65f59cdfc5ebe4e3bd5565598f397f1a8c1",
+        "formatting.py": "14b5fbbf5fa590f452a24ba98cb259ff1d4427baeba5d1a8fb4a4061eb8f934d"
+      }
+    }
+  ],
+  "queries": [
+    {
+      "version": "v1",
+      "seconds": 1.344534466999903,
+      "timings": {
+        "exact_ms": 0.07263700001658435,
+        "bm25_ms": 7.397373999992851,
+        "query_encode_ms": 1322.4311010000065,
+        "dense_ms": 1335.9866319999583
+      },
+      "version_isolation": true,
+      "hits": [
+        {
+          "file": "amounts.py",
+          "name": "combine_amounts",
+          "start_line": 1,
+          "end_line": 3,
+          "content": "def combine_amounts(left, right):\n    \"\"\"Combine two integer amounts.\"\"\"\n    return left - right",
+          "score": 0.04918032786885246,
+          "sources": [
+            "exact",
+            "bm25",
+            "dense"
+          ]
+        },
+        {
+          "file": "amounts.py",
+          "name": "file_summary",
+          "start_line": 1,
+          "end_line": 8,
+          "content": "def combine_amounts(left, right):\n    \"\"\"Combine two integer amounts.\"\"\"\n    return left - right\n\ndef order_records(records):\n    \"\"\"Order records in ascending order.\"\"\"\n    return sorted(records)\n",
+          "score": 0.03225806451612903,
+          "sources": [
+            "bm25",
+            "dense"
+          ]
+        },
+        {
+          "file": "formatting.py",
+          "name": "file_summary",
+          "start_line": 1,
+          "end_line": 4,
+          "content": "def format_title(text):\n    \"\"\"Clean up the title of a report.\"\"\"\n    return text.strip().title()\n",
+          "score": 0.03149801587301587,
+          "sources": [
+            "bm25",
+            "dense"
+          ]
+        },
+        {
+          "file": "formatting.py",
+          "name": "format_title",
+          "start_line": 1,
+          "end_line": 3,
+          "content": "def format_title(text):\n    \"\"\"Clean up the title of a report.\"\"\"\n    return text.strip().title()",
+          "score": 0.031009615384615385,
+          "sources": [
+            "bm25",
+            "dense"
+          ]
+        },
+        {
+          "file": "amounts.py",
+          "name": "order_records",
+          "start_line": 5,
+          "end_line": 7,
+          "content": "def order_records(records):\n    \"\"\"Order records in ascending order.\"\"\"\n    return sorted(records)",
+          "score": 0.015873015873015872,
+          "sources": [
+            "dense"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "v2",
+      "seconds": 1.3147195880000027,
+      "timings": {
+        "exact_ms": 0.03593700000692479,
+        "bm25_ms": 0.03380900000138354,
+        "query_encode_ms": 1313.7941070000352,
+        "dense_ms": 1313.872219000018
+      },
+      "version_isolation": true,
+      "hits": [
+        {
+          "file": "amounts.py",
+          "name": "combine_amounts",
+          "start_line": 1,
+          "end_line": 3,
+          "content": "def combine_amounts(left, right):\n    \"\"\"Combine two integer amounts.\"\"\"\n    return left + right",
+          "score": 0.04918032786885246,
+          "sources": [
+            "exact",
+            "bm25",
+            "dense"
+          ]
+        },
+        {
+          "file": "amounts.py",
+          "name": "file_summary",
+          "start_line": 1,
+          "end_line": 8,
+          "content": "def combine_amounts(left, right):\n    \"\"\"Combine two integer amounts.\"\"\"\n    return left + right\n\ndef order_records(records):\n    \"\"\"Order records in ascending order.\"\"\"\n    return sorted(records)\n",
+          "score": 0.03225806451612903,
+          "sources": [
+            "bm25",
+            "dense"
+          ]
+        },
+        {
+          "file": "formatting.py",
+          "name": "file_summary",
+          "start_line": 1,
+          "end_line": 4,
+          "content": "def format_title(text):\n    \"\"\"Clean up the title of a report.\"\"\"\n    return text.strip().title()\n",
+          "score": 0.03149801587301587,
+          "sources": [
+            "bm25",
+            "dense"
+          ]
+        },
+        {
+          "file": "formatting.py",
+          "name": "format_title",
+          "start_line": 1,
+          "end_line": 3,
+          "content": "def format_title(text):\n    \"\"\"Clean up the title of a report.\"\"\"\n    return text.strip().title()",
+          "score": 0.031009615384615385,
+          "sources": [
+            "bm25",
+            "dense"
+          ]
+        },
+        {
+          "file": "amounts.py",
+          "name": "order_records",
+          "start_line": 5,
+          "end_line": 7,
+          "content": "def order_records(records):\n    \"\"\"Order records in ascending order.\"\"\"\n    return sorted(records)",
+          "score": 0.015873015873015872,
+          "sources": [
+            "dense"
+          ]
+        }
+      ]
+    }
+  ],
+  "encoder_calls": [
+    {
+      "mode": "document",
+      "count": 5,
+      "input_sha256": [
+        "da0f1ad5cafa16df697db9445335de433495ccef6594fa1797a03771ad63970d",
+        "4a003ce6f30eed306cfa3337b8feda40ea422ce3bc7de1c63e6c777435c07327",
+        "ffde21feebb7ba7e914f07bafe97cef2e69a680fd69d4504cde3f4ea5c12f8c3",
+        "d332208090718e95efc74ade46fdff175162d6d2c50557a82db2ad8ac02ccb76",
+        "1a1e58e11e83119c15348380f037aedc6b328e293fb6f48e0d7a3d7f5e8c1329"
+      ],
+      "seconds": 41.61100207000004,
+      "dimension": 2048
+    },
+    {
+      "mode": "query",
+      "count": 1,
+      "input_sha256": [
+        "4903020ea6c8e6c57b833664d03f41b22f65630e50740aa0b99f65cf0818719e"
+      ],
+      "seconds": 1.1000781960000268,
+      "dimension": 2048
+    },
+    {
+      "mode": "document",
+      "count": 2,
+      "input_sha256": [
+        "cc384311ac28dc85f17466cb4dfc8f2de41c175fdfdc86502892eea4c0432f62",
+        "dfdd9921406c180240a3963b3c20e44a05a2b6bc7454a5aba354036934d15658"
+      ],
+      "seconds": 2.977855571999953,
+      "dimension": 2048
+    },
+    {
+      "mode": "query",
+      "count": 1,
+      "input_sha256": [
+        "4903020ea6c8e6c57b833664d03f41b22f65630e50740aa0b99f65cf0818719e"
+      ],
+      "seconds": 1.101567441000043,
+      "dimension": 2048
+    },
+    {
+      "mode": "query",
+      "count": 1,
+      "input_sha256": [
+        "7443cf48970a44097c0a2c26fefd03b661dde6837e379776cf0a032841763c28"
+      ],
+      "seconds": 1.3224167590000206,
+      "dimension": 2048
+    },
+    {
+      "mode": "query",
+      "count": 1,
+      "input_sha256": [
+        "7443cf48970a44097c0a2c26fefd03b661dde6837e379776cf0a032841763c28"
+      ],
+      "seconds": 1.313785482999947,
+      "dimension": 2048
+    },
+    {
+      "mode": "query",
+      "count": 1,
+      "input_sha256": [
+        "7443cf48970a44097c0a2c26fefd03b661dde6837e379776cf0a032841763c28"
+      ],
+      "seconds": 1.3146440279999752,
+      "dimension": 2048
+    },
+    {
+      "mode": "query",
+      "count": 1,
+      "input_sha256": [
+        "7443cf48970a44097c0a2c26fefd03b661dde6837e379776cf0a032841763c28"
+      ],
+      "seconds": 1.3071332170000005,
+      "dimension": 2048
+    }
+  ],
+  "unknown_version_rejected": true,
+  "cross_version": {
+    "seconds": 2.622807349000027,
+    "hits": [
+      {
+        "file": "amounts.py",
+        "name": "combine_amounts",
+        "versions": [
+          "v1",
+          "v2"
+        ],
+        "variants": 2,
+        "content": "def combine_amounts(left, right):\n    \"\"\"Combine two integer amounts.\"\"\"\n    return left - right",
+        "score": 0.04918032786885246,
+        "sources": [
+          "exact",
+          "bm25",
+          "dense"
+        ]
+      },
+      {
+        "file": "amounts.py",
+        "name": "file_summary",
+        "versions": [
+          "v1",
+          "v2"
+        ],
+        "variants": 2,
+        "content": "def combine_amounts(left, right):\n    \"\"\"Combine two integer amounts.\"\"\"\n    return left - right\n\ndef order_records(records):\n    \"\"\"Order records in ascending order.\"\"\"\n    return sorted(records)\n",
+        "score": 0.03225806451612903,
+        "sources": [
+          "bm25",
+          "dense"
+        ]
+      },
+      {
+        "file": "formatting.py",
+        "name": "file_summary",
+        "versions": [
+          "v1",
+          "v2"
+        ],
+        "variants": 1,
+        "content": "def format_title(text):\n    \"\"\"Clean up the title of a report.\"\"\"\n    return text.strip().title()\n",
+        "score": 0.03149801587301587,
+        "sources": [
+          "bm25",
+          "dense"
+        ]
+      },
+      {
+        "file": "formatting.py",
+        "name": "format_title",
+        "versions": [
+          "v1",
+          "v2"
+        ],
+        "variants": 1,
+        "content": "def format_title(text):\n    \"\"\"Clean up the title of a report.\"\"\"\n    return text.strip().title()",
+        "score": 0.031009615384615385,
+        "sources": [
+          "bm25",
+          "dense"
+        ]
+      },
+      {
+        "file": "amounts.py",
+        "name": "order_records",
+        "versions": [
+          "v1",
+          "v2"
+        ],
+        "variants": 1,
+        "content": "def order_records(records):\n    \"\"\"Order records in ascending order.\"\"\"\n    return sorted(records)",
+        "score": 0.015873015873015872,
+        "sources": [
+          "dense"
+        ]
+      }
+    ]
+  },
+  "final_cache_entries": 7,
+  "dimension": 2048,
+  "total_seconds": 52.16544022100004,
+  "process_peak_rss_bytes": 10916900864
+}

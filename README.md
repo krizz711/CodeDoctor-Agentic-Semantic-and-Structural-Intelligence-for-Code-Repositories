@@ -114,12 +114,34 @@ companion notebook, not a separate implementation.
 
 ## Results and evidence status
 
-There is **no validated current P0 result for the CPU submission** yet. Final
-reporting must include a complete MTEB result, ranked-response CSV, execution audit
-and matching source/environment evidence before the current score is claimed.
-The root `appsretrieval_results.json` is **historical**: NDCG@10 0.96558 and MRR@10
-0.95857 with the original frozen configuration and GPU query encoding. It does not
-measure the current CPU submission. New results belong under `results/final/`.
+The corrected CPU candidate completed the full official AppsRetrieval evaluation
+on 2026-10-01: **NDCG@10 0.96583, MRR@10 0.9582509116971268, Recall@10 0.98805**.
+The [result and evidence](results/final/p0/README.md) cover all 3,765 queries and
+8,765 documents, ranked-response CSV, compressed raw predictions, execution audit,
+measured dependencies and source records. All 30 seeded live re-encodings had
+cosine similarity 1.0; query and document fallback counts were zero.
+
+The measured source is `18c4b6cbd097437bfb8498fefe572cddb658bc42`, with
+`config/submission.yaml` SHA-256
+`9039497b871733c5236eb6060b0cf074c3d98ebeb30664c2ce711e4882f0aaf5`.
+Later documentation/evidence commits are compatible only when every recorded
+source, configuration and dependency hash matches. Focused Linux validation
+passed 273 tests with one optional-fixture skip; the real 1.7B cold Python
+functional check also passed.
+
+The P0 runner took 2,609.959 seconds (43.5 minutes), including scoring replay and
+30 live checks, with peak process-tree RSS 9.41 GB. This excludes the earlier
+four CPU query-encoding jobs, which took 11,100.779 / 10,147.842 / 12,613.804 /
+13,987.302 seconds for 971 / 882 / 975 / 937 queries. Those shard times are
+separate job elapsed times, not concurrent total wall time or per-query latency.
+
+The root `appsretrieval_results.json` remains **historical**, from the original
+frozen configuration with GPU query encoding. Compared with it, NDCG@10 increased
+by 0.00025 and Recall@10 by 0.00186; MRR@10 decreased by 0.0003187251. These are
+small descriptive differences across configurations and encoding precision,
+without a significance analysis or isolated experiment attribution. Prior APPS
+test exposure prevents an unseen-generalization claim. No configuration was
+changed in response to the final score. The GitHub submission remains unchanged.
 
 P1 and Bonus fixtures exercise the real workbench. Bonus intentionally includes
 incorrect variants that fail the supplied examples; its outcome is a synthetic
@@ -211,7 +233,7 @@ the repository does not currently include a top-level license grant.
 | --- | --- | --- |
 | **Prototype and setup** | Repository, `Dockerfile`, [commands](scripts/README.md) | Current clean-environment checks must be reported with evidence |
 | **Requirements** | [`requirements-submission.txt`](requirements-submission.txt), [`requirement.txt`](requirement.txt) | Portable model/evaluator pins; core minimum versions; measured freezes retained separately |
-| **Current MTEB JSON and responses CSV** | `results/final/` after authorized final reporting | Pending; root JSON/CSVs are historical |
+| **Current MTEB JSON and responses CSV** | [Accepted CPU evidence](results/final/p0/README.md) | Full 3,765-query result; root JSON/CSVs remain historical |
 | **Presentation deck and PDF** | `VITV_Doctors_Submission.pptx`, `VITV_Doctors_Submission.pdf` | Must agree with the final evidence and limitations |
 | **Demo video** | [Existing walkthrough](https://youtu.be/0k2UUJOp-Tc) | Original local recording is 5:46; the supplied template requires at most 5 minutes |
 | **AI disclosure** | [`LangAI3.0_AI_Disclosure.docx`](LangAI3.0_AI_Disclosure.docx) | Preserved official form; human attribution review, attestations and signature pending |

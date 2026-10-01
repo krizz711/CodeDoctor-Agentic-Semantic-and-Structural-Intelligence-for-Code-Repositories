@@ -1,0 +1,66 @@
+Error in sitecustomize; set PYTHONVERBOSE for traceback:
+ModuleNotFoundError: No module named 'wrapt'
+Config          : config/submission.yaml
+Tier            : accuracy
+Model           : codefuse-ai/F2LLM-v2-1.7B@3766d46e
+Device          : cpu
+Query prefix    : 'Instruct: Retrieve the most relevant code snippet for the given query.\nQuery: '
+Document prefix : ''
+max_seq_length  : 8192   add_eos_token: True
+Reranker        : identity (no fitted weights found -- dense only)
+Execution pass  : ON (top 20, 2.0s timeout, dense gap None, 2 workers)
+                  This RUNS PYTHON FROM THE DATASET in a sandboxed
+                  subprocess. Pass --no-execution to disable it.
+Corpus cache    : /tmp/codedoctor-documents-25bl64b0/cache/corpus.sqlite (8754 vectors)
+Query store     : /kaggle/working/results/queries.sqlite (3765 vectors)
+`torch_dtype` is deprecated! Use `dtype` instead!
+
+Fetching task AppsRetrieval ...
+
+Generating train split:   0%|          | 0/5000 [00:00<?, ? examples/s]
+Generating train split: 100%|██████████| 5000/5000 [00:00<00:00, 430414.58 examples/s]
+
+Generating test split:   0%|          | 0/3765 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 3765/3765 [00:00<00:00, 857165.20 examples/s]
+
+Casting the dataset:   0%|          | 0/3765 [00:00<?, ? examples/s]
+Casting the dataset: 100%|██████████| 3765/3765 [00:00<00:00, 401820.73 examples/s]
+
+Generating corpus split:   0%|          | 0/8765 [00:00<?, ? examples/s]
+Generating corpus split: 100%|██████████| 8765/8765 [00:00<00:00, 256567.71 examples/s]
+
+Casting the dataset:   0%|          | 0/8765 [00:00<?, ? examples/s]
+Casting the dataset: 100%|██████████| 8765/8765 [00:00<00:00, 715221.00 examples/s]
+
+Generating queries split:   0%|          | 0/8765 [00:00<?, ? examples/s]
+Generating queries split: 100%|██████████| 8765/8765 [00:00<00:00, 143564.26 examples/s]
+
+Casting the dataset:   0%|          | 0/8765 [00:00<?, ? examples/s]
+Casting the dataset: 100%|██████████| 8765/8765 [00:00<00:00, 364268.55 examples/s]
+Evaluating ...
+
+Evaluating tasks:   0%|          | 0/1 [00:00<?, ?it/s]
+Evaluating task AppsRetrieval:   0%|          | 0/1 [00:00<?, ?it/s]
+
+Standardizing text corpus format:   0%|          | 0/8765 [00:00<?, ? examples/s][A
+
+Standardizing text corpus format:  14%|█▍        | 1227/8765 [00:00<00:00, 12048.62 examples/s][A
+
+Standardizing text corpus format:  32%|███▏      | 2836/8765 [00:00<00:00, 13150.90 examples/s][A
+
+Standardizing text corpus format:  55%|█████▌    | 4863/8765 [00:00<00:00, 13125.38 examples/s][A
+
+Standardizing text corpus format:  78%|███████▊  | 6835/8765 [00:00<00:00, 13020.14 examples/s][A
+
+Standardizing text corpus format: 100%|██████████| 8765/8765 [00:00<00:00, 12329.39 examples/s][A
+Standardizing text corpus format: 100%|██████████| 8765/8765 [00:00<00:00, 12466.01 examples/s]
+
+Evaluating task AppsRetrieval: 100%|██████████| 1/1 [42:52<00:00, 2572.03s/it]
+Evaluating task AppsRetrieval: 100%|██████████| 1/1 [42:52<00:00, 2572.03s/it]
+
+NDCG@10 = 0.96583   MRR@10 = 0.9582509116971268
+Wrote /kaggle/working/results/appsretrieval_results.json
+Wrote /kaggle/working/results/execution_audit.json
+Logged test-split access to data/test_split_audit_log.json
+Wrote /kaggle/working/results/submission_metrics.csv
+Wrote /kaggle/working/results/submission_predictions.csv

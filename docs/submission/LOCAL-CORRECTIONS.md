@@ -30,12 +30,12 @@ and minimum cosine0.999 remain unchanged.
 
 | Finding | Correction | Evidence boundary |
 | --- | --- | --- |
-| Apps demo loaded 0.6B arrays while default queries used1.7B | Tier-matched arrays, full recipe/model/revision checks, checksums and row identity; invalid/legacy artifacts fail visibly | Unit checks; real cold1.7B validation still requires a larger machine |
-| Query replay could fill gaps live or accept invalid vectors | Strict P0 requires completed, compatible, disjoint shards and exact key coverage; dimensions, finiteness, nonzero normalized vectors and live fidelity are checked | Synthetic negative tests; authentic downloaded stores require a recorded preflight |
+| Apps demo loaded 0.6B arrays while default queries used1.7B | Tier-matched arrays, full recipe/model/revision checks, checksums and row identity; invalid/legacy artifacts fail visibly | Unit checks and passed real cold1.7B functional validation on Kaggle version2 |
+| Query replay could fill gaps live or accept invalid vectors | Strict P0 requires completed, compatible, disjoint shards and exact key coverage; dimensions, finiteness, nonzero normalized vectors and live fidelity are checked | Synthetic negative tests; authentic stores passed preflight and exact pinned-task coverage gates |
 | Corpus manifest did not prove task/text identity | Pinned dataset/revision/count/fingerprint and exact recipe-key checks | No new scoring result follows from cache validation |
-| Result/CSV validation could accept mismatched task or rounded scores | Strict official task/revision/test checks; raw prediction ID/metric recomputation and full float CSV precision | Authentic current P0 remains absent until one authorized run completes |
-| Declared Torch version and environment differed | Portable Torch2.8.0 recipe, aligned installs; measured freezes retained as evidence, not installation locks | Fresh Mac installation and tests; Linux execution and Docker build are separate checks |
-| Slides/README overstated speed, correctness and pipeline scope | Correct fixture medians; label historical GPU P0 and constructed Bonus; distinguish scored pipeline from workbench and C++ prototype | Historical raw measurements stay unchanged |
+| Result/CSV validation could accept mismatched task or rounded scores | Strict official task/revision/test checks; raw prediction ID/metric recomputation and full float CSV precision | Accepted version2 full P0 with raw predictions, metric recomputation and exact CSV checks |
+| Declared Torch version and environment differed | Portable Torch2.8.0 recipe, aligned installs; measured freezes retained as evidence, not installation locks | Fresh Mac installation/tests and focused Linux tests passed; Docker build remains unverified |
+| Slides/README overstated speed, correctness and pipeline scope | Correct fixture medians; distinguish accepted CPU P0, historical GPU P0 and constructed Bonus; preserve pre/post architecture scope | Historical raw measurements stay unchanged |
 | Official AI form was replaced and claimed an agent-generated signature | Restore original six-section form, fill supported facts, retain per-feature fields, leave human confirmations/signature unsigned | Team must verify authorship, consent and final attestation |
 | Video exceeded maximum and omitted parts of the claimed demo | Preserve original; make cut-only local preview and exact cut-review record | Human narration review and missing demonstrations cannot be replaced by ASR or trimming |
 
@@ -69,17 +69,18 @@ and3,765 disjoint CPU query vectors, with matching provenance and old source
 hashes. It did not access fresh query text or labels. The first local wrapper
 failed on a report-field typo after checking the vectors; its log is preserved
 and a single corrected retry produced the report. Exact pinned-task text
-coverage, real-model forwards, Linux checks and final P0 remain pending.
+coverage, real-model forwards, Linux checks and final P0 were completed by
+version2 as recorded below; the earlier preflight alone did not establish them.
 
 The prepared notebook is `build/local-correction/kaggle-p0`, private CPU-only,
 packaged from clean commit `d2fb22a`. Version 1 was uploaded successfully on
-2026-10-01 following the user's clarification and is running at
+2026-10-01 following the user's clarification at
 https://www.kaggle.com/code/lifemeansfun/codedoctor-correction-p0 . Launch evidence
 is retained in `results/local-corrections/kaggle-attempt-1/`. It stopped before
 model or APPS loading because test helper scripts were absent from the package.
 The helpers and sample fixture are included by packaging fix `74a9ddd`, with
 an isolated-archive regression test; retrieval/model/settings are unchanged.
-No result exists until the permitted retry's checks and evaluation complete.
+The permitted retry subsequently completed; see accepted version2 below.
 Read-only `git ls-remote`
 confirmed both public main and the official
 tag still resolve to submitted408a61f after all local work.
@@ -103,21 +104,21 @@ caches or silently re-encode a valid negative result.
 
 The Mac has8 GiB physical RAM, below the retained10.85 GB hands-on peak RSS.
 No heavy accuracy-tier run is certified on this Mac. Existing Kaggle sessions
-record31.35 GiB RAM and4 logical CPUs. A distinct private notebook can run
+record31.35 GiB RAM and4 logical CPUs. The private version2 notebook completed
 focused Linux tests, the real-model cold Python check, exact cache/shard gates,
 30 live checks and one complete official scoring pass. The user's 2026-10-01
 clarification authorizes that Kaggle upload and launch. Cold check results are
 functional evidence on constructed new code, not unseen-accuracy estimates.
 
-Before any publication, complete the remaining real-model/Linux/final-P0 checks,
-verify source and artifacts, review the video content and AI form, and obtain
+Before any publication, verify source and artifacts against the exact proposed
+commit, review the video content and AI form, and obtain
 both the team's amendment decision and explicit user authorization for the
 specific remote actions. No agent may sign human ethics declarations or infer
 Samsung permission from silence. Existing release, tag and public video remain
 unchanged. GitHub CI and a Docker build on the corrected source are unverified
 until actually executed; local checks are not remotely green CI.
 
-## Prepared continuation
+## Preserved initial preparation command
 
 After the local source freeze, build without `--allow-dirty`:
 
@@ -132,3 +133,50 @@ document and four query-kernel outputs, and uses an isolated virtual environment
 It runs tests and the cold check before touching the final evaluation. Its
 launch is authorized by the protocol amendment above. Preserve any failed attempt and its
 cause. Never repeat a valid completed final run to improve the result.
+
+## Accepted version2 outcome — 2026-10-01
+
+The single infrastructure retry completed at private Kaggle notebook
+`lifemeansfun/codedoctor-correction-p0`, version2. It measured clean commit
+`18c4b6cbd097437bfb8498fefe572cddb658bc42`. The package contains76 files;
+all73 original files are unchanged, with only the missing test support added.
+The run.py SHA-256 is
+`f5fbe53ca17746b765bd8f36fb88227442ecbe245fc90f25e23ef9da5c7780f2`.
+
+**NDCG@10 0.96583; MRR@10 0.9582509116971268; Recall@10 0.98805**.
+Full evidence and reproducible inspection commands are in
+[results/final/p0/README.md](../../results/final/p0/README.md).
+All3,765 queries and8,765 documents passed exact pinned-task identity and vector
+checks. The30 seeded live re-encodings had minimum/median cosine1.0; document
+misses, query fallback encodings and execution spawn failures were zero.
+Both measured source records match the local candidate:56 P0 files and39
+cold-check files, including configuration/dependency blobs. Official JSON and
+all37,650 CSV rows agree with raw predictions; metrics were strictly recomputed
+inside the measured notebook. Local acceptance verifies that recorded
+recomputation and matching source; it is not a second independent qrels rerun.
+
+Focused Linux validation:273 passed, one optional corpus-text fixture skip,
+one deliberate simulated-spawn warning. The real1.7B cold Python check passed
+on constructed uncached inputs. Ensurepip setup failed before successful
+virtualenv recovery; nonfatal sitecustomize warnings are preserved in logs.
+No valid final run was repeated or used for tuning.
+
+The P0 runner took2,609.959 seconds with9,405,206,528-byte peak process-tree RSS.
+This is saved-vector scoring replay plus30 live checks, excluding the earlier
+four CPU encoding jobs. It is not full live per-query latency. Historical GPU
+P0 stays unchanged: NDCG increased0.00025 and recall0.00186; MRR decreased
+0.0003187251. Differences are small, cross-configuration/precision comparisons,
+not a causal experiment or established statistical gain/regression.
+
+The new hosted test-access log is retained separately from the historical
+seven-entry APPS audit; both hashes are in `test-access-reconciliation.json`.
+Prior test exposure and possible pretraining exposure remain disclosed.
+The original raw prediction JSON remains in the ignored downloaded output;
+a deterministic gzip copy is committed and its decompressed SHA-256 matches.
+Both failed and successful attempts are preserved.
+
+Local deck/PDF, README, protocol, register and handoff now include the authentic
+CPU result. Local backups are refreshed from the correction commit. GitHub
+main/tag/release and public video remain unchanged. Human disclosure/video
+review, any required Docker/remote-CI validation and Samsung's amendment
+permission are outstanding; agent checks cannot substitute for these decisions.

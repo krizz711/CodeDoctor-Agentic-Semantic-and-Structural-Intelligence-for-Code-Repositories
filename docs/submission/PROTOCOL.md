@@ -157,6 +157,39 @@ remains unchanged until separate permission is received. A locally corrected
 deck, video and disclosure do not change the submitted package. Human ethics
 attestations and representative signature cannot be supplied by the agent.
 
+## Completed final reporting — 2026-10-01
+
+Private correction-P0 version2, the single infrastructure retry, completed
+without changing model or ranking settings. Measured commit:
+`18c4b6cbd097437bfb8498fefe572cddb658bc42`; run.py SHA-256:
+`f5fbe53ca17746b765bd8f36fb88227442ecbe245fc90f25e23ef9da5c7780f2`.
+Configuration SHA-256 remains
+`9039497b871733c5236eb6060b0cf074c3d98ebeb30664c2ce711e4882f0aaf5`.
+
+Accepted result: **NDCG@10 0.96583; MRR@10 0.9582509116971268;
+Recall@10 0.98805**. Full3,765-query/8,765-document coverage, zero query/document
+fallback,30 seeded live checks (minimum/median cosine1.0), zero spawn failures,
+official JSON and raw prediction/CSV validation passed. Linux validation passed
+273 tests with one optional-fixture skip; the real1.7B cold Python functional
+check passed. All56 P0 and39 cold-check source records match the local candidate.
+Later evidence/documentation commits are compatible only if those hashes match.
+
+The P0 runner took2,609.959 seconds with9,405,206,528-byte peak process-tree RSS;
+this excludes the four earlier CPU encoding jobs and is scoring replay with30
+live checks. Do not report it as full-live retrieval latency. Relative to
+historical GPU P0, NDCG/recall rose slightly while MRR fell slightly. No tuning,
+new run, significance claim or attribution to individual experiments follows.
+APPS was previously exposed; the hosted audit is preserved separately from
+historical access. EXT-lockbox remains sealed.
+
+Authentic [results and reproduction commands](../../results/final/p0/README.md),
+[acceptance](../../results/local-corrections/kaggle-attempt-2/acceptance.json)
+and both failed/successful attempts are retained. Recompute evidence inspection
+against the precise proposed commit before publication. GitHub main, official
+tag and release remain unchanged; Samsung approval and explicit user permission
+are still required for any GitHub mutation. Human video/disclosure review and
+unexecuted Docker/remote-CI checks remain outside this completed CPU evaluation.
+
 ## Relevant FAQ evidence (verbatim)
 
 The questions are our team's; the answers are from the judge who evaluates this submission. Reproduced exactly as received. No summary is kept: an earlier paraphrase overstated the answers ("CPU-only" for "ideally use the CPU only", "must be documented" for "It would be nice if this fact is documented"). Quote the answers themselves.

@@ -9,20 +9,36 @@ Work is on `fix/submission-corrections-local`. See the
 [protocol amendment](../docs/submission/PROTOCOL.md). Historical sections below
 are retained as chronology, not current completion claims.
 
-All four CPU query shard jobs completed and their raw outputs were downloaded.
-No validated current CPU P0 score exists. Strict artifact/provenance/result
-gates, demo tier matching, dependency setup, documentation, PPT/PDF and official
-AI form corrections are local. Final1.7B checks require more than this Mac's
-8 GiB; the prepared private Kaggle continuation is now authorized to launch.
-Human disclosure sign-off, video narration/missing demo
-review and Samsung's amendment permission remain external decisions. Never move
-the official tag or upload a local correction automatically.
+The four CPU query shards and private correction-P0 version 2 completed.
+The accepted current CPU result is **NDCG@10 0.96583, MRR@10
+0.9582509116971268, Recall@10 0.98805**. Authentic evidence is in
+[results/final/p0](../results/final/p0/README.md); acceptance and both attempts
+are preserved in `results/local-corrections/kaggle-attempt-{1,2}/`.
 
-The user ended C4 and authorized a finished submission on main.
-The original handoff is preserved at tag research-archive-2026-09-30.
+Version 1 failed at test collection before model/APPS loading. Version 2 was
+the single infrastructure retry, measured clean commit `18c4b6c`, and passed
+273 focused Linux tests (one optional-fixture skip), the real 1.7B cold Python
+functional check, complete pinned-task coverage and 30 seeded live re-encodings
+(minimum/median cosine 1.0). All 56 P0 and 39 cold-check recorded source hashes
+match the local candidate. No fallback vectors or execution spawn failures.
+
+The P0 runner used 2,609.959 seconds and peak process-tree RSS 9.41 GB; it is
+saved-vector scoring replay with 30 live checks. CPU query encoding elapsed
+11,100.779 / 10,147.842 / 12,613.804 / 13,987.302 seconds in separate earlier
+jobs; do not claim these are full-live retrieval latency or a speedup.
+NDCG and recall increased slightly over historical GPU P0, while MRR decreased
+slightly. No significance claim, experiment attribution, test-score tuning,
+new evaluation, Q8/OpenVINO adoption or EXT-lockbox access follows.
+
+Local README, protocol/register, deck/PDF and delivery backups include this
+result. Historical GPU P0 and older synthetic P1/Bonus keep their identities.
+Human disclosure sign-off, video narration/missing demonstrations, remote CI/
+Docker verification and Samsung's amendment permission remain outstanding.
+Never move the official tag or upload a correction without explicit permission.
+
+The user ended C4. The original handoff remains at research-archive-2026-09-30.
 Current reporting plan: [protocol](../docs/submission/PROTOCOL.md).
 Research outcomes: [register](REGISTER.md); [archive](../archive/README.md).
-No new final score exists until the final MTEB run completes.
 
 ## Finalization progress, 2026-09-30
 

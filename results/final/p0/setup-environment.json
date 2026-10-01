@@ -1,0 +1,9 @@
+{
+  "commit": "18c4b6cbd097437bfb8498fefe572cddb658bc42",
+  "dirty": false,
+  "platform": "Linux-6.18.48+-x86_64-with-glibc2.35",
+  "bootstrap_python": "3.12.13 (main, Mar  4 2026, 09:23:07) [GCC 11.4.0]",
+  "inference_python": "/tmp/codedoctor-env/bin/python",
+  "logical_cpus": 4,
+  "gpu_enabled": false
+}

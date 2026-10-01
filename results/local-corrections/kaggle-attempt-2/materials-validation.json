@@ -1,0 +1,38 @@
+{
+  "status": "passed",
+  "pptx_sha256": "68c50465f4c82aee30b1b3672a32734572149c2dfd543349bf0900a834047fbb",
+  "pdf_sha256": "06c20d1bf935864632a1b717009df22504ac771a137c5ccaf8df2bc611afff30",
+  "slides": 12,
+  "pdf_pages": 12,
+  "visually_inspected_pptx_slides": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "visually_inspected_pdf_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "method": "Artifact Tool PNGs and bundled LibreOffice PDF export, rendered with Poppler; package/layout/font/import checks passed. No native PowerPoint validation claimed.",
+  "metrics_match_accepted_result": true,
+  "limits": "Human disclosure/video review and permission to amend submitted release remain outstanding. No GitHub or YouTube mutation."
+}

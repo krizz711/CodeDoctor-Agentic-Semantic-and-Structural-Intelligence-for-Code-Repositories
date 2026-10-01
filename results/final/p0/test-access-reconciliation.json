@@ -1,0 +1,13 @@
+{
+  "historical_audit": {
+    "path": "data/test_split_audit_log.json",
+    "sha256": "83bdef9eaa10cbb389fc41126e7d5b8cab2c1bccb22f113290396fb7fb087345",
+    "entries": 7,
+    "purpose": "Pre-correction historical APPS audit; retained unchanged and reconciled separately with hosted scoring audit."
+  },
+  "historical_unchanged": true,
+  "hosted_audit_path": "results/final/p0/test_split_audit_log.json",
+  "hosted_audit_sha256": "d112f9a88c761d36048f6645fba9a88eea04b30ee230edcd760f72c7bc032a83",
+  "hosted_entries": 2,
+  "policy": "Hosted audit is separate; historical entries are not replaced. APPS test has prior project exposure."
+}
