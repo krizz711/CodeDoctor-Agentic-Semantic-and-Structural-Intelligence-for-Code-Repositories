@@ -2,7 +2,8 @@
 
 ## Current state — 2026-10-01 local corrections
 
-The submitted release is at `408a61f`; the user explicitly forbids remote changes.
+The submitted release is at `408a61f`; the user explicitly forbids GitHub changes.
+Their 2026-10-01 clarification permits the private Kaggle CPU evaluation.
 Work is on `fix/submission-corrections-local`. See the
 [correction record](../docs/submission/LOCAL-CORRECTIONS.md) and committed
 [protocol amendment](../docs/submission/PROTOCOL.md). Historical sections below
@@ -12,8 +13,8 @@ All four CPU query shard jobs completed and their raw outputs were downloaded.
 No validated current CPU P0 score exists. Strict artifact/provenance/result
 gates, demo tier matching, dependency setup, documentation, PPT/PDF and official
 AI form corrections are local. Final1.7B checks require more than this Mac's
-8 GiB; a private Kaggle continuation can be prepared, but upload/launch needs
-explicit permission. Human disclosure sign-off, video narration/missing demo
+8 GiB; the prepared private Kaggle continuation is now authorized to launch.
+Human disclosure sign-off, video narration/missing demo
 review and Samsung's amendment permission remain external decisions. Never move
 the official tag or upload a local correction automatically.
 

@@ -76,8 +76,23 @@ The user authorized the audited correction plan **locally only**. The submitted
 commit `408a61f0f6e0c2a58528e88155f3dc6a4fa25a33`, local `main`, the official
 tag and every published artifact remain unchanged. Work is on
 `fix/submission-corrections-local`; a local commit is not a submitted amendment.
-No GitHub/Kaggle/YouTube write is authorized by this amendment. Downloading
-previously completed run outputs is read-only evidence collection.
+The user's subsequent clarification on 2026-10-01 permits other platforms:
+“When I meant locally I was only talking about not touching github, you can
+still access any other platform for this.” This authorizes the private Kaggle
+continuation below. GitHub writes, release changes and retagging remain forbidden;
+YouTube is outside this evaluation's scope and remains unchanged.
+
+Before launch, the prepared private CPU notebook
+`lifemeansfun/codedoctor-correction-p0` packages runtime freeze
+`d2fb22a4a3e8be1ff94374dfb903c438428f74c6`. All 73 packaged files match local
+documentation-only commit `3faf0e72932cf9f33fe748fdc9f4b64ab9964d51` byte for byte.
+The `run.py` SHA-256 is
+`0621cd21361148585624a77404f31c07bc0b9803b975c894f659ae365f245597`;
+candidate configuration SHA-256 is
+`9039497b871733c5236eb6060b0cf074c3d98ebeb30664c2ce711e4882f0aaf5`.
+The account's notebook inventory was checked before launch: no correction-P0
+notebook was listed. Preserve this run's audit log separately from historical
+APPS exposure records; APPS test is previously exposed, not a fresh lockbox.
 
 This continues final reporting, not a model or ranking experiment. Keep the
 selected encoder, revision, instruction, pooling, sequence limits and execution
@@ -107,8 +122,8 @@ accuracy. No result from a reduced dataset substitutes for final reporting.
 
 This Mac has 8 GiB RAM, below the recorded 10.85 GB accuracy-tier peak. A local
 Linux evaluation is blocked unless suitable resources become available. A
-cloud notebook may be prepared locally, but uploading/launching it needs new
-explicit authorization. Never substitute lower precision, omit live checks,
+private Kaggle notebook is now authorized by the clarification above.
+Never substitute lower precision, omit live checks,
 or relabel the historical GPU-query score as the current CPU result.
 
 FAQ alignment: A permits offline GPU document preprocessing; B's efficiency

@@ -4,8 +4,9 @@ This is an engineering correction and evidence reconciliation, not a new model
 experiment. The user authorized local work only. The submitted `main` and tag
 `PRISM_GENAI_HACKATHON_Y2026` stay at
 `408a61f0f6e0c2a58528e88155f3dc6a4fa25a33`. No local commit, notebook preparation,
-render or validation changes the judged submission. No remote mutation is
-authorized until the user explicitly permits it.
+render or validation changes the judged submission. On 2026-10-01 the user
+clarified that other platforms may be used: the prepared private Kaggle CPU
+evaluation is authorized. GitHub changes remain forbidden; public video unchanged.
 
 ## Requirements and decisions
 
@@ -96,8 +97,8 @@ The Mac has8 GiB physical RAM, below the retained10.85 GB hands-on peak RSS.
 No heavy accuracy-tier run is certified on this Mac. Existing Kaggle sessions
 record31.35 GiB RAM and4 logical CPUs. A distinct private notebook can run
 focused Linux tests, the real-model cold Python check, exact cache/shard gates,
-30 live checks and one complete official scoring pass. Preparation is local;
-upload/launch requires the user's explicit permission. Cold check results are
+30 live checks and one complete official scoring pass. The user's 2026-10-01
+clarification authorizes that Kaggle upload and launch. Cold check results are
 functional evidence on constructed new code, not unseen-accuracy estimates.
 
 Before any publication, complete the remaining real-model/Linux/final-P0 checks,
@@ -121,5 +122,5 @@ python scripts/build_submission_kernel.py --owner lifemeansfun --stage p0 \
 The notebook stays private, disables GPU query inference, consumes the existing
 document and four query-kernel outputs, and uses an isolated virtual environment.
 It runs tests and the cold check before touching the final evaluation. Its
-generation is not launch authorization. Preserve any failed attempt and its
+launch is authorized by the protocol amendment above. Preserve any failed attempt and its
 cause. Never repeat a valid completed final run to improve the result.
