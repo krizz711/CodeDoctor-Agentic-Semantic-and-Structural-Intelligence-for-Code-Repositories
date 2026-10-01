@@ -1,5 +1,11 @@
 import ast
+import base64
+import io
 import json
+import os
+import subprocess
+import sys
+import tarfile
 
 import pytest
 
@@ -81,3 +87,19 @@ def test_unsafe_notebook_names_and_cold_check_on_wrong_stage_are_rejected(tmp_pa
         bk.build(args(tmp_path, "p0", kernel_name="../other"))
     with pytest.raises(SystemExit, match="only supported"):
         bk.build(args(tmp_path, "documents", cold_python_first=True))
+
+
+def test_packaged_validation_collects_and_runs_its_sample_fixture(tmp_path):
+    """Exercise the isolated archive; a full-checkout pass hides missing helpers."""
+    head, _ = bk.git_state()
+    payload, _ = bk.git_payload(head)
+    with tarfile.open(fileobj=io.BytesIO(base64.b64decode(payload)), mode="r:gz") as archive:
+        archive.extractall(tmp_path, filter="data")
+    env = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
+    for arguments in (
+        ["--collect-only", *bk.VALIDATION_TESTS],
+        ["tests/test_submission_validation.py::test_local_evaluation_output_is_validator_compatible"],
+    ):
+        result = subprocess.run([sys.executable, "-m", "pytest", "-q", "-m", "not model and not data",
+                                 *arguments], cwd=tmp_path, env=env, capture_output=True, text=True, timeout=120)
+        assert result.returncode == 0, result.stdout + result.stderr

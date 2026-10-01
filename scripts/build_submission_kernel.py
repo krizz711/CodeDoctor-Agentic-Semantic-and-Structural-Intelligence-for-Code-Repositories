@@ -46,7 +46,8 @@ PAYLOAD = (
     "scripts/__init__.py", "scripts/evaluate_mteb.py", "scripts/export_submission_csv.py",
     "scripts/validate_submission.py", "scripts/validate_hands_on.py", "scripts/prepare_document_cache.py",
     "scripts/submission_run.py", "scripts/merge_query_stores.py",
-    "scripts/validate_cold_python.py",
+    "scripts/validate_cold_python.py", "scripts/replay_outcomes.py",
+    "scripts/evaluate.py", "scripts/sample_eval.jsonl",
 ) + VALIDATION_TESTS + ("tests/conftest.py", "pytest.ini")
 TIMEOUT_HOURS = {"documents": 3, "hands-on": 3, "queries": 11, "p0": 11}
 
