@@ -1,9 +1,11 @@
 -r requirements.txt
+torch==2.8.0
 mteb==2.21.0
 sentence-transformers==5.0.0
 transformers==4.57.6
 huggingface-hub==0.36.2
 datasets==3.6.0
 psutil==7.0.0
-# Install torch==2.8.0 from the official CPU wheel index before this file.
-# The final release also records pip freeze from its measured Linux environment.
+# Portable recipe: choose the CPU/CUDA wheel for the host before installation.
+# Do not turn a measured torch==2.8.0+cpu freeze into a cross-platform lock.
+# requirements-measured.txt files are immutable environment evidence, not inputs.

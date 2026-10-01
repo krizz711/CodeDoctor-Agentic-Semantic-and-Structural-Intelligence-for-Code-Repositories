@@ -113,6 +113,17 @@ def commit_id() -> dict:
         return {"commit": None, "dirty": None, "source": "unknown"}
 
 
+def json_safe(value):
+    """Normalize nested CLI paths without losing the provenance argument shape."""
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {str(k): json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe(v) for v in value]
+    return value
+
+
 def capture_environment(stage: str, args: argparse.Namespace, out: Path) -> dict:
     import psutil
 
@@ -120,7 +131,7 @@ def capture_environment(stage: str, args: argparse.Namespace, out: Path) -> dict
     config = ROOT / "config" / "submission.yaml"
     environment = {
         "stage": stage,
-        "args": {k: (str(v) if isinstance(v, Path) else v) for k, v in vars(args).items()},
+        "args": json_safe(vars(args)),
         "status": "started",
         "started_utc": datetime.now(timezone.utc).isoformat(),
         **commit_id(),
@@ -156,7 +167,7 @@ def find_one(name: str, roots: tuple[str, ...] = ("/kaggle/input",)) -> Path | N
     return found[0] if found else None
 
 
-def verify_document_cache(directory: Path) -> dict:
+def verify_document_cache(directory: Path, *, require_official: bool = False) -> dict:
     """The offline cache must be the complete, pinned one; anything else is an error."""
     from app.indexing.cache import EmbeddingCache
     from app.submission import read_config
@@ -173,12 +184,95 @@ def verify_document_cache(directory: Path) -> dict:
         problems.append("the cache was built with a different model or revision than config/submission.yaml")
     if manifest.get("limit") is not None:
         problems.append(f"the cache is a smoke test (limit={manifest['limit']})")
-    count = EmbeddingCache(database).count()
+    counted = EmbeddingCache(database)
+    try:
+        count = counted.count()
+    finally:
+        counted.conn.close()
     if count != manifest.get("unique_vectors"):
         problems.append(f"cache holds {count} vectors, manifest says {manifest.get('unique_vectors')}")
+    if require_official:
+        from app.indexing.cache_validation import APPS_DATASET, APPS_DIMENSION, APPS_DOCUMENTS, APPS_UNIQUE_DOCUMENTS
+        from app.indexing.cache_validation import validate_store
+
+        if manifest.get("dataset") != APPS_DATASET:
+            problems.append("the dataset identity or revision differs from the frozen AppsRetrieval task")
+        if manifest.get("documents") != APPS_DOCUMENTS or count != APPS_UNIQUE_DOCUMENTS:
+            problems.append("the corpus or unique-vector count differs from the frozen AppsRetrieval task")
+        fingerprint = manifest.get("texts_sha256")
+        if not isinstance(fingerprint, str) or len(fingerprint) != 64 or any(c not in "0123456789abcdef" for c in fingerprint):
+            problems.append("the ordered corpus text fingerprint is missing or invalid")
+        store = EmbeddingCache(database)
+        try:
+            validate_store(store.conn, dimension=APPS_DIMENSION)
+        except ValueError as error:
+            problems.append(str(error))
+        finally:
+            store.conn.close()
     if problems:
         raise RuntimeError("document cache rejected: " + "; ".join(problems))
     return manifest
+
+
+def verify_query_inputs(stores: list[Path], *, document_manifest: dict | None = None) -> tuple[list[dict], list[tuple[int, int]]]:
+    """Verify shard provenance before reading/merging any vectors or evaluating."""
+    from app.indexing.cache_validation import APPS_DATASET
+
+    if not stores:
+        raise RuntimeError("strict P0 replay requires all query shard inputs")
+    records, shards, reference = [], [], None
+    recipe_files = ("app/retrieval/encode.py", "app/indexing/cache.py", "config/submission.yaml")
+    current = source_hashes()
+    for path in stores:
+        if not path.is_file():
+            raise RuntimeError(f"query shard store is missing: {path}")
+        environment_path, report_path = path.parent / "environment.json", path.parent / "shard_report.json"
+        if not environment_path.is_file() or not report_path.is_file():
+            raise RuntimeError(f"query shard {path} lacks environment.json or shard_report.json")
+        environment = json.loads(environment_path.read_text(encoding="utf-8"))
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        if environment.get("stage") != "queries" or environment.get("status") != "completed" or environment.get("exit_code") != 0:
+            raise RuntimeError(f"query shard {path} was not a completed queries run")
+        command = environment.get("command", [])
+        if "--device" not in command or command[command.index("--device") + 1] != "cpu":
+            raise RuntimeError(f"query shard {path} was not encoded on CPU")
+        if environment.get("configuration", {}).get("sha256") != sha256_file(ROOT / "config/submission.yaml"):
+            raise RuntimeError(f"query shard {path} used a different submission configuration")
+        for name in recipe_files:
+            if environment.get("source_sha256", {}).get(name) != current[name]:
+                raise RuntimeError(f"query shard {path} used a different encoder recipe source: {name}")
+        cache = environment.get("document_cache", {})
+        if cache.get("dataset") != APPS_DATASET:
+            raise RuntimeError(f"query shard {path} used a different dataset revision")
+        if document_manifest is not None and any(cache.get(k) != document_manifest.get(k)
+                                                 for k in ("sha256", "texts_sha256", "model", "revision", "dtype")):
+            raise RuntimeError(f"query shard {path} used a different document cache from the scoring input")
+        shard = report.get("shard")
+        if (not isinstance(shard, list) or len(shard) != 2 or
+                any(type(v) is not int for v in shard) or not 0 <= shard[0] < shard[1]):
+            raise RuntimeError(f"query shard {path} has an invalid declared shard")
+        if environment.get("args", {}).get("shard") != f"{shard[0]}/{shard[1]}":
+            raise RuntimeError(f"query shard {path} report and command disagree")
+        if type(report.get("store_vectors")) is not int or report["store_vectors"] <= 0:
+            raise RuntimeError(f"query shard {path} has an invalid reported vector count")
+        if not environment.get("source_tree_sha256") or any(not environment.get("packages", {}).get(k) for k in
+                ("torch", "transformers", "sentence-transformers", "mteb", "datasets", "numpy")):
+            raise RuntimeError(f"query shard {path} has incomplete source or dependency provenance")
+        identity = (environment.get("source_tree_sha256"), environment.get("configuration"),
+                    cache.get("sha256"), cache.get("texts_sha256"),
+                    {k: environment.get("packages", {}).get(k) for k in
+                     ("torch", "transformers", "sentence-transformers", "mteb", "datasets", "numpy")})
+        if reference is not None and identity != reference:
+            raise RuntimeError("query shard source, packages, configuration or corpus provenance disagree")
+        reference = identity
+        shards.append(tuple(shard))
+        records.append({"path": str(path), "environment_sha256": sha256_file(environment_path),
+                        "report_sha256": sha256_file(report_path), "source_commit": environment.get("commit"),
+                        "shard": shard, "reported_rows": report.get("store_vectors")})
+    count = shards[0][1]
+    if any(n != count for _, n in shards) or sorted(i for i, _ in shards) != list(range(count)):
+        raise RuntimeError("query inputs must contain every declared shard exactly once")
+    return records, shards
 
 
 # --- stage commands ------------------------------------------------------------
@@ -191,10 +285,12 @@ def build_command(stage: str, args: argparse.Namespace, out: Path, cache: Path |
         return [py, "scripts/validate_hands_on.py", "--tier", args.tier, "--out", str(out / "hands-on")]
     common = [py, "scripts/evaluate_mteb.py", "--device", "cpu", "--config", "config/submission.yaml",
               "--corpus-cache", str(cache), "--require-complete-corpus-cache",
+              "--corpus-manifest", str(cache.parent / "manifest.json"),
               "--query-store", str(out / "queries.sqlite")]
     if stage == "queries":
         return [*common, "--query-shard", args.shard, "--output", str(out / "shard_report.json")]
-    return [*common, "--query-verify", str(args.query_verify), "--output", str(out / "appsretrieval_results.json"),
+    return [*common, "--require-complete-query-store", "--query-verify", str(args.query_verify),
+            "--output", str(out / "appsretrieval_results.json"),
             "--predictions", str(out / "predictions")]
 
 
@@ -254,6 +350,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.stage == "queries" and not args.shard:
         parser.error("--stage queries needs --shard I/N")
+    if args.stage == "p0" and args.query_verify != 30:
+        parser.error("the frozen P0 protocol requires exactly 30 live query verifications")
 
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
@@ -270,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
         # the next stage's input discovery ambiguous: work on a copy under the temp directory
         cache = Path(tempfile.mkdtemp(prefix="codedoctor-documents-")) / "cache"
         shutil.copytree(source, cache)
-        environment["document_cache"] = verify_document_cache(cache)
+        environment["document_cache"] = verify_document_cache(cache, require_official=True)
         shutil.copyfile(source / "manifest.json", out / "document-cache-manifest.json")
         cache = cache / "corpus.sqlite"
     if args.stage == "p0":
@@ -278,6 +376,8 @@ def main(argv: list[str] | None = None) -> int:
 
         stores = [d / "queries.sqlite" for d in (args.query_store_in or
                                                   [p.parent for p in Path("/kaggle/input").rglob("queries.sqlite")])]
+        records, shards = verify_query_inputs(stores, document_manifest=environment["document_cache"])
+        environment["query_shard_provenance"] = records
         if stores:
             # Kaggle input mounts are read-only; SQLite's WAL/schema setup writes.
             scratch = Path(tempfile.mkdtemp(prefix="codedoctor-queries-"))
@@ -290,7 +390,13 @@ def main(argv: list[str] | None = None) -> int:
                     if sidecar.exists():
                         shutil.copyfile(sidecar, Path(str(target) + suffix))
                 writable.append(target)
-            environment["query_store_merge"] = merge(writable, out / "queries.sqlite")
+            from app.indexing.cache_validation import APPS_DIMENSION
+
+            environment["query_store_merge"] = merge(writable, out / "queries.sqlite", dimension=APPS_DIMENSION,
+                                                       shards=shards, require_disjoint=True)
+            for actual, expected in zip(environment["query_store_merge"]["inputs"], records):
+                if actual["rows"] != expected["reported_rows"]:
+                    raise RuntimeError("query store row count differs from its shard report")
             for record, source in zip(environment["query_store_merge"]["inputs"], stores):
                 record["original_path"] = str(source)
             if environment["query_store_merge"]["duplicate_keys_disagreeing"]:
@@ -311,8 +417,14 @@ def main(argv: list[str] | None = None) -> int:
     if result["exit_code"] != 0:
         return result["exit_code"] or 1
     if args.stage == "p0":
-        subprocess.run([sys.executable, "scripts/validate_submission.py", str(out / "appsretrieval_results.json")],
-                       cwd=ROOT, check=True)
+        validation = subprocess.run([sys.executable, "scripts/validate_submission.py",
+                                     str(out / "appsretrieval_results.json"), "--official-apps"], cwd=ROOT)
+        environment["official_result_validation_exit_code"] = validation.returncode
+        if validation.returncode:
+            environment["status"] = "failed_validation"
+        write_environment(out, environment)
+        if validation.returncode:
+            return validation.returncode
     return 0
 
 

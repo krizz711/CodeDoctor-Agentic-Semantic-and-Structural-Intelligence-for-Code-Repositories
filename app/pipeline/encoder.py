@@ -62,6 +62,10 @@ class QueryShardEncoded(Exception):
     """A query shard finished encoding its share; the evaluation stops here."""
 
 
+class QueryStoreIncomplete(RuntimeError):
+    """A strict scoring replay must not fill missing query vectors live."""
+
+
 def mteb_document_text(row: Mapping[str, Any]) -> str:
     """The exact string MTEB passes to ``encode`` for one corpus row.
 
@@ -114,6 +118,8 @@ class PrePostPipelineEncoder:
         query_store: Any = None,
         query_shard: tuple[int, int] | None = None,
         query_verify: int = 0,
+        require_complete_query_store: bool = False,
+        corpus_manifest: Mapping[str, Any] | None = None,
     ) -> None:
         self.encoder = encoder
         self.require_complete_corpus_cache = bool(require_complete_corpus_cache)
@@ -124,6 +130,12 @@ class PrePostPipelineEncoder:
         self.query_store = query_store
         self.query_shard = query_shard
         self.query_verify = int(query_verify)
+        self.require_complete_query_store = bool(require_complete_query_store)
+        self.corpus_manifest = corpus_manifest
+        if self.require_complete_query_store and (query_store is None or query_shard is not None):
+            raise ValueError("a complete query store requires a store and cannot encode a shard")
+        if self.query_verify < 0:
+            raise ValueError("query_verify must be nonnegative")
         self.query_stats: dict[str, Any] = {"hits": 0, "encoded": 0}
         self.query_verification: dict[str, Any] | None = None
         self.shard_done = False
@@ -222,6 +234,14 @@ class PrePostPipelineEncoder:
         from app.indexing.cache import recipe_cache_key
 
         keys = [recipe_cache_key(self.encoder, t, "query") for t in texts]
+        if self.require_complete_query_store:
+            from app.indexing.cache_validation import validate_store
+
+            try:
+                validate_store(self.query_store.conn, dimension=self._embedding_dimension(),
+                               expected_keys=set(keys), normalized=self.encoder.normalize_embeddings)
+            except ValueError as error:
+                raise QueryStoreIncomplete(str(error)) from error
         wanted = [i for i, k in enumerate(keys) if self._in_shard(k)]
         found = self.query_store.get_many(list(dict.fromkeys(keys[i] for i in wanted)))
         first: dict[str, int] = {}
@@ -260,19 +280,28 @@ class PrePostPipelineEncoder:
         Stored vectors may come from other processes or machines; this checks
         that this machine's encoder reproduces them (float32 CPU, same recipe).
         """
+        from app.indexing.cache_validation import validate_vector
+
         rng = random.Random(20260930)
         sample = sorted(rng.sample(range(len(texts)), min(self.query_verify, len(texts))))
         cosines = []
         for i in sample:
             live = np.asarray(self.encoder.encode([texts[i]], mode="query"), dtype=np.float32)[0]
             stored = matrix[i]
+            for label, value in (("live", live), ("stored", stored)):
+                validate_vector(value, self._embedding_dimension(), normalized=self.encoder.normalize_embeddings,
+                                label=f"{label} query vector at index {i}")
             cosines.append(float(np.dot(live, stored) / (np.linalg.norm(live) * np.linalg.norm(stored))))
         self.query_verification = {
             "sampled": len(sample), "seed": 20260930, "min_cosine": min(cosines),
             "median_cosine": float(np.median(cosines)), "indices": sample,
         }
-        if min(cosines) < 0.999:
+        if not np.isfinite(cosines).all() or min(cosines) < 0.999:
             raise RuntimeError(f"stored query vectors do not reproduce on this machine: {self.query_verification}")
+
+    def _embedding_dimension(self) -> int:
+        dimension = getattr(self.encoder, "dimension", None)
+        return int(dimension if dimension is not None else self.encoder.model.get_sentence_embedding_dimension())
 
     def document_cache_key(self, text: str) -> str:
         """Content address of one document vector under the current recipe.
@@ -288,6 +317,17 @@ class PrePostPipelineEncoder:
 
     def _encode_documents_cached(self, texts: list[str]) -> np.ndarray:
         keys = [self.document_cache_key(t) for t in texts]
+        if self.corpus_manifest is not None:
+            from app.indexing.cache_validation import text_fingerprint, validate_store
+
+            manifest = self.corpus_manifest
+            if len(texts) != manifest["documents"] or text_fingerprint(texts) != manifest["texts_sha256"]:
+                raise CorpusCacheIncomplete("corpus count or ordered text fingerprint differs from its manifest")
+            try:
+                validate_store(self.corpus_cache.conn, dimension=self._embedding_dimension(), expected_keys=set(keys),
+                               normalized=self.encoder.normalize_embeddings)
+            except ValueError as error:
+                raise CorpusCacheIncomplete(str(error)) from error
         found = self.corpus_cache.get_many(list(dict.fromkeys(keys)))
         missing = [i for i, k in enumerate(keys) if k not in found]
         if missing and self.require_complete_corpus_cache:
@@ -313,12 +353,16 @@ class PrePostPipelineEncoder:
         query_embeddings = np.asarray(embeddings1, dtype=np.float32)
         document_embeddings = np.asarray(embeddings2, dtype=np.float32)
         scores = self.encoder.similarity(query_embeddings, document_embeddings)
+        if self.require_complete_query_store and not np.isfinite(scores).all():
+            raise RuntimeError("strict replay produced non-finite retrieval scores")
         if self.hubness_bank is not None and self.hubness_beta and document_embeddings.size:
             scores = scores - self.hubness_beta * self._hub_penalty_for(document_embeddings)[None, :]
 
         if not self.enable_rerank and not self.execution_config.enabled:
             return scores
         if len(self._query_facts) != scores.shape[0]:
+            if self.require_complete_query_store:
+                raise RuntimeError("strict replay query texts do not align with score rows")
             logger.warning(
                 "pipeline: %d recorded queries for %d score rows; skipping rerank",
                 len(self._query_facts),
@@ -326,6 +370,8 @@ class PrePostPipelineEncoder:
             )
             return scores
         if len(self._document_texts) != scores.shape[1]:
+            if self.require_complete_query_store:
+                raise RuntimeError("strict replay corpus texts do not align with score columns")
             logger.warning(
                 "pipeline: %d recorded documents for %d score columns; skipping rerank",
                 len(self._document_texts),

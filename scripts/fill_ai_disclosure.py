@@ -1,194 +1,172 @@
-#!/usr/bin/env python3
-"""
-Populates the official Samsung PRISM Hackathon AI Usage Disclosure Form (LangAI3.0_AI_Disclosure.docx)
-in accordance with approved disclosures and guidelines.
-"""
+"""Fill supported facts in the retained official AI disclosure form.
 
+Only word/document.xml is patched. All template fields, styles, relationships
+and opaque package parts remain present. Human attestations and signatures are
+never generated. Request summaries are explicitly not quoted historical prompts.
+This utility uses only Python's standard library.
+"""
+from __future__ import annotations
+
+import argparse
+import re
+import tempfile
+from copy import copy
+from hashlib import sha256
 from pathlib import Path
-import docx
-from docx.shared import Pt, Inches, RGBColor
+from xml.etree import ElementTree as ET
+from xml.sax.saxutils import escape
+from zipfile import ZipFile
 
-DOCX_PATH = Path("/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/LangAI3.0_AI_Disclosure.docx")
+ROOT = Path(__file__).resolve().parent.parent
+TEMPLATE_SHA256 = "b3947950332a44f27c85655ed1c29f295a6b9313ce8eb7c9994bc93506e2069e"
+W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+PARAGRAPH = re.compile(r"<w:p(?:\s[^>]*?)?(?:/>|>.*?</w:p>)", re.DOTALL)
+TEXT = re.compile(r"(<w:t(?:\s[^>]*)?>)(.*?)(</w:t>)", re.DOTALL)
 
-def build_disclosure():
-    doc = docx.Document(DOCX_PATH)
-    
-    # Clear existing template paragraphs while preserving document-level styles & margins
-    for p in list(doc.paragraphs):
-        p._element.getparent().remove(p._element)
 
-    def add_title(text):
-        p = doc.add_paragraph()
-        run = p.add_run(text)
-        run.bold = True
-        run.font.name = "Calibri"
-        run.font.size = Pt(20)
-        run.font.color.rgb = RGBColor(0x70, 0x50, 0x9B)  # Theme purple
-        p.paragraph_format.space_after = Pt(12)
-        return p
+def patch_paragraph(paragraph: str, text: str) -> str:
+    """Replace displayed text, retaining the original paragraph/run XML."""
+    first = True
 
-    def add_section_header(num, title, extra=""):
-        p = doc.add_paragraph()
-        p.paragraph_format.space_before = Pt(14)
-        p.paragraph_format.space_after = Pt(6)
-        r_num = p.add_run(f"{num}. ")
-        r_num.bold = True
-        r_num.font.name = "Calibri"
-        r_num.font.size = Pt(13)
-        r_title = p.add_run(title)
-        r_title.bold = True
-        r_title.font.name = "Calibri"
-        r_title.font.size = Pt(13)
-        r_title.font.color.rgb = RGBColor(0x30, 0x2C, 0x3C)
-        if extra:
-            r_ex = p.add_run(f" {extra}")
-            r_ex.italic = True
-            r_ex.font.name = "Calibri"
-            r_ex.font.size = Pt(11)
-            r_ex.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
-        return p
+    def replace(match: re.Match[str]) -> str:
+        nonlocal first
+        value = escape(text) if first else ""
+        first = False
+        return match[1] + value + match[3]
 
-    def add_field(label, value):
-        p = doc.add_paragraph()
-        p.paragraph_format.space_after = Pt(3)
-        r_lbl = p.add_run(f"{label}: ")
-        r_lbl.bold = True
-        r_lbl.font.name = "Calibri"
-        r_lbl.font.size = Pt(11)
-        r_val = p.add_run(value)
-        r_val.font.name = "Calibri"
-        r_val.font.size = Pt(11)
-        return p
+    result = TEXT.sub(replace, paragraph)
+    if first:
+        raise ValueError("the official template text slot is missing")
+    return result
 
-    def add_body(text, italic=False):
-        p = doc.add_paragraph()
-        p.paragraph_format.space_after = Pt(4)
-        r = p.add_run(text)
-        r.font.name = "Calibri"
-        r.font.size = Pt(11)
-        r.italic = italic
-        return p
 
-    # --- Title
-    add_title("AI Usage DISCLOSURE FORM")
+def keep_with_next(paragraph: str) -> str:
+    """Keep a feature's labels with its description without changing its style."""
+    if "<w:pPr>" in paragraph:
+        return paragraph.replace("<w:pPr>", "<w:pPr><w:keepNext/>", 1)
+    opening = re.match(r"<w:p(?:\s[^>]*)?>", paragraph)
+    if opening is None:
+        raise ValueError("feature label paragraph is missing")
+    return paragraph[:opening.end()] + "<w:pPr><w:keepNext/></w:pPr>" + paragraph[opening.end():]
 
-    # --- 1. Team Details
-    add_section_header("1", "Team Details")
-    add_field("Team Name", "Doctors")
-    add_field("Project / Product Name", "CodeDoctor — Agentic Semantic and Structural Intelligence for Code Repositories")
-    add_field("Organization / Institution (if any)", "Vellore Institute of Technology (VIT), Vellore")
-    add_field("Submission Date", "September 30, 2026")
 
-    # --- 2. AI Usage Declaration
-    add_section_header("2", "AI Usage Declaration")
-    add_field("Did your team use any Artificial Intelligence (AI) in developing this project?", "Yes")
-    add_body(
-        "Declaration Summary: AI tools (Antigravity IDE, Claude 3.5 Sonnet, OpenAI Codex) were utilized as interactive "
-        "pair-programming assistants during project development. AI assisted with architectural ideation, boilerplate code scaffolding, "
-        "Tree-sitter AST visitor logic, unit test fixture generation, and technical documentation drafting. All core architectural gating, "
-        "mathematical scoring formulas (Reciprocal Rank Fusion k=60, escalation margin Δ=0.004), content-addressed SQLite cache schemas, "
-        "and experimental validation gates were designed, evaluated, and verified by the team."
-    )
+def build_disclosure(template: Path, output: Path, *, team: str = "Doctors",
+                     project: str = "CodeDoctor", institution: str =
+                     "Vellore Institute of Technology Vellore", overwrite: bool = False) -> dict:
+    template, output = template.resolve(), output.resolve()
+    if template == output:
+        raise ValueError("the retained template and output must be different paths")
+    if output.exists() and not overwrite:
+        raise FileExistsError(f"{output} exists; use --overwrite after reviewing the output path")
+    raw = template.read_bytes()
+    if sha256(raw).hexdigest() != TEMPLATE_SHA256:
+        raise ValueError("template differs from the original official form at f89c969; inspect it before editing")
+    with ZipFile(template) as source:
+        document = source.read("word/document.xml").decode("utf-8")
+        root = ET.fromstring(document)
+        paragraphs = root.find(f"{W}body").findall(f"{W}p")
+        texts = ["".join(p.itertext()) for p in paragraphs]
+        if len(paragraphs) != 41 or len(PARAGRAPH.findall(document)) != 41:
+            raise ValueError("official form paragraph structure changed")
+        expected = {3: "Team Name:", 9: "Did your team use", 22: "1. Feature Name",
+                    26: "1. Feature Name", 32: "AI usage complies", 33: "No proprietary",
+                    36: "Name of Team Representative:", 38: "Signature:"}
+        for index, prefix in expected.items():
+            if not texts[index].startswith(prefix):
+                raise ValueError(f"official field {index} no longer has its expected label")
 
-    # --- 3. Purpose of AI Usage (Brief Details)
-    add_section_header("3", "Purpose of AI Usage (Brief Details)")
-    purposes = [
-        ("Idea generation / brainstorming", "Explored multi-signal code retrieval architectures, evidence-gated query routing mechanisms, and AST statement-boundary chunking strategies to minimize CPU query latency under Samsung constraints."),
-        ("Code generation or assistance", "Assisted in writing boilerplate scaffolding, Tree-sitter AST visitor patterns, SQLite content-addressed caching methods (EmbeddingCache), and pytest test fixtures."),
-        ("UI / UX design", "Assisted in structuring the local developer web workbench (web/dist/index.html and explorer.html), SVG icon alignments, and dark-mode CSS styling."),
-        ("Content creation", "Assisted in drafting technical documentation (README.md, PROTOCOL.md), slide bullet points, and AI disclosure statements."),
-        ("Data analysis", "Assisted in analyzing MTEB evaluation logs, computing paired-bootstrap statistical significance distributions, and evaluating Kaggle Intel Xeon CPU runtime profiles."),
-        ("Testing / debugging", "Assisted in debugging test fixture assertions (e.g., scripts/validate_hands_on.py line 136 index-overwrite bug) and diagnosing cross-platform Windows/macOS subprocess isolation edge cases."),
-        ("Other", "Assisted in authoring Kaggle multi-stage evaluation kernel scripts and GitHub Actions CI matrix workflow configurations.")
-    ]
-    for lbl, desc in purposes:
-        add_field(lbl, desc)
+        replacements = {
+            3: f"Team Name: {team}",
+            4: f"Project / Product Name: {project}",
+            5: f"Organization / Institution (if any): {institution}",
+            9: "Did your team use any Artificial Intelligence (AI) in developing this project? Yes",
+            10: ("OpenAI Codex assisted with the current repository review, code and documentation "
+                 "corrections, evidence checks and disclosure preparation. Earlier project records "
+                 "also name Claude and Antigravity IDE; exact versions, feature attribution and "
+                 "human modifications require team confirmation. This form does not certify "
+                 "those earlier attributions or supply a representative's consent."),
+            13: "Idea generation / brainstorming: AI-assisted retrieval and verification design review.",
+            14: "Code generation or assistance: Repository fixes, scripts and test assistance; attribution review pending.",
+            15: "UI / UX design: Earlier records report workbench assistance; detailed attribution pending.",
+            16: "Content creation: Technical documentation, submission materials and disclosure draft.",
+            17: "Data analysis: Inspection of raw evaluation evidence and synthetic fixture limitations.",
+            18: "Testing / debugging: Test execution and failure diagnosis; checks are recorded separately.",
+            19: "Other: Dependency, configuration and reproducibility review.",
+            22: "1. Feature Name: Retrieval pipeline and repository workbench",
+            23: "2. Self-Generated/AI-Generated/Both: Team classification pending",
+            24: ("3. Description (AI tools/platform Used, prompt used, Output Summary, Modification): "
+                 "Earlier records name Claude, Antigravity IDE and OpenAI Codex. Request summary "
+                 "(not a verbatim prompt): assist code retrieval, caching, verification and the "
+                 "workbench. Output summary: the repository contains these implementations and "
+                 "tests. Exact prompts and feature-specific authorship are not established by "
+                 "the records inspected here. Human modifications and final classification must "
+                 "be completed by the team."),
+            26: "1. Feature Name: Current submission corrections and disclosure generation",
+            27: "2. Self-Generated/AI-Generated/Both: AI-assisted; team classification pending",
+            28: ("3. Description (AI tools/platform Used, prompt used, Output Summary, Modification): "
+                 "AI tools: OpenAI Codex; local openai/whisper-tiny.en ASR through Transformers. "
+                 "Request summary (not a verbatim prompt): review requirements, correct claims, "
+                 "preserve evidence and the form, and prepare a shorter demo. Output summary: "
+                 "local code, docs, dependency and disclosure corrections; provisional transcript "
+                 "and timestamps from local ASR and an FFmpeg cut-only video preview. No audio "
+                 "was uploaded for ASR. The transcript, cuts, narration, human modifications and "
+                 "final acceptance require team review."),
+            29: "",
+            32: "AI usage complies with guidelines and policies. Pending human confirmation",
+            33: "No proprietary or copyrighted data misused. Pending human confirmation",
+        }
+        index = 0
 
-    # --- 4. Feature Origin Classification
-    add_section_header("4", "Feature Origin Classification", "(Please add/delete based on the number of the feature)")
-    features = [
-        (
-            "Evidence-Gated Agentic Query Router (app/agent/router.py)",
-            "Both",
-            "Antigravity / Claude 3.5 Sonnet / Codex",
-            "Design a query router that runs free passes (inverted index, BM25) first, defers expensive dense models on symbol queries, and escalates to dense semantic search only when the RRF fused score margin between rank 1 and 2 is below 0.004.",
-            "Generated the initial routing state machine, RouterSignals dataclass, regex patterns for structural intent (who calls, what imports), and RetrievalPlan.",
-            "Hand-tuned the score margin threshold (Δ = 0.004), integrated microsecond worked-example presence checks, and added audit-ready decision reason logging."
-        ),
-        (
-            "Invariant Recipe-Keyed Vector Cache (app/indexing/cache.py)",
-            "Both",
-            "Antigravity / Claude 3.5 Sonnet",
-            "Create a content-addressed SQLite embedding cache that keys on SHA-256 of model, commit revision, prompt, and chunk text while excluding file path and line numbers so moved functions don't re-embed.",
-            "Provided SQLite table schema, binary vector serialization/deserialization routines, and hash computation functions.",
-            "Added strict mode='document' vs mode='query' namespace isolation to prevent query-doc cache collisions, and verified bit-compatibility between GPU indexing and CPU retrieval (cosine >= 0.9994)."
-        ),
-        (
-            "Tree-sitter AST Statement-Boundary Chunker (app/parser/chunker.py, edges.py)",
-            "Both",
-            "Antigravity / Codex",
-            "Implement Tree-sitter chunking for Python and JavaScript/TypeScript that splits oversized functions strictly at top-level statement boundaries rather than arbitrary character/token cutoffs.",
-            "Generated AST grammar bindings, declaration header signature extractors, and _split_oversized_function statement traversal logic.",
-            "Enforced strict boundary conditions for Python def/class headers and JS arrow functions; added StructuralExtractor for call and import edge resolution with VERIFIED vs CANDIDATE confidence tags."
-        ),
-        (
-            "Defensive Behavioral Execution Sandbox (app/pipeline/execution_rerank.py)",
-            "Both",
-            "Antigravity / Claude 3.5 Sonnet",
-            "Implement an execution-based reranker that parses worked examples from competitive programming problems and runs candidate code in an isolated subprocess with timeout and memory limits.",
-            "Produced regex parsers for Codeforces/AtCoder I/O blocks, temporary directory runner script generation, and subprocess timeout handling.",
-            "Safety overhaul: moved setrlimit inside the child runner after exec to eliminate PyTorch multi-threading fork deadlocks and macOS kernel crashes; added floating-point tolerance (1e-06) and whitespace-invariant token matching (+0.02802 NDCG@10 lift)."
-        ),
-        (
-            "Lineage-Based Evolutionary Disambiguation (app/indexing/lineage.py, versioned.py)",
-            "Both",
-            "Antigravity / Claude 3.5 Sonnet",
-            "Design a multi-version indexer that clusters evolving function variants across Git commit history and ranks them using execution verification against test cases.",
-            "Generated Git commit history traversal, k=5 token shingle hashing, and Jaccard similarity clustering algorithms.",
-            "Integrated execution-first ranking logic within lineages, achieving 100% correct variant selection across 12 test lineages on Kaggle Xeon CPU (vs 8.33% for raw dense retrieval)."
-        ),
-        (
-            "Local Repository Workbench & FastAPI Service (app/workbench.py, app/server.py)",
-            "Both",
-            "Antigravity / Claude 3.5 Sonnet",
-            "Create a FastAPI backend and workbench orchestrator that serves multi-signal code search, exposes transparent additive RRF arithmetic, and displays retrieval decision reasons.",
-            "Built FastAPI endpoint routes, Workbench orchestration class, and JSON schema response models.",
-            "Enforced the zero-vector attention cap for oversized chunks (>6000 chars) to prevent corrupt interior-token pooling in last-token models; implemented test-split access budgeting to prevent data contamination."
-        )
-    ]
+        def update(match: re.Match[str]) -> str:
+            nonlocal index
+            paragraph = match[0]
+            if index in replacements:
+                paragraph = patch_paragraph(paragraph, replacements[index])
+            if index in {21, 22, 23, 26, 27}:
+                paragraph = keep_with_next(paragraph)
+            index += 1
+            return paragraph
 
-    for idx, (fname, origin, tools, prompt, out_summary, mod) in enumerate(features, 1):
-        p_f = doc.add_paragraph()
-        p_f.paragraph_format.space_before = Pt(8)
-        p_f.paragraph_format.space_after = Pt(2)
-        r_f = p_f.add_run(f"Feature {idx}: {fname}")
-        r_f.bold = True
-        r_f.font.name = "Calibri"
-        r_f.font.size = Pt(11)
-        r_f.font.color.rgb = RGBColor(0x70, 0x50, 0x9B)
+        updated = PARAGRAPH.sub(update, document).encode("utf-8")
+        checked = ET.fromstring(updated)
+        if len(checked.find(f"{W}body").findall(f"{W}p")) != 41:
+            raise ValueError("generated form lost an official field")
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=output.parent, suffix=".docx", delete=False) as temporary:
+            temp_path = Path(temporary.name)
+        try:
+            with ZipFile(temp_path, "w") as target:
+                for item in source.infolist():
+                    target.writestr(copy(item), updated if item.filename == "word/document.xml"
+                                    else source.read(item.filename))
+            with ZipFile(temp_path) as target:
+                changed = [name for name in source.namelist() if source.read(name) != target.read(name)]
+                if changed != ["word/document.xml"]:
+                    raise ValueError(f"unexpected template package changes: {changed}")
+            temp_path.replace(output)
+        finally:
+            temp_path.unlink(missing_ok=True)
+    return {"output": str(output), "template_sha256": TEMPLATE_SHA256,
+            "sha256": sha256(output.read_bytes()).hexdigest(), "human_signoff": "pending"}
 
-        add_field("  1. Feature Name", fname)
-        add_field("  2. Self-Generated/AI-Generated/Both", origin)
-        desc = (
-            f"AI Tools Used: {tools} | Prompt: \"{prompt}\" | "
-            f"Output Summary: {out_summary} | Human Modification: {mod}"
-        )
-        add_field("  3. Description", desc)
 
-    # --- 5. Ethical & Compliance Confirmation
-    add_section_header("5", "Ethical & Compliance Confirmation")
-    add_field("AI usage complies with guidelines and policies", "Yes")
-    add_field("No proprietary or copyrighted data misused", "I Agree")
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--template", type=Path, default=ROOT / "build/disclosure/template.docx")
+    parser.add_argument("--output", type=Path, default=ROOT / "LangAI3.0_AI_Disclosure.docx")
+    parser.add_argument("--team", default="Doctors")
+    parser.add_argument("--project", default="CodeDoctor")
+    parser.add_argument("--institution", default="Vellore Institute of Technology Vellore")
+    parser.add_argument("--overwrite", action="store_true")
+    args = parser.parse_args(argv)
+    try:
+        result = build_disclosure(args.template, args.output, team=args.team, project=args.project,
+                                  institution=args.institution, overwrite=args.overwrite)
+    except (OSError, ValueError) as error:
+        parser.exit(1, f"Disclosure generation failed: {error}\n")
+    print(result)
+    return 0
 
-    # --- 6. Declaration & Sign-Off
-    add_section_header("6", "Declaration & Sign-Off")
-    add_field("Name of Team Representative", "Manish H.")
-    add_field("Role", "Team Lead / Full-Stack Developer")
-    add_field("Signature", "Manish H. (Digitally Signed)")
-    add_field("Date", "September 30, 2026")
-
-    doc.save(DOCX_PATH)
-    print(f"Successfully populated and saved: {DOCX_PATH}")
 
 if __name__ == "__main__":
-    build_disclosure()
+    raise SystemExit(main())

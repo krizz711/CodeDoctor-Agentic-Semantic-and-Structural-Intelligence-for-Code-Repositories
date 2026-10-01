@@ -11,17 +11,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install Python requirements
-COPY requirements.txt requirements-eval.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir -r requirements-eval.txt
-RUN pip install --no-cache-dir faiss-cpu fastapi uvicorn pyyaml
+# Install the submission recipe with an explicit Linux CPU wheel. Model weights
+# and document caches are downloaded/built at runtime, outside the image build.
+COPY requirements.txt requirements-submission.txt ./
+RUN python -m pip install --no-cache-dir torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+RUN python -m pip install --no-cache-dir -r requirements-submission.txt
 
 # Copy full application codebase
 COPY . .
 
 # Build C++ product and demo targets
-RUN make all || true
+RUN make -B
+RUN make -B test
 
 # Expose backend API and developer UI
 EXPOSE 8000

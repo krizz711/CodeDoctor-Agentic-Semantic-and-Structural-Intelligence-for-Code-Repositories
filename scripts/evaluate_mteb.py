@@ -24,6 +24,7 @@ import argparse
 from dataclasses import replace
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -182,7 +183,17 @@ def main() -> None:
         default=0,
         help="re-encode this many stored queries live and require them to match (cosine >= 0.999)",
     )
+    parser.add_argument("--require-complete-query-store", action="store_true",
+                        help="strict replay: reject missing, extra, corrupt or incompatible query vectors")
+    parser.add_argument("--corpus-manifest", type=Path, default=None,
+                        help="verify the corpus count, ordered texts and vector keys against this manifest")
     args = parser.parse_args()
+    if args.require_complete_query_store and (args.query_store is None or args.query_shard):
+        parser.error("--require-complete-query-store needs --query-store and forbids --query-shard")
+    if args.query_verify < 0:
+        parser.error("--query-verify must be nonnegative")
+    if args.corpus_manifest is not None and args.corpus_cache is None:
+        parser.error("--corpus-manifest requires --corpus-cache")
 
     query_shard = None
     if args.query_shard:
@@ -283,6 +294,9 @@ def main() -> None:
         hubness_k=pipeline_defaults["hubness_k"],
         require_complete_corpus_cache=args.require_complete_corpus_cache,
         query_store=query_store, query_shard=query_shard, query_verify=args.query_verify,
+        require_complete_query_store=args.require_complete_query_store,
+        corpus_manifest=(json.loads(args.corpus_manifest.read_text(encoding="utf-8"))
+                         if args.corpus_manifest is not None else None),
     )
     if args.hubness and args.hubness.exists():
         pipeline.hub_profile_path = args.hubness
@@ -305,6 +319,27 @@ def main() -> None:
     )
     print("\nFetching task AppsRetrieval ...")
     task = mteb.get_task("AppsRetrieval")
+    from app.indexing.cache_validation import APPS_DATASET
+
+    if dict(task.metadata.dataset) != APPS_DATASET:
+        raise RuntimeError("AppsRetrieval dataset revision differs from the frozen submission")
+    # MTEB can unload task.dataset before returning. Capture response-validation
+    # identity after the logged test-access intent, never hand labels to the model.
+    prediction_validation = {}
+    prediction_identity_setup_seconds = 0.0
+    if args.require_complete_query_store and args.predictions:
+        from app.indexing.cache_validation import APPS_DOCUMENTS
+
+        setup_started = time.perf_counter()
+        task.load_data()
+        split = task.dataset["default"]["test"]
+        queries = set(split["queries"]["id"])
+        corpus = set(split["corpus"]["id"])
+        if len(queries) != APPS_TEST_QUERIES or len(corpus) != APPS_DOCUMENTS:
+            raise RuntimeError("task query or corpus ID coverage differs from the frozen benchmark")
+        prediction_validation = {"expected_query_ids": queries, "valid_corpus_ids": corpus,
+                                 "qrels": {q: dict(labels) for q, labels in split["relevant_docs"].items()}}
+        prediction_identity_setup_seconds = time.perf_counter() - setup_started
     print("Evaluating ...")
     evaluate_kwargs: dict[str, Any] = {
         "encode_kwargs": {"batch_size": args.batch_size},
@@ -345,6 +380,8 @@ def main() -> None:
         return
     task_result = list(results.task_results)[0]
     payload = task_result.to_dict()
+    if args.require_complete_query_store and pipeline.query_stats["encoded"]:
+        raise RuntimeError("strict scoring replay unexpectedly encoded missing queries")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, default=str, indent=2), encoding="utf-8")
@@ -362,6 +399,7 @@ def main() -> None:
         "corpus_cache": pipeline.cache_stats if corpus_cache is not None else None,
         "query_store": pipeline.query_stats if query_store is not None else None,
         "query_verification": pipeline.query_verification,
+        "prediction_identity_setup_seconds": prediction_identity_setup_seconds,
     }, indent=2), encoding="utf-8")
     print(f"Wrote {audit_path}")
 
@@ -403,7 +441,7 @@ def main() -> None:
     if args.predictions:
         from scripts.export_submission_csv import export_from_predictions
 
-        written = export_from_predictions(args.predictions, payload, args.output.parent)
+        written = export_from_predictions(args.predictions, payload, args.output.parent, **prediction_validation)
         for path in written:
             print(f"Wrote {path}")
 

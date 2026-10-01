@@ -1,0 +1,1037 @@
+.......................................................................F [ 11%]
+F.FF.................................................................... [ 23%]
+.s...................................................................... [ 35%]
+........................................................................ [ 47%]
+................................................................... [ 58%]
+.....................................ss................sss.............. [ 70%]
+........................................................................ [ 81%]
+........................................................................ [ 93%]
+.......................................                                  [100%]
+=================================== FAILURES ===================================
+_________________ test_three_shards_then_a_verified_final_run __________________
+
+harness = namespace(stub=<test_evaluate_mteb_cli.Stub object at 0x11250c890>, audit=[{'reason': 'query_shard_started', 'row_coun.../var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/pytest-of-manishharigovind/pytest-9/test_three_shards_then_a_verif0'))
+
+    def test_three_shards_then_a_verified_final_run(harness):
+        cache = harness.corpus_cache()
+        reports = []
+        for index in range(3):
+            out = harness.tmp / f"shard{index}.json"
+>           harness.run("--corpus-cache", cache, "--require-complete-corpus-cache",
+                        "--query-store", harness.tmp / f"s{index}.sqlite", "--query-shard", f"{index}/3",
+                        "--output", out)
+
+tests/test_evaluate_mteb_cli.py:99: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_evaluate_mteb_cli.py:82: in run
+    ev.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--model", default=None, help="override the configured production model")
+        parser.add_argument("--revision", default=None)
+        parser.add_argument(
+            "--tier",
+            choices=["accuracy", "interactive"],
+            default="accuracy",
+            help="accuracy = submission encoder; interactive = the live-service encoder",
+        )
+        parser.add_argument("--config", type=Path, default=None)
+        parser.add_argument("--weights", type=Path, default=None, help="reranker weights JSON")
+        parser.add_argument("--no-rerank", action="store_true", help="dense only (ablation baseline)")
+        execution_group = parser.add_mutually_exclusive_group()
+        execution_group.add_argument(
+            "--execution",
+            dest="execution",
+            action="store_true",
+            default=None,
+            help="force the execution-verification pass on (default comes from "
+                 "config/submission.yaml: pipeline.execution_rerank)",
+        )
+        execution_group.add_argument(
+            "--no-execution",
+            dest="execution",
+            action="store_false",
+            help="force it off. The run then reports the dense-only score.",
+        )
+        parser.add_argument("--execution-candidates", type=int, default=None)
+        parser.add_argument("--execution-timeout", type=float, default=None)
+        parser.add_argument("--execution-workers", type=int, default=None,
+                            help="concurrent sandbox runs (0 = one per CPU); never changes a result")
+        parser.add_argument("--execution-max-dense-gap", type=float, default=None,
+                            help="skip candidates scoring more than this below the row's best")
+        parser.add_argument("--hubness", type=Path, default=None, help="reference hub profile .npz")
+        parser.add_argument("--output", type=Path, default=Path("results/appsretrieval_results.json"))
+        parser.add_argument("--overwrite", action="store_true",
+                            help="replace an existing --output (never done by default)")
+        parser.add_argument("--predictions", type=Path, default=None, help="also write ranked CSVs here")
+        parser.add_argument("--batch-size", type=int, default=32)
+        parser.add_argument("--device", choices=["auto", "cuda", "cpu"], default="cpu")
+        parser.add_argument(
+            "--corpus-cache",
+            type=Path,
+            default=None,
+            help="content-addressed SQLite store of DOCUMENT vectors: filled on first use "
+                 "(offline, GPU allowed), reused afterwards so only queries are encoded",
+        )
+        parser.add_argument(
+            "--require-complete-corpus-cache",
+            action="store_true",
+            help="abort before encoding anything if a document is missing from --corpus-cache "
+                 "(the judge-facing run must never quietly encode a corpus on CPU)",
+        )
+        parser.add_argument(
+            "--query-store",
+            type=Path,
+            default=None,
+            help="crash-safe SQLite store of QUERY vectors. Every vector is still computed by the CPU "
+                 "encoder at evaluation time; the store lets a multi-hour run resume or be split into "
+                 "shards. Without it queries are simply encoded in one pass, as a judge's run does.",
+        )
+        parser.add_argument(
+            "--query-shard",
+            default=None,
+            metavar="I/N",
+            help="encode only shard I of N (by hash of the query) into --query-store, then stop; "
+                 "--output then receives a shard report instead of an MTEB result",
+        )
+        parser.add_argument(
+            "--query-verify",
+            type=int,
+            default=0,
+            help="re-encode this many stored queries live and require them to match (cosine >= 0.999)",
+        )
+        parser.add_argument("--require-complete-query-store", action="store_true",
+                            help="strict replay: reject missing, extra, corrupt or incompatible query vectors")
+        parser.add_argument("--corpus-manifest", type=Path, default=None,
+                            help="verify the corpus count, ordered texts and vector keys against this manifest")
+        args = parser.parse_args()
+        if args.require_complete_query_store and (args.query_store is None or args.query_shard):
+            parser.error("--require-complete-query-store needs --query-store and forbids --query-shard")
+        if args.query_verify < 0:
+            parser.error("--query-verify must be nonnegative")
+        if args.corpus_manifest is not None and args.corpus_cache is None:
+            parser.error("--corpus-manifest requires --corpus-cache")
+    
+        query_shard = None
+        if args.query_shard:
+            try:
+                index, count = (int(part) for part in args.query_shard.split("/"))
+            except ValueError:
+                raise SystemExit("--query-shard must look like 1/3 (shard index 0-based / shard count)")
+            if not (0 <= index < count):
+                raise SystemExit("--query-shard index must satisfy 0 <= I < N")
+            if args.query_store is None:
+                raise SystemExit("--query-shard needs --query-store")
+            query_shard = (index, count)
+    
+        if args.output.exists() and not args.overwrite:
+            raise SystemExit(f"{args.output} already exists; choose another --output or pass --overwrite")
+    
+        try:
+            import mteb
+        except ImportError as error:
+            raise SystemExit(
+                "Install evaluator dependencies first: pip install -r requirements-eval.txt"
+            ) from error
+    
+        config_path = args.config or get_default_config_path()
+        tier_model, tier_revision = get_tier_model(args.tier, config_path)
+        model_name = args.model or tier_model or get_default_model(config_path)
+        revision = args.revision or (tier_revision if args.model is None else None)
+        device = _select_device(args.device)
+    
+        print(f"Config          : {config_path}")
+        print(f"Tier            : {args.tier}")
+        print(f"Model           : {model_name}" + (f"@{revision[:8]}" if revision else ""))
+        print(f"Device          : {device}")
+    
+        encoder = CodeEncoder(
+            model_name=model_name,
+            revision=revision,
+            device=device,
+            config_path=config_path,
+            torch_dtype=select_dtype(device),
+        )
+        print(f"Query prefix    : {encoder.query_prefix!r}")
+        print(f"Document prefix : {encoder.document_prefix!r}")
+        print(f"max_seq_length  : {encoder.max_seq_length}   add_eos_token: {encoder.add_eos_token}")
+    
+        reranker_config = RerankerConfig.load(args.weights)
+        if args.no_rerank:
+            reranker_config = RerankerConfig()
+            print("Reranker        : DISABLED (--no-rerank, dense-only ablation)")
+        elif reranker_config.is_identity:
+            print("Reranker        : identity (no fitted weights found -- dense only)")
+        else:
+            print(f"Reranker        : {reranker_config.describe()}")
+    
+        pipeline_defaults = get_pipeline_config(config_path)
+        execution_config = load_execution_config(config_path)
+        overrides = {}
+        for value, key in ((args.execution, "enabled"), (args.execution_candidates, "max_candidates"),
+                           (args.execution_timeout, "timeout_seconds"),
+                           (args.execution_max_dense_gap, "max_dense_gap")):
+            if value is not None:
+                overrides[key] = value
+        if args.execution_workers is not None:
+            overrides["workers"] = resolve_workers(args.execution_workers)
+        execution_config = replace(execution_config, **overrides)
+        if execution_config.enabled:
+            print(f"Execution pass  : ON (top {execution_config.max_candidates}, "
+                  f"{execution_config.timeout_seconds}s timeout, "
+                  f"dense gap {execution_config.max_dense_gap}, "
+                  f"{execution_config.workers} workers)")
+            print("                  This RUNS PYTHON FROM THE DATASET in a sandboxed")
+            print("                  subprocess. Pass --no-execution to disable it.")
+        else:
+            print("Execution pass  : off")
+    
+        corpus_cache = None
+        if args.corpus_cache is not None:
+            from app.indexing.cache import EmbeddingCache
+    
+            args.corpus_cache.parent.mkdir(parents=True, exist_ok=True)
+            corpus_cache = EmbeddingCache(args.corpus_cache)
+            print(f"Corpus cache    : {args.corpus_cache} ({corpus_cache.count()} vectors)")
+        query_store = None
+        if args.query_store is not None:
+            from app.indexing.cache import EmbeddingCache
+    
+            args.query_store.parent.mkdir(parents=True, exist_ok=True)
+            query_store = EmbeddingCache(args.query_store)
+            print(f"Query store     : {args.query_store} ({query_store.count()} vectors)"
+                  + (f"  SHARD {query_shard[0]}/{query_shard[1]}" if query_shard else ""))
+        hubness_bank = load_hubness_bank(pipeline_defaults["hubness_bank"])
+        if hubness_bank is not None:
+            print(f"Hubness bank    : {pipeline_defaults['hubness_bank']} ({len(hubness_bank)} statements, "
+                  f"beta {pipeline_defaults['hubness_beta']}, k {pipeline_defaults['hubness_k']})")
+        pipeline = PrePostPipelineEncoder(
+            encoder, reranker_config, execution_config=execution_config, corpus_cache=corpus_cache,
+            hubness_bank=hubness_bank, hubness_beta=pipeline_defaults["hubness_beta"],
+            hubness_k=pipeline_defaults["hubness_k"],
+            require_complete_corpus_cache=args.require_complete_corpus_cache,
+            query_store=query_store, query_shard=query_shard, query_verify=args.query_verify,
+            require_complete_query_store=args.require_complete_query_store,
+            corpus_manifest=(json.loads(args.corpus_manifest.read_text(encoding="utf-8"))
+                             if args.corpus_manifest is not None else None),
+        )
+        if args.hubness and args.hubness.exists():
+            pipeline.hub_profile_path = args.hubness
+            print(f"Hub profile     : {args.hubness} (aligned by document content)")
+    
+        mteb_model = build_mteb_encoder(pipeline, model_name)
+    
+        # Persist intent before task loading/evaluation. Failure to write this log
+        # aborts before test access; completed metrics are recorded below.
+        from app.evaluation_harness import record_persistent_audit
+        import hashlib
+        record_persistent_audit(
+            reason="query_shard_started" if query_shard else "final_run_started",
+            row_count=0, caller="scripts/evaluate_mteb.py",
+            extra={"expected_queries": APPS_TEST_QUERIES,
+                   "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),
+                   "model": model_name, "revision": revision, "device": device,
+                   "query_shard": list(query_shard) if query_shard else None,
+                   "query_store": bool(query_store), "require_complete_corpus_cache": args.require_complete_corpus_cache},
+        )
+        print("\nFetching task AppsRetrieval ...")
+        task = mteb.get_task("AppsRetrieval")
+        from app.indexing.cache_validation import APPS_DATASET
+    
+>       if dict(task.metadata.dataset) != APPS_DATASET:
+                ^^^^^^^^^^^^^
+E       AttributeError: 'types.SimpleNamespace' object has no attribute 'metadata'
+
+scripts/evaluate_mteb.py:323: AttributeError
+----------------------------- Captured stdout call -----------------------------
+Config          : /Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/config/submission.yaml
+Tier            : accuracy
+Model           : codefuse-ai/F2LLM-v2-1.7B@3766d46e
+Device          : cpu
+Query prefix    : 'Q: '
+Document prefix : ''
+max_seq_length  : 8192   add_eos_token: True
+Reranker        : identity (no fitted weights found -- dense only)
+Execution pass  : off
+Corpus cache    : /private/var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/pytest-of-manishharigovind/pytest-9/test_three_shards_then_a_verif0/corpus.sqlite (7 vectors)
+Query store     : /private/var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/pytest-of-manishharigovind/pytest-9/test_three_shards_then_a_verif0/s0.sqlite (0 vectors)  SHARD 0/3
+
+Fetching task AppsRetrieval ...
+__________ test_an_incomplete_corpus_cache_aborts_before_any_encoding __________
+
+harness = namespace(stub=<test_evaluate_mteb_cli.Stub object at 0x1411b7a40>, audit=[{'reason': 'final_run_started', 'row_count'.../var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/pytest-of-manishharigovind/pytest-9/test_an_incomplete_corpus_cach0'))
+
+    def test_an_incomplete_corpus_cache_aborts_before_any_encoding(harness):
+        cache = harness.corpus_cache(DOCS[:-2])
+        with pytest.raises(CorpusCacheIncomplete, match="2 of 7"):
+>           harness.run("--corpus-cache", cache, "--require-complete-corpus-cache",
+                        "--query-store", harness.tmp / "q.sqlite", "--output", harness.tmp / "r.json")
+
+tests/test_evaluate_mteb_cli.py:132: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_evaluate_mteb_cli.py:82: in run
+    ev.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--model", default=None, help="override the configured production model")
+        parser.add_argument("--revision", default=None)
+        parser.add_argument(
+            "--tier",
+            choices=["accuracy", "interactive"],
+            default="accuracy",
+            help="accuracy = submission encoder; interactive = the live-service encoder",
+        )
+        parser.add_argument("--config", type=Path, default=None)
+        parser.add_argument("--weights", type=Path, default=None, help="reranker weights JSON")
+        parser.add_argument("--no-rerank", action="store_true", help="dense only (ablation baseline)")
+        execution_group = parser.add_mutually_exclusive_group()
+        execution_group.add_argument(
+            "--execution",
+            dest="execution",
+            action="store_true",
+            default=None,
+            help="force the execution-verification pass on (default comes from "
+                 "config/submission.yaml: pipeline.execution_rerank)",
+        )
+        execution_group.add_argument(
+            "--no-execution",
+            dest="execution",
+            action="store_false",
+            help="force it off. The run then reports the dense-only score.",
+        )
+        parser.add_argument("--execution-candidates", type=int, default=None)
+        parser.add_argument("--execution-timeout", type=float, default=None)
+        parser.add_argument("--execution-workers", type=int, default=None,
+                            help="concurrent sandbox runs (0 = one per CPU); never changes a result")
+        parser.add_argument("--execution-max-dense-gap", type=float, default=None,
+                            help="skip candidates scoring more than this below the row's best")
+        parser.add_argument("--hubness", type=Path, default=None, help="reference hub profile .npz")
+        parser.add_argument("--output", type=Path, default=Path("results/appsretrieval_results.json"))
+        parser.add_argument("--overwrite", action="store_true",
+                            help="replace an existing --output (never done by default)")
+        parser.add_argument("--predictions", type=Path, default=None, help="also write ranked CSVs here")
+        parser.add_argument("--batch-size", type=int, default=32)
+        parser.add_argument("--device", choices=["auto", "cuda", "cpu"], default="cpu")
+        parser.add_argument(
+            "--corpus-cache",
+            type=Path,
+            default=None,
+            help="content-addressed SQLite store of DOCUMENT vectors: filled on first use "
+                 "(offline, GPU allowed), reused afterwards so only queries are encoded",
+        )
+        parser.add_argument(
+            "--require-complete-corpus-cache",
+            action="store_true",
+            help="abort before encoding anything if a document is missing from --corpus-cache "
+                 "(the judge-facing run must never quietly encode a corpus on CPU)",
+        )
+        parser.add_argument(
+            "--query-store",
+            type=Path,
+            default=None,
+            help="crash-safe SQLite store of QUERY vectors. Every vector is still computed by the CPU "
+                 "encoder at evaluation time; the store lets a multi-hour run resume or be split into "
+                 "shards. Without it queries are simply encoded in one pass, as a judge's run does.",
+        )
+        parser.add_argument(
+            "--query-shard",
+            default=None,
+            metavar="I/N",
+            help="encode only shard I of N (by hash of the query) into --query-store, then stop; "
+                 "--output then receives a shard report instead of an MTEB result",
+        )
+        parser.add_argument(
+            "--query-verify",
+            type=int,
+            default=0,
+            help="re-encode this many stored queries live and require them to match (cosine >= 0.999)",
+        )
+        parser.add_argument("--require-complete-query-store", action="store_true",
+                            help="strict replay: reject missing, extra, corrupt or incompatible query vectors")
+        parser.add_argument("--corpus-manifest", type=Path, default=None,
+                            help="verify the corpus count, ordered texts and vector keys against this manifest")
+        args = parser.parse_args()
+        if args.require_complete_query_store and (args.query_store is None or args.query_shard):
+            parser.error("--require-complete-query-store needs --query-store and forbids --query-shard")
+        if args.query_verify < 0:
+            parser.error("--query-verify must be nonnegative")
+        if args.corpus_manifest is not None and args.corpus_cache is None:
+            parser.error("--corpus-manifest requires --corpus-cache")
+    
+        query_shard = None
+        if args.query_shard:
+            try:
+                index, count = (int(part) for part in args.query_shard.split("/"))
+            except ValueError:
+                raise SystemExit("--query-shard must look like 1/3 (shard index 0-based / shard count)")
+            if not (0 <= index < count):
+                raise SystemExit("--query-shard index must satisfy 0 <= I < N")
+            if args.query_store is None:
+                raise SystemExit("--query-shard needs --query-store")
+            query_shard = (index, count)
+    
+        if args.output.exists() and not args.overwrite:
+            raise SystemExit(f"{args.output} already exists; choose another --output or pass --overwrite")
+    
+        try:
+            import mteb
+        except ImportError as error:
+            raise SystemExit(
+                "Install evaluator dependencies first: pip install -r requirements-eval.txt"
+            ) from error
+    
+        config_path = args.config or get_default_config_path()
+        tier_model, tier_revision = get_tier_model(args.tier, config_path)
+        model_name = args.model or tier_model or get_default_model(config_path)
+        revision = args.revision or (tier_revision if args.model is None else None)
+        device = _select_device(args.device)
+    
+        print(f"Config          : {config_path}")
+        print(f"Tier            : {args.tier}")
+        print(f"Model           : {model_name}" + (f"@{revision[:8]}" if revision else ""))
+        print(f"Device          : {device}")
+    
+        encoder = CodeEncoder(
+            model_name=model_name,
+            revision=revision,
+            device=device,
+            config_path=config_path,
+            torch_dtype=select_dtype(device),
+        )
+        print(f"Query prefix    : {encoder.query_prefix!r}")
+        print(f"Document prefix : {encoder.document_prefix!r}")
+        print(f"max_seq_length  : {encoder.max_seq_length}   add_eos_token: {encoder.add_eos_token}")
+    
+        reranker_config = RerankerConfig.load(args.weights)
+        if args.no_rerank:
+            reranker_config = RerankerConfig()
+            print("Reranker        : DISABLED (--no-rerank, dense-only ablation)")
+        elif reranker_config.is_identity:
+            print("Reranker        : identity (no fitted weights found -- dense only)")
+        else:
+            print(f"Reranker        : {reranker_config.describe()}")
+    
+        pipeline_defaults = get_pipeline_config(config_path)
+        execution_config = load_execution_config(config_path)
+        overrides = {}
+        for value, key in ((args.execution, "enabled"), (args.execution_candidates, "max_candidates"),
+                           (args.execution_timeout, "timeout_seconds"),
+                           (args.execution_max_dense_gap, "max_dense_gap")):
+            if value is not None:
+                overrides[key] = value
+        if args.execution_workers is not None:
+            overrides["workers"] = resolve_workers(args.execution_workers)
+        execution_config = replace(execution_config, **overrides)
+        if execution_config.enabled:
+            print(f"Execution pass  : ON (top {execution_config.max_candidates}, "
+                  f"{execution_config.timeout_seconds}s timeout, "
+                  f"dense gap {execution_config.max_dense_gap}, "
+                  f"{execution_config.workers} workers)")
+            print("                  This RUNS PYTHON FROM THE DATASET in a sandboxed")
+            print("                  subprocess. Pass --no-execution to disable it.")
+        else:
+            print("Execution pass  : off")
+    
+        corpus_cache = None
+        if args.corpus_cache is not None:
+            from app.indexing.cache import EmbeddingCache
+    
+            args.corpus_cache.parent.mkdir(parents=True, exist_ok=True)
+            corpus_cache = EmbeddingCache(args.corpus_cache)
+            print(f"Corpus cache    : {args.corpus_cache} ({corpus_cache.count()} vectors)")
+        query_store = None
+        if args.query_store is not None:
+            from app.indexing.cache import EmbeddingCache
+    
+            args.query_store.parent.mkdir(parents=True, exist_ok=True)
+            query_store = EmbeddingCache(args.query_store)
+            print(f"Query store     : {args.query_store} ({query_store.count()} vectors)"
+                  + (f"  SHARD {query_shard[0]}/{query_shard[1]}" if query_shard else ""))
+        hubness_bank = load_hubness_bank(pipeline_defaults["hubness_bank"])
+        if hubness_bank is not None:
+            print(f"Hubness bank    : {pipeline_defaults['hubness_bank']} ({len(hubness_bank)} statements, "
+                  f"beta {pipeline_defaults['hubness_beta']}, k {pipeline_defaults['hubness_k']})")
+        pipeline = PrePostPipelineEncoder(
+            encoder, reranker_config, execution_config=execution_config, corpus_cache=corpus_cache,
+            hubness_bank=hubness_bank, hubness_beta=pipeline_defaults["hubness_beta"],
+            hubness_k=pipeline_defaults["hubness_k"],
+            require_complete_corpus_cache=args.require_complete_corpus_cache,
+            query_store=query_store, query_shard=query_shard, query_verify=args.query_verify,
+            require_complete_query_store=args.require_complete_query_store,
+            corpus_manifest=(json.loads(args.corpus_manifest.read_text(encoding="utf-8"))
+                             if args.corpus_manifest is not None else None),
+        )
+        if args.hubness and args.hubness.exists():
+            pipeline.hub_profile_path = args.hubness
+            print(f"Hub profile     : {args.hubness} (aligned by document content)")
+    
+        mteb_model = build_mteb_encoder(pipeline, model_name)
+    
+        # Persist intent before task loading/evaluation. Failure to write this log
+        # aborts before test access; completed metrics are recorded below.
+        from app.evaluation_harness import record_persistent_audit
+        import hashlib
+        record_persistent_audit(
+            reason="query_shard_started" if query_shard else "final_run_started",
+            row_count=0, caller="scripts/evaluate_mteb.py",
+            extra={"expected_queries": APPS_TEST_QUERIES,
+                   "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),
+                   "model": model_name, "revision": revision, "device": device,
+                   "query_shard": list(query_shard) if query_shard else None,
+                   "query_store": bool(query_store), "require_complete_corpus_cache": args.require_complete_corpus_cache},
+        )
+        print("\nFetching task AppsRetrieval ...")
+        task = mteb.get_task("AppsRetrieval")
+        from app.indexing.cache_validation import APPS_DATASET
+    
+>       if dict(task.metadata.dataset) != APPS_DATASET:
+                ^^^^^^^^^^^^^
+E       AttributeError: 'types.SimpleNamespace' object has no attribute 'metadata'
+
+scripts/evaluate_mteb.py:323: AttributeError
+----------------------------- Captured stdout call -----------------------------
+Config          : /Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/config/submission.yaml
+Tier            : accuracy
+Model           : codefuse-ai/F2LLM-v2-1.7B@3766d46e
+Device          : cpu
+Query prefix    : 'Q: '
+Document prefix : ''
+max_seq_length  : 8192   add_eos_token: True
+Reranker        : identity (no fitted weights found -- dense only)
+Execution pass  : off
+Corpus cache    : /private/var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/pytest-of-manishharigovind/pytest-9/test_an_incomplete_corpus_cach0/corpus.sqlite (5 vectors)
+Query store     : /private/var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/pytest-of-manishharigovind/pytest-9/test_an_incomplete_corpus_cach0/q.sqlite (0 vectors)
+
+Fetching task AppsRetrieval ...
+___________ test_an_existing_output_is_never_overwritten_by_default ____________
+
+harness = namespace(stub=<test_evaluate_mteb_cli.Stub object at 0x141285340>, audit=[{'reason': 'final_run_started', 'row_count'.../var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/pytest-of-manishharigovind/pytest-9/test_an_existing_output_is_nev0'))
+
+    def test_an_existing_output_is_never_overwritten_by_default(harness):
+        cache = harness.corpus_cache()
+        existing = harness.tmp / "appsretrieval_results.json"
+        existing.write_text('{"first": "release"}', encoding="utf-8")
+        with pytest.raises(SystemExit, match="already exists"):
+            harness.run("--corpus-cache", cache, "--output", existing)
+        assert existing.read_text(encoding="utf-8") == '{"first": "release"}'
+        assert harness.audit == []                          # refused before any test-split record
+>       harness.run("--corpus-cache", cache, "--output", existing, "--overwrite")
+
+tests/test_evaluate_mteb_cli.py:152: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_evaluate_mteb_cli.py:82: in run
+    ev.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--model", default=None, help="override the configured production model")
+        parser.add_argument("--revision", default=None)
+        parser.add_argument(
+            "--tier",
+            choices=["accuracy", "interactive"],
+            default="accuracy",
+            help="accuracy = submission encoder; interactive = the live-service encoder",
+        )
+        parser.add_argument("--config", type=Path, default=None)
+        parser.add_argument("--weights", type=Path, default=None, help="reranker weights JSON")
+        parser.add_argument("--no-rerank", action="store_true", help="dense only (ablation baseline)")
+        execution_group = parser.add_mutually_exclusive_group()
+        execution_group.add_argument(
+            "--execution",
+            dest="execution",
+            action="store_true",
+            default=None,
+            help="force the execution-verification pass on (default comes from "
+                 "config/submission.yaml: pipeline.execution_rerank)",
+        )
+        execution_group.add_argument(
+            "--no-execution",
+            dest="execution",
+            action="store_false",
+            help="force it off. The run then reports the dense-only score.",
+        )
+        parser.add_argument("--execution-candidates", type=int, default=None)
+        parser.add_argument("--execution-timeout", type=float, default=None)
+        parser.add_argument("--execution-workers", type=int, default=None,
+                            help="concurrent sandbox runs (0 = one per CPU); never changes a result")
+        parser.add_argument("--execution-max-dense-gap", type=float, default=None,
+                            help="skip candidates scoring more than this below the row's best")
+        parser.add_argument("--hubness", type=Path, default=None, help="reference hub profile .npz")
+        parser.add_argument("--output", type=Path, default=Path("results/appsretrieval_results.json"))
+        parser.add_argument("--overwrite", action="store_true",
+                            help="replace an existing --output (never done by default)")
+        parser.add_argument("--predictions", type=Path, default=None, help="also write ranked CSVs here")
+        parser.add_argument("--batch-size", type=int, default=32)
+        parser.add_argument("--device", choices=["auto", "cuda", "cpu"], default="cpu")
+        parser.add_argument(
+            "--corpus-cache",
+            type=Path,
+            default=None,
+            help="content-addressed SQLite store of DOCUMENT vectors: filled on first use "
+                 "(offline, GPU allowed), reused afterwards so only queries are encoded",
+        )
+        parser.add_argument(
+            "--require-complete-corpus-cache",
+            action="store_true",
+            help="abort before encoding anything if a document is missing from --corpus-cache "
+                 "(the judge-facing run must never quietly encode a corpus on CPU)",
+        )
+        parser.add_argument(
+            "--query-store",
+            type=Path,
+            default=None,
+            help="crash-safe SQLite store of QUERY vectors. Every vector is still computed by the CPU "
+                 "encoder at evaluation time; the store lets a multi-hour run resume or be split into "
+                 "shards. Without it queries are simply encoded in one pass, as a judge's run does.",
+        )
+        parser.add_argument(
+            "--query-shard",
+            default=None,
+            metavar="I/N",
+            help="encode only shard I of N (by hash of the query) into --query-store, then stop; "
+                 "--output then receives a shard report instead of an MTEB result",
+        )
+        parser.add_argument(
+            "--query-verify",
+            type=int,
+            default=0,
+            help="re-encode this many stored queries live and require them to match (cosine >= 0.999)",
+        )
+        parser.add_argument("--require-complete-query-store", action="store_true",
+                            help="strict replay: reject missing, extra, corrupt or incompatible query vectors")
+        parser.add_argument("--corpus-manifest", type=Path, default=None,
+                            help="verify the corpus count, ordered texts and vector keys against this manifest")
+        args = parser.parse_args()
+        if args.require_complete_query_store and (args.query_store is None or args.query_shard):
+            parser.error("--require-complete-query-store needs --query-store and forbids --query-shard")
+        if args.query_verify < 0:
+            parser.error("--query-verify must be nonnegative")
+        if args.corpus_manifest is not None and args.corpus_cache is None:
+            parser.error("--corpus-manifest requires --corpus-cache")
+    
+        query_shard = None
+        if args.query_shard:
+            try:
+                index, count = (int(part) for part in args.query_shard.split("/"))
+            except ValueError:
+                raise SystemExit("--query-shard must look like 1/3 (shard index 0-based / shard count)")
+            if not (0 <= index < count):
+                raise SystemExit("--query-shard index must satisfy 0 <= I < N")
+            if args.query_store is None:
+                raise SystemExit("--query-shard needs --query-store")
+            query_shard = (index, count)
+    
+        if args.output.exists() and not args.overwrite:
+            raise SystemExit(f"{args.output} already exists; choose another --output or pass --overwrite")
+    
+        try:
+            import mteb
+        except ImportError as error:
+            raise SystemExit(
+                "Install evaluator dependencies first: pip install -r requirements-eval.txt"
+            ) from error
+    
+        config_path = args.config or get_default_config_path()
+        tier_model, tier_revision = get_tier_model(args.tier, config_path)
+        model_name = args.model or tier_model or get_default_model(config_path)
+        revision = args.revision or (tier_revision if args.model is None else None)
+        device = _select_device(args.device)
+    
+        print(f"Config          : {config_path}")
+        print(f"Tier            : {args.tier}")
+        print(f"Model           : {model_name}" + (f"@{revision[:8]}" if revision else ""))
+        print(f"Device          : {device}")
+    
+        encoder = CodeEncoder(
+            model_name=model_name,
+            revision=revision,
+            device=device,
+            config_path=config_path,
+            torch_dtype=select_dtype(device),
+        )
+        print(f"Query prefix    : {encoder.query_prefix!r}")
+        print(f"Document prefix : {encoder.document_prefix!r}")
+        print(f"max_seq_length  : {encoder.max_seq_length}   add_eos_token: {encoder.add_eos_token}")
+    
+        reranker_config = RerankerConfig.load(args.weights)
+        if args.no_rerank:
+            reranker_config = RerankerConfig()
+            print("Reranker        : DISABLED (--no-rerank, dense-only ablation)")
+        elif reranker_config.is_identity:
+            print("Reranker        : identity (no fitted weights found -- dense only)")
+        else:
+            print(f"Reranker        : {reranker_config.describe()}")
+    
+        pipeline_defaults = get_pipeline_config(config_path)
+        execution_config = load_execution_config(config_path)
+        overrides = {}
+        for value, key in ((args.execution, "enabled"), (args.execution_candidates, "max_candidates"),
+                           (args.execution_timeout, "timeout_seconds"),
+                           (args.execution_max_dense_gap, "max_dense_gap")):
+            if value is not None:
+                overrides[key] = value
+        if args.execution_workers is not None:
+            overrides["workers"] = resolve_workers(args.execution_workers)
+        execution_config = replace(execution_config, **overrides)
+        if execution_config.enabled:
+            print(f"Execution pass  : ON (top {execution_config.max_candidates}, "
+                  f"{execution_config.timeout_seconds}s timeout, "
+                  f"dense gap {execution_config.max_dense_gap}, "
+                  f"{execution_config.workers} workers)")
+            print("                  This RUNS PYTHON FROM THE DATASET in a sandboxed")
+            print("                  subprocess. Pass --no-execution to disable it.")
+        else:
+            print("Execution pass  : off")
+    
+        corpus_cache = None
+        if args.corpus_cache is not None:
+            from app.indexing.cache import EmbeddingCache
+    
+            args.corpus_cache.parent.mkdir(parents=True, exist_ok=True)
+            corpus_cache = EmbeddingCache(args.corpus_cache)
+            print(f"Corpus cache    : {args.corpus_cache} ({corpus_cache.count()} vectors)")
+        query_store = None
+        if args.query_store is not None:
+            from app.indexing.cache import EmbeddingCache
+    
+            args.query_store.parent.mkdir(parents=True, exist_ok=True)
+            query_store = EmbeddingCache(args.query_store)
+            print(f"Query store     : {args.query_store} ({query_store.count()} vectors)"
+                  + (f"  SHARD {query_shard[0]}/{query_shard[1]}" if query_shard else ""))
+        hubness_bank = load_hubness_bank(pipeline_defaults["hubness_bank"])
+        if hubness_bank is not None:
+            print(f"Hubness bank    : {pipeline_defaults['hubness_bank']} ({len(hubness_bank)} statements, "
+                  f"beta {pipeline_defaults['hubness_beta']}, k {pipeline_defaults['hubness_k']})")
+        pipeline = PrePostPipelineEncoder(
+            encoder, reranker_config, execution_config=execution_config, corpus_cache=corpus_cache,
+            hubness_bank=hubness_bank, hubness_beta=pipeline_defaults["hubness_beta"],
+            hubness_k=pipeline_defaults["hubness_k"],
+            require_complete_corpus_cache=args.require_complete_corpus_cache,
+            query_store=query_store, query_shard=query_shard, query_verify=args.query_verify,
+            require_complete_query_store=args.require_complete_query_store,
+            corpus_manifest=(json.loads(args.corpus_manifest.read_text(encoding="utf-8"))
+                             if args.corpus_manifest is not None else None),
+        )
+        if args.hubness and args.hubness.exists():
+            pipeline.hub_profile_path = args.hubness
+            print(f"Hub profile     : {args.hubness} (aligned by document content)")
+    
+        mteb_model = build_mteb_encoder(pipeline, model_name)
+    
+        # Persist intent before task loading/evaluation. Failure to write this log
+        # aborts before test access; completed metrics are recorded below.
+        from app.evaluation_harness import record_persistent_audit
+        import hashlib
+        record_persistent_audit(
+            reason="query_shard_started" if query_shard else "final_run_started",
+            row_count=0, caller="scripts/evaluate_mteb.py",
+            extra={"expected_queries": APPS_TEST_QUERIES,
+                   "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),
+                   "model": model_name, "revision": revision, "device": device,
+                   "query_shard": list(query_shard) if query_shard else None,
+                   "query_store": bool(query_store), "require_complete_corpus_cache": args.require_complete_corpus_cache},
+        )
+        print("\nFetching task AppsRetrieval ...")
+        task = mteb.get_task("AppsRetrieval")
+        from app.indexing.cache_validation import APPS_DATASET
+    
+>       if dict(task.metadata.dataset) != APPS_DATASET:
+                ^^^^^^^^^^^^^
+E       AttributeError: 'types.SimpleNamespace' object has no attribute 'metadata'
+
+scripts/evaluate_mteb.py:323: AttributeError
+----------------------------- Captured stdout call -----------------------------
+Config          : /Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/config/submission.yaml
+Tier            : accuracy
+Model           : codefuse-ai/F2LLM-v2-1.7B@3766d46e
+Device          : cpu
+Query prefix    : 'Q: '
+Document prefix : ''
+max_seq_length  : 8192   add_eos_token: True
+Reranker        : identity (no fitted weights found -- dense only)
+Execution pass  : off
+Corpus cache    : /private/var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/pytest-of-manishharigovind/pytest-9/test_an_existing_output_is_nev0/corpus.sqlite (7 vectors)
+
+Fetching task AppsRetrieval ...
+_ test_the_default_output_is_under_results_and_an_execution_audit_sits_beside_it _
+
+harness = namespace(stub=<test_evaluate_mteb_cli.Stub object at 0x1411b6ed0>, audit=[{'reason': 'final_run_started', 'row_count'.../var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/pytest-of-manishharigovind/pytest-9/test_the_default_output_is_und0'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1411b7a70>
+
+    def test_the_default_output_is_under_results_and_an_execution_audit_sits_beside_it(harness, monkeypatch):
+        cache = harness.corpus_cache()
+        monkeypatch.chdir(harness.tmp)
+>       harness.run("--corpus-cache", cache)
+
+/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/tests/test_evaluate_mteb_cli.py:159: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/tests/test_evaluate_mteb_cli.py:82: in run
+    ev.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--model", default=None, help="override the configured production model")
+        parser.add_argument("--revision", default=None)
+        parser.add_argument(
+            "--tier",
+            choices=["accuracy", "interactive"],
+            default="accuracy",
+            help="accuracy = submission encoder; interactive = the live-service encoder",
+        )
+        parser.add_argument("--config", type=Path, default=None)
+        parser.add_argument("--weights", type=Path, default=None, help="reranker weights JSON")
+        parser.add_argument("--no-rerank", action="store_true", help="dense only (ablation baseline)")
+        execution_group = parser.add_mutually_exclusive_group()
+        execution_group.add_argument(
+            "--execution",
+            dest="execution",
+            action="store_true",
+            default=None,
+            help="force the execution-verification pass on (default comes from "
+                 "config/submission.yaml: pipeline.execution_rerank)",
+        )
+        execution_group.add_argument(
+            "--no-execution",
+            dest="execution",
+            action="store_false",
+            help="force it off. The run then reports the dense-only score.",
+        )
+        parser.add_argument("--execution-candidates", type=int, default=None)
+        parser.add_argument("--execution-timeout", type=float, default=None)
+        parser.add_argument("--execution-workers", type=int, default=None,
+                            help="concurrent sandbox runs (0 = one per CPU); never changes a result")
+        parser.add_argument("--execution-max-dense-gap", type=float, default=None,
+                            help="skip candidates scoring more than this below the row's best")
+        parser.add_argument("--hubness", type=Path, default=None, help="reference hub profile .npz")
+        parser.add_argument("--output", type=Path, default=Path("results/appsretrieval_results.json"))
+        parser.add_argument("--overwrite", action="store_true",
+                            help="replace an existing --output (never done by default)")
+        parser.add_argument("--predictions", type=Path, default=None, help="also write ranked CSVs here")
+        parser.add_argument("--batch-size", type=int, default=32)
+        parser.add_argument("--device", choices=["auto", "cuda", "cpu"], default="cpu")
+        parser.add_argument(
+            "--corpus-cache",
+            type=Path,
+            default=None,
+            help="content-addressed SQLite store of DOCUMENT vectors: filled on first use "
+                 "(offline, GPU allowed), reused afterwards so only queries are encoded",
+        )
+        parser.add_argument(
+            "--require-complete-corpus-cache",
+            action="store_true",
+            help="abort before encoding anything if a document is missing from --corpus-cache "
+                 "(the judge-facing run must never quietly encode a corpus on CPU)",
+        )
+        parser.add_argument(
+            "--query-store",
+            type=Path,
+            default=None,
+            help="crash-safe SQLite store of QUERY vectors. Every vector is still computed by the CPU "
+                 "encoder at evaluation time; the store lets a multi-hour run resume or be split into "
+                 "shards. Without it queries are simply encoded in one pass, as a judge's run does.",
+        )
+        parser.add_argument(
+            "--query-shard",
+            default=None,
+            metavar="I/N",
+            help="encode only shard I of N (by hash of the query) into --query-store, then stop; "
+                 "--output then receives a shard report instead of an MTEB result",
+        )
+        parser.add_argument(
+            "--query-verify",
+            type=int,
+            default=0,
+            help="re-encode this many stored queries live and require them to match (cosine >= 0.999)",
+        )
+        parser.add_argument("--require-complete-query-store", action="store_true",
+                            help="strict replay: reject missing, extra, corrupt or incompatible query vectors")
+        parser.add_argument("--corpus-manifest", type=Path, default=None,
+                            help="verify the corpus count, ordered texts and vector keys against this manifest")
+        args = parser.parse_args()
+        if args.require_complete_query_store and (args.query_store is None or args.query_shard):
+            parser.error("--require-complete-query-store needs --query-store and forbids --query-shard")
+        if args.query_verify < 0:
+            parser.error("--query-verify must be nonnegative")
+        if args.corpus_manifest is not None and args.corpus_cache is None:
+            parser.error("--corpus-manifest requires --corpus-cache")
+    
+        query_shard = None
+        if args.query_shard:
+            try:
+                index, count = (int(part) for part in args.query_shard.split("/"))
+            except ValueError:
+                raise SystemExit("--query-shard must look like 1/3 (shard index 0-based / shard count)")
+            if not (0 <= index < count):
+                raise SystemExit("--query-shard index must satisfy 0 <= I < N")
+            if args.query_store is None:
+                raise SystemExit("--query-shard needs --query-store")
+            query_shard = (index, count)
+    
+        if args.output.exists() and not args.overwrite:
+            raise SystemExit(f"{args.output} already exists; choose another --output or pass --overwrite")
+    
+        try:
+            import mteb
+        except ImportError as error:
+            raise SystemExit(
+                "Install evaluator dependencies first: pip install -r requirements-eval.txt"
+            ) from error
+    
+        config_path = args.config or get_default_config_path()
+        tier_model, tier_revision = get_tier_model(args.tier, config_path)
+        model_name = args.model or tier_model or get_default_model(config_path)
+        revision = args.revision or (tier_revision if args.model is None else None)
+        device = _select_device(args.device)
+    
+        print(f"Config          : {config_path}")
+        print(f"Tier            : {args.tier}")
+        print(f"Model           : {model_name}" + (f"@{revision[:8]}" if revision else ""))
+        print(f"Device          : {device}")
+    
+        encoder = CodeEncoder(
+            model_name=model_name,
+            revision=revision,
+            device=device,
+            config_path=config_path,
+            torch_dtype=select_dtype(device),
+        )
+        print(f"Query prefix    : {encoder.query_prefix!r}")
+        print(f"Document prefix : {encoder.document_prefix!r}")
+        print(f"max_seq_length  : {encoder.max_seq_length}   add_eos_token: {encoder.add_eos_token}")
+    
+        reranker_config = RerankerConfig.load(args.weights)
+        if args.no_rerank:
+            reranker_config = RerankerConfig()
+            print("Reranker        : DISABLED (--no-rerank, dense-only ablation)")
+        elif reranker_config.is_identity:
+            print("Reranker        : identity (no fitted weights found -- dense only)")
+        else:
+            print(f"Reranker        : {reranker_config.describe()}")
+    
+        pipeline_defaults = get_pipeline_config(config_path)
+        execution_config = load_execution_config(config_path)
+        overrides = {}
+        for value, key in ((args.execution, "enabled"), (args.execution_candidates, "max_candidates"),
+                           (args.execution_timeout, "timeout_seconds"),
+                           (args.execution_max_dense_gap, "max_dense_gap")):
+            if value is not None:
+                overrides[key] = value
+        if args.execution_workers is not None:
+            overrides["workers"] = resolve_workers(args.execution_workers)
+        execution_config = replace(execution_config, **overrides)
+        if execution_config.enabled:
+            print(f"Execution pass  : ON (top {execution_config.max_candidates}, "
+                  f"{execution_config.timeout_seconds}s timeout, "
+                  f"dense gap {execution_config.max_dense_gap}, "
+                  f"{execution_config.workers} workers)")
+            print("                  This RUNS PYTHON FROM THE DATASET in a sandboxed")
+            print("                  subprocess. Pass --no-execution to disable it.")
+        else:
+            print("Execution pass  : off")
+    
+        corpus_cache = None
+        if args.corpus_cache is not None:
+            from app.indexing.cache import EmbeddingCache
+    
+            args.corpus_cache.parent.mkdir(parents=True, exist_ok=True)
+            corpus_cache = EmbeddingCache(args.corpus_cache)
+            print(f"Corpus cache    : {args.corpus_cache} ({corpus_cache.count()} vectors)")
+        query_store = None
+        if args.query_store is not None:
+            from app.indexing.cache import EmbeddingCache
+    
+            args.query_store.parent.mkdir(parents=True, exist_ok=True)
+            query_store = EmbeddingCache(args.query_store)
+            print(f"Query store     : {args.query_store} ({query_store.count()} vectors)"
+                  + (f"  SHARD {query_shard[0]}/{query_shard[1]}" if query_shard else ""))
+        hubness_bank = load_hubness_bank(pipeline_defaults["hubness_bank"])
+        if hubness_bank is not None:
+            print(f"Hubness bank    : {pipeline_defaults['hubness_bank']} ({len(hubness_bank)} statements, "
+                  f"beta {pipeline_defaults['hubness_beta']}, k {pipeline_defaults['hubness_k']})")
+        pipeline = PrePostPipelineEncoder(
+            encoder, reranker_config, execution_config=execution_config, corpus_cache=corpus_cache,
+            hubness_bank=hubness_bank, hubness_beta=pipeline_defaults["hubness_beta"],
+            hubness_k=pipeline_defaults["hubness_k"],
+            require_complete_corpus_cache=args.require_complete_corpus_cache,
+            query_store=query_store, query_shard=query_shard, query_verify=args.query_verify,
+            require_complete_query_store=args.require_complete_query_store,
+            corpus_manifest=(json.loads(args.corpus_manifest.read_text(encoding="utf-8"))
+                             if args.corpus_manifest is not None else None),
+        )
+        if args.hubness and args.hubness.exists():
+            pipeline.hub_profile_path = args.hubness
+            print(f"Hub profile     : {args.hubness} (aligned by document content)")
+    
+        mteb_model = build_mteb_encoder(pipeline, model_name)
+    
+        # Persist intent before task loading/evaluation. Failure to write this log
+        # aborts before test access; completed metrics are recorded below.
+        from app.evaluation_harness import record_persistent_audit
+        import hashlib
+        record_persistent_audit(
+            reason="query_shard_started" if query_shard else "final_run_started",
+            row_count=0, caller="scripts/evaluate_mteb.py",
+            extra={"expected_queries": APPS_TEST_QUERIES,
+                   "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),
+                   "model": model_name, "revision": revision, "device": device,
+                   "query_shard": list(query_shard) if query_shard else None,
+                   "query_store": bool(query_store), "require_complete_corpus_cache": args.require_complete_corpus_cache},
+        )
+        print("\nFetching task AppsRetrieval ...")
+        task = mteb.get_task("AppsRetrieval")
+        from app.indexing.cache_validation import APPS_DATASET
+    
+>       if dict(task.metadata.dataset) != APPS_DATASET:
+                ^^^^^^^^^^^^^
+E       AttributeError: 'types.SimpleNamespace' object has no attribute 'metadata'
+
+/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/scripts/evaluate_mteb.py:323: AttributeError
+----------------------------- Captured stdout call -----------------------------
+Config          : /Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/config/submission.yaml
+Tier            : accuracy
+Model           : codefuse-ai/F2LLM-v2-1.7B@3766d46e
+Device          : cpu
+Query prefix    : 'Q: '
+Document prefix : ''
+max_seq_length  : 8192   add_eos_token: True
+Reranker        : identity (no fitted weights found -- dense only)
+Execution pass  : off
+Corpus cache    : /private/var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/pytest-of-manishharigovind/pytest-9/test_the_default_output_is_und0/corpus.sqlite (7 vectors)
+
+Fetching task AppsRetrieval ...
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_evaluate_mteb_cli.py::test_three_shards_then_a_verified_final_run
+  /Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/.venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+tests/test_sandbox_runner.py::TestFailuresAreReportedNotRaised::test_subprocess_error_at_spawn_is_caught
+  /Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/app/pipeline/execution_rerank.py:963: RuntimeWarning: execution sandbox could not start a process (Exception occurred in preexec_fn.); candidates are not being verified
+    outcome = execute_candidate(code, example.stdin, config)
+
+tests/test_workbench.py::TestWorkbenchOnARealSubtree::test_a_pass_that_could_not_run_says_so
+  /Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/.venv/lib/python3.12/site-packages/_pytest/fixtures.py:1313: PytestRemovedIn10Warning: Class-scoped fixture defined as instance method is deprecated.
+  Instance attributes set in this fixture will NOT be visible to test methods,
+  as each test gets a new instance while the fixture runs only once per class.
+  Use @classmethod decorator and set attributes on cls instead.
+  See https://docs.pytest.org/en/stable/deprecations.html#class-scoped-fixture-as-instance-method
+    fixturefunc = resolve_fixture_function(fixturedef, request)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_judge_like_io.py:33: macOS fstat on a pipe reports the bytes already buffered (CI, 2026-09-26), so the idiom can pass through a pipe there; Linux and Windows report 0
+SKIPPED [1] tests/test_sandbox_runner.py:57: limits are enforced on Linux
+SKIPPED [1] tests/test_sandbox_runner.py:68: RLIMIT_AS is enforced on Linux
+SKIPPED [1] tests/test_sandbox_runner.py:183: RLIMIT_CPU is enforced on Linux
+SKIPPED [1] tests/test_sandbox_runner.py:187: RLIMIT_CPU is enforced on Linux
+SKIPPED [1] tests/test_sandbox_runner.py:191: RLIMIT_CPU is enforced on Linux
+4 failed, 600 passed, 6 skipped, 6 deselected, 4 warnings, 5 subtests passed in 53.34s

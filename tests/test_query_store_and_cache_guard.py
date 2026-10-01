@@ -19,6 +19,7 @@ from app.pipeline.encoder import (
     CorpusCacheIncomplete,
     PrePostPipelineEncoder,
     QueryShardEncoded,
+    QueryStoreIncomplete,
     mteb_document_text,
 )
 
@@ -190,3 +191,84 @@ def test_verification_passes_on_honest_vectors_and_fails_on_tampered_ones(tmp_pa
     victim = PrePostPipelineEncoder(StubEncoder(), query_store=store, query_verify=len(QUERIES))
     with pytest.raises(RuntimeError, match="do not reproduce"):
         victim.encode(batches(QUERIES), prompt_type="query")
+
+
+def test_strict_replay_reuses_all_queries_without_encoding_missing_ones(tmp_path):
+    encoder = StubEncoder()
+    store = EmbeddingCache(tmp_path / "q.db")
+    PrePostPipelineEncoder(encoder, query_store=store).encode(batches(QUERIES), prompt_type="query")
+    encoder.encoded.clear()
+    strict = PrePostPipelineEncoder(encoder, query_store=store, require_complete_query_store=True)
+    strict.encode(batches(QUERIES), prompt_type="query")
+    assert strict.query_stats == {"hits": 23, "encoded": 0} and encoder.encoded == []
+
+
+@pytest.mark.parametrize("defect", ["missing", "extra", "nan", "dimension", "norm", "zero"])
+def test_strict_replay_rejects_invalid_stores_before_any_encoding(tmp_path, defect):
+    encoder = StubEncoder()
+    store = EmbeddingCache(tmp_path / "q.db")
+    PrePostPipelineEncoder(encoder, query_store=store).encode(batches(QUERIES), prompt_type="query")
+    key = recipe_cache_key(encoder, QUERIES[0], "query")
+    vector = store.get(key).copy()
+    if defect == "missing":
+        store.conn.execute("DELETE FROM embedding_cache WHERE cache_key = ?", (key,))
+        store.conn.commit()
+    elif defect == "extra":
+        store.put("unexpected", vector)
+    elif defect == "nan":
+        vector[0] = np.nan
+        store.put(key, vector)
+    elif defect == "dimension":
+        store.put(key, vector[:-1])
+    elif defect == "norm":
+        store.put(key, vector * 2)
+    else:
+        store.put(key, np.zeros_like(vector))
+    encoder.encoded.clear()
+    strict = PrePostPipelineEncoder(encoder, query_store=store, require_complete_query_store=True)
+    with pytest.raises(QueryStoreIncomplete):
+        strict.encode(batches(QUERIES), prompt_type="query")
+    assert encoder.encoded == []
+
+
+def test_live_verification_rejects_a_nan_encoder_output(tmp_path, monkeypatch):
+    encoder = StubEncoder()
+    store = EmbeddingCache(tmp_path / "q.db")
+    PrePostPipelineEncoder(encoder, query_store=store).encode(batches(QUERIES), prompt_type="query")
+    monkeypatch.setattr(encoder, "encode", lambda *a, **k: np.full((1, encoder.dimension), np.nan, dtype=np.float32))
+    strict = PrePostPipelineEncoder(encoder, query_store=store, query_verify=30, require_complete_query_store=True)
+    with pytest.raises(ValueError, match="non-finite"):
+        strict.encode(batches(QUERIES), prompt_type="query")
+
+
+def test_corpus_manifest_checks_order_and_exact_recipe_keys(tmp_path):
+    from app.indexing.cache_validation import text_fingerprint
+
+    texts = ["x=1", "y=2", "z=3"]
+    encoder = StubEncoder()
+    store = EmbeddingCache(tmp_path / "corpus.db")
+    store.put_many([(recipe_cache_key(encoder, text), encoder.encode(text)) for text in texts])
+    manifest = {"documents": 3, "texts_sha256": text_fingerprint(texts)}
+    strict = PrePostPipelineEncoder(encoder, corpus_cache=store, corpus_manifest=manifest,
+                                    require_complete_corpus_cache=True)
+    strict.encode(batches(texts), prompt_type="document")
+    with pytest.raises(CorpusCacheIncomplete, match="fingerprint"):
+        strict.encode(batches(list(reversed(texts))), prompt_type="document")
+    store.put("extra", encoder.encode("extra"))
+    with pytest.raises(CorpusCacheIncomplete, match="unexpected"):
+        strict.encode(batches(texts), prompt_type="document")
+
+
+def test_strict_replay_refuses_nonfinite_scores_or_silently_skipped_verification(tmp_path, monkeypatch):
+    from app.pipeline.execution_rerank import ExecutionConfig
+
+    encoder = StubEncoder()
+    store = EmbeddingCache(tmp_path / "q.db")
+    strict = PrePostPipelineEncoder(encoder, query_store=store, require_complete_query_store=True,
+                                    execution_config=ExecutionConfig(enabled=True))
+    monkeypatch.setattr(encoder, "similarity", lambda a, b: np.full((1, 1), np.nan), raising=False)
+    with pytest.raises(RuntimeError, match="non-finite retrieval"):
+        strict.similarity(np.zeros((1, 16)), np.zeros((1, 16)))
+    monkeypatch.setattr(encoder, "similarity", lambda a, b: np.ones((1, 1)))
+    with pytest.raises(RuntimeError, match="query texts"):
+        strict.similarity(np.zeros((1, 16)), np.zeros((1, 16)))

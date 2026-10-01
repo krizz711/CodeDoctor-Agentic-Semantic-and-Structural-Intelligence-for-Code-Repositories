@@ -1,5 +1,6 @@
-# Optional GPU extras for the offline encode. The pipeline itself is CPU-only;
-# this exists because encoding 17,530 texts once is faster on a GPU.
+# Optional GPU extras for document preprocessing. The judge-facing query recipe
+# uses CPU; GPU preprocessing and updates are allowed by the verbatim jury FAQ.
+# Install the platform's torch==2.8.0 CUDA wheel before this file.
 #
 # Note on dtype: Turing GPUs (T4) have no native bfloat16 and torch emulates it,
 # which makes the encode roughly an order of magnitude slower. CodeEncoder picks

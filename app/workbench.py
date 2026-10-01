@@ -28,6 +28,7 @@ Three deliberate choices:
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -424,8 +425,11 @@ class Workbench:
                 return False, f"{root} no longer exists"
             return True, ""
         if target.kind == "apps":
+            tier = self._tier()
+            tag = "f2llm17b" if tier == "accuracy" else "f2llm06b"
             needed = [
-                APPS_ARTIFACTS / "emb_f2llm06b_corpus.npy",
+                APPS_ARTIFACTS / f"emb_{tag}_corpus.npy",
+                APPS_ARTIFACTS / "manifest.json",
                 APPS_ARTIFACTS / "texts_corpus.jsonl",
                 APPS_ARTIFACTS / "texts_queries_train.jsonl",
                 APPS_ARTIFACTS / "qrels_train.json",
@@ -435,8 +439,12 @@ class Workbench:
             if missing:
                 return False, (
                     f"artifacts/apps is not built ({', '.join(missing[:2])} missing). "
-                    "Run: python scripts/encode_apps.py"
+                    f"Build artifacts explicitly for --tier {tier}; no other tier is substituted."
                 )
+            try:
+                self._apps_manifest()
+            except (ValueError, RuntimeError, KeyError, OSError) as error:
+                return False, f"Apps artifacts rejected: {error}"
             return True, ""
         base = REPO_ROOT / target.subtree if target.subtree else REPO_ROOT
         if not base.exists():
@@ -894,18 +902,80 @@ class Workbench:
 
     # -- apps target -------------------------------------------------------
 
+    def _apps_manifest(self) -> tuple[str, dict]:
+        """Validate recipe provenance without downloading/loading any model.
+
+        Legacy arrays cannot prove their recipe or row order. They must be
+        regenerated; matching dimensions alone never permits mixing encoders.
+        """
+        from app.retrieval.encode import CodeEncoder
+
+        tier = self._tier()
+        tag = "f2llm17b" if tier == "accuracy" else "f2llm06b"
+        encoder = CodeEncoder(tier=tier, device="cpu")
+        manifest = json.loads((APPS_ARTIFACTS / "manifest.json").read_text(encoding="utf-8"))
+        if not isinstance(manifest, dict):
+            raise RuntimeError("manifest must be a mapping")
+        models = manifest.get("models", {})
+        if not isinstance(models, dict) or not isinstance(models.get(tag), dict):
+            raise RuntimeError(f"manifest has no {tier} model record ({tag})")
+        record = models[tag]
+        expected = {"model_name": encoder.model_name, "revision": encoder.revision, "tier": tier,
+                    "document_recipe_key": recipe_cache_key(encoder, "", mode="document"),
+                    "query_recipe_key": recipe_cache_key(encoder, "", mode="query")}
+        for name, value in expected.items():
+            if record.get(name) != value:
+                raise RuntimeError(f"{tag} {name} does not match the selected encoder; regenerate artifacts")
+        dimension = record.get("dim")
+        if not isinstance(dimension, int) or isinstance(dimension, bool) or dimension <= 0:
+            raise RuntimeError("manifest dimension must be a positive integer")
+        corpus = record.get("corpus")
+        if not isinstance(corpus, dict):
+            raise RuntimeError("legacy arrays lack corpus hashes and row-order provenance; regenerate artifacts")
+        for name in ("array_sha256", "ids_sha256", "texts_sha256"):
+            digest = corpus.get(name)
+            if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+                raise RuntimeError(f"corpus {name} is missing or invalid")
+        return tag, record
+
     def _build_apps(self, target: Target) -> TargetIndex:
         self._set(phase="reading", message="Loading the AppsRetrieval artifacts")
+        tag, record = self._apps_manifest()
+        corpus_record = record["corpus"]
+        for name, filename in (("array_sha256", f"emb_{tag}_corpus.npy"),
+                               ("ids_sha256", "ids_corpus.json"),
+                               ("texts_sha256", "texts_corpus.jsonl")):
+            digest = hashlib.sha256()
+            with (APPS_ARTIFACTS / filename).open("rb") as stream:
+                for block in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(block)
+            if digest.hexdigest() != corpus_record[name]:
+                raise RuntimeError(f"{filename} checksum differs from its corpus provenance")
         corpus_ids = json.loads((APPS_ARTIFACTS / "ids_corpus.json").read_text(encoding="utf-8"))
         corpus_texts = _read_jsonl_texts(APPS_ARTIFACTS / "texts_corpus.jsonl")
         query_texts = _read_jsonl_texts(APPS_ARTIFACTS / "texts_queries_train.jsonl")
         qrels = json.loads((APPS_ARTIFACTS / "qrels_train.json").read_text(encoding="utf-8"))
-        embeddings = np.load(APPS_ARTIFACTS / "emb_f2llm06b_corpus.npy").astype(np.float32)
+        embeddings = np.load(APPS_ARTIFACTS / f"emb_{tag}_corpus.npy", allow_pickle=False).astype(np.float32)
 
-        if len(corpus_ids) != embeddings.shape[0]:
+        if (not isinstance(corpus_ids, list) or not corpus_ids
+                or any(not isinstance(value, str) or not value for value in corpus_ids)
+                or len(corpus_ids) != len(set(corpus_ids))):
+            raise RuntimeError("corpus ids must be unique nonempty strings in embedding row order")
+        if embeddings.ndim != 2 or embeddings.shape != (len(corpus_ids), record["dim"]):
             raise RuntimeError(
-                f"{len(corpus_ids)} corpus ids against {embeddings.shape[0]} embedding rows"
+                f"embedding shape {embeddings.shape} does not match {len(corpus_ids)} ids and dim {record['dim']}"
             )
+        if corpus_record.get("rows") != len(corpus_ids) or set(corpus_texts) != set(corpus_ids):
+            raise RuntimeError("corpus ids, text records and recorded embedding rows are not aligned")
+        if not np.isfinite(embeddings).all() or np.any(np.linalg.norm(embeddings, axis=1) == 0):
+            raise RuntimeError("corpus embeddings must be finite nonzero vectors")
+        encoder = self._get_encoder()
+        if (encoder.model_name != record["model_name"] or encoder.revision != record["revision"]
+                or recipe_cache_key(encoder, "", mode="document") != record["document_recipe_key"]
+                or recipe_cache_key(encoder, "", mode="query") != record["query_recipe_key"]):
+            raise RuntimeError("loaded encoder does not match the artifact model and recipe")
+        if encoder.model.get_sentence_embedding_dimension() != record["dim"]:
+            raise RuntimeError("artifact dimensions do not match the loaded encoder")
 
         documents = [
             Document(
@@ -922,7 +992,7 @@ class Workbench:
         ]
 
         self._set(phase="chunking", message=f"{len(documents)} solutions, vectors precomputed")
-        index = VersionedIndex(encoder=self._get_encoder())
+        index = VersionedIndex(encoder=encoder)
         index.add_snapshot("train", documents, embeddings=embeddings)
         self._set(message=f"Building the lexical index over {len(documents)} solutions")
         index.warm("train")
@@ -1380,7 +1450,12 @@ def _read_jsonl_texts(path: Path) -> dict[str, str]:
             if not line:
                 continue
             row = json.loads(line)
-            texts[row["id"]] = row.get("text", "")
+            if (not isinstance(row, dict) or not isinstance(row.get("id"), str)
+                    or not row["id"] or not isinstance(row.get("text"), str)):
+                raise RuntimeError(f"{path.name} requires string id and text records")
+            if row["id"] in texts:
+                raise RuntimeError(f"{path.name} contains duplicate id {row['id']!r}")
+            texts[row["id"]] = row["text"]
     return texts
 
 

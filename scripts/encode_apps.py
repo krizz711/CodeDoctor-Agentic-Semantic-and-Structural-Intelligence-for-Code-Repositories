@@ -20,6 +20,7 @@ the encoder, so a second model is a cheap incremental run.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import time
@@ -32,6 +33,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from app.retrieval.encode import CodeEncoder, _select_device, select_dtype  # noqa: E402
+from app.indexing.cache import recipe_cache_key  # noqa: E402
 
 DEFAULT_TAGS = {"accuracy": "f2llm17b", "interactive": "f2llm06b"}
 
@@ -165,14 +167,31 @@ def main() -> int:
 
     manifest["instruction"] = encoder.query_prefix
     manifest["max_seq_length"] = encoder.max_seq_length
-    manifest["models"][tag] = {
+    record = {
         "model_name": encoder.model_name,
         "revision": encoder.revision,
         "tier": args.tier,
         "device": device,
         "dim": int(encoder.model.get_sentence_embedding_dimension()),
         "seconds": timings,
+        "document_recipe_key": recipe_cache_key(encoder, "", mode="document"),
+        "query_recipe_key": recipe_cache_key(encoder, "", mode="query"),
     }
+    if "corpus" in wanted:
+        def file_hash(path: Path) -> str:
+            digest = hashlib.sha256()
+            with path.open("rb") as stream:
+                for block in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(block)
+            return digest.hexdigest()
+
+        record["corpus"] = {
+            "rows": len(corpus_texts),
+            "array_sha256": file_hash(args.out / f"emb_{tag}_corpus.npy"),
+            "ids_sha256": file_hash(args.out / "ids_corpus.json"),
+            "texts_sha256": file_hash(args.out / "texts_corpus.jsonl"),
+        }
+    manifest["models"][tag] = record
     manifest["counts"] = {
         "corpus": len(corpus_ids),
         "qtrain": len(train_ids),

@@ -1,84 +1,84 @@
 # Submission checklist
 
-Theme 01 asks for three things. Two are done and in the repository; the third
-is a GitHub release, which is a manual step on purpose.
+This checklist follows `theme1_guidelines.pdf` and the verbatim jury FAQ in
+`CLAUDE.md`. The current CPU submission has no validated current P0 result yet.
+The root JSON and CSVs preserve a historical GPU-query run and must remain labeled
+historical until a complete, source-matched final report is available.
 
-| deliverable | state |
-|---|---|
-| MTEB results JSON from the test split | **done** — [`appsretrieval_results.json`](../appsretrieval_results.json), NDCG@10 = 0.96558 |
-| Deck | **done** — [`CodeDoctor-PRISM-Theme01.pptx`](CodeDoctor-PRISM-Theme01.pptx), 13 slides |
-| Repository with runnable instructions | **done** — [`README.md`](../README.md) §1 and §6 |
-| Attached to a GitHub release, tagged | **outstanding** — steps below |
+## Deliverables and current state
 
----
+| Deliverable | Current state | Evidence or action |
+| --- | --- | --- |
+| Runnable source and setup instructions | Present; current clean-environment validation must be attached | `README.md`, `scripts/README.md`, portable `requirements-submission.txt` |
+| Current test-split MTEB JSON | Pending | Official `AppsRetrieval`, `cache=None`, frozen choice, one logged reporting run |
+| Current ranked-response CSV | Pending | Generate from the same MTEB predictions; brief p.2 explicitly asks for responses CSV |
+| Metrics CSV and execution audit | Historical root files present; current files pending | Attach matching run outputs and fallback counts |
+| PPT and optional matching PDF | Local artifacts must be checked against current evidence | `VITV_Doctors_Submission.pptx`, `VITV_Doctors_Submission.pdf` |
+| Demo video | Original local recording verified at 346.133 seconds; public link unchanged | Five-minute maximum is in supplied PPT slide 11; inspect the local cut preview and narration |
+| AI usage form | Generated official form; human review and sign-off pending | `LangAI3.0_AI_Disclosure.docx` |
+| GitHub Release and required run artifacts | Existing submitted release at `408a61f`; corrections are local only | A corrected release needs a validated run and explicit permission; do not move the submitted tag automatically |
 
-## 1. The release
+The brief's explicit materials are JSON, PPT and runnable repository instructions;
+it also requests response CSV and reviews a demo video during hands-on. P1 and
+Bonus are evaluated there. A JSON format check is not score reproduction.
 
-> **Check the tag against the portal before pushing it.** The official
-> `theme1_guidelines.pdf` does **not** name a tag. It says only "make a GitHub
-> release and upload the generated file" and links GitHub's own release guide.
-> The string `PRISM_GENAI_HACKATHON_Y2026` comes from our internal
-> `THEME1-BUILD-PLAN-v3.pdf`, p11 — it may have been taken from a submission
-> portal we cannot see from here, or it may have been invented during
-> planning. A release and a tag can both be deleted and recreated, so this is
-> recoverable, but it is worth thirty seconds of checking because the tag is
-> how judges find the submission.
+## Evidence required before the final decision
 
-Tag (unverified, see above): **`PRISM_GENAI_HACKATHON_Y2026`**
+- Record exact source commit and hashes, frozen config hash, model revision,
+  dataset revision/split, commands, timestamps, exit codes, device, hardware,
+  package versions and raw logs.
+- Separate CPU query encoding, scoring replay and example execution time.
+  Reusing a CPU checkpoint is not a live-latency measurement or MTEB result cache.
+  GPU query vectors cannot substantiate the CPU operating point.
+- Report full NDCG@10 and MRR values with their operating point. Do not combine
+  1.7B accuracy with 0.6B latency. The historical 0.96558/0.95857 result used GPU
+  query encoding and the original frozen configuration.
+- Report P1 medians, changed/reused chunks, fresh-rebuild equivalence and resources
+  on the measured fixture. Current retained evidence uses source `823aa87` and
+  a 2.20 GHz Xeon (4 logical/2 physical CPUs), three repetitions, 40 functions.
+- Label Bonus as a synthetic 12-lineage/three-version correctness fixture:
+  12/12 correct variants first versus 1/12 without verification. This is not
+  unseen-dataset accuracy or a general 12-fold accuracy gain.
+- Quote relevant FAQ answers, record objections and the cheapest falsifying
+  checks, and preserve the explicit team boundary for test access/final decisions.
+  The jury will rerun MTEB and use an internal unseen Python dataset.
 
-What the guidelines *do* require, verbatim: a **CSV of the responses from the
-test split**, and the **MTEB JSON** attached to a release. Both are in the
-list below.
+Raw retained P1/Bonus evidence is under `results/hands-on/`; document preprocessing
+and measured freezes are under `results/documents/`. These records predate the
+current fixes and do not establish current benchmark parity.
 
-Attach these four files. All are committed at the repository root, so they can
-be dragged straight from a clone — or downloaded from the tagged tree on
-GitHub:
+## Disclosures that must stay aligned
 
-| file | what it is |
-|---|---|
-| `appsretrieval_results.json` | the scored artifact, MTEB's own output, 8.3 KB |
-| `submission_predictions.csv` | ranked responses, 3,765 queries × top 10, 884 KB |
-| `submission_metrics.csv` | the flat metric table, 1 KB |
-| `execution_audit.json` | what the third pass did: 73,520 candidates executed, 3,385 verified |
+The repository discloses plausible APPS/CodeContests training exposure through
+OpenCodeReasoning-2 and xCodeEval, with exact per-problem exposure unverified.
+Earlier execution-depth and numeric-comparison choices used the test split.
+The FAQ accepts benchmark-exposed models, prefers documentation, and warns against
+overfitting; static parsing and dynamic execution are allowed.
 
-```bash
-git tag -a PRISM_GENAI_HACKATHON_Y2026 -m "Samsung PRISM GenAI Hackathon 2026 - Theme 01 submission"
-git push origin PRISM_GENAI_HACKATHON_Y2026
-```
+The FAQ permits GPU pre/post processing, including incremental updates, and asks
+for minimal GPU retrieval (ideally CPU). It counts retrieval APIs as GPU usage.
+It permits non-incremental P1 approaches while evaluating time and resources.
+Permissible licenses are preferred; non-commercial models are not disqualified.
+Upstream licenses still apply, and this repository has no top-level license grant.
 
-Then create the release from that tag in the GitHub UI and attach the four
-files. A tag and a release can both be deleted and recreated if the name turns
-out to be wrong, so this is recoverable — but it is worth checking the exact
-string against the official brief before pushing, since the tag is how judges
-find the submission.
+Opening an arbitrary folder creates a single `working` snapshot; it does not
+import external Git history. Demonstrate version comparison with a built-in
+history target and label the model tier. Passing worked examples does not prove
+correctness. The subprocess runner limits resources without network/filesystem
+isolation. The AI form must not claim a human attestation or digital signature
+until the representative supplies it.
 
-## 2. Making the Kaggle notebook public
+## Release preparation
 
-The reproduction notebook is
-`munalsingh/codedoctor-appsretrieval-reproduction`. It is private, and it
-holds the saved cell outputs of a full end-to-end run.
+The PDF requires a GitHub Release and artifacts. The official submission portal
+screenshot supplied by the user additionally requires the exact tag
+`PRISM_GENAI_HACKATHON_Y2026`; it says the tagged commit is judged and every
+referenced submission material must be present there. The absence of that name
+from the theme PDF does not override the supplied portal requirement.
+This local checklist does not create a tag, upload artifacts or make anything public.
 
-> **Flip it public from the Kaggle UI** — notebook → *Settings* → *Sharing* →
-> *Public*.
->
-> Do **not** flip it by editing `kernel-metadata.json` and re-pushing.
-> `kaggle kernels push` creates a new *version* and re-runs the notebook from
-> scratch, which discards the saved outputs and costs about three and a half
-> hours of GPU time to get back. The metadata change is not worth a re-run.
-
-Once it is public, paste the link into the deck's closing slide and into
-[`README.md`](../README.md) §6, next to the generator table.
-
-## 3. Worth re-checking on the day
-
-- `pytest -q` — the full suite including the two weight-loading tests.
-- `python scripts/validate_submission.py appsretrieval_results.json` — should
-  print `Valid retrieval result`.
-- The headline number appears in six places and they must agree:
-  `appsretrieval_results.json`, `submission_metrics.csv`, `README.md`,
-  `docs/SUBMISSION-DECK.md`, `docs/RETRIEVAL-PIPELINE.md` and the built
-  `.pptx`. All six currently read **0.96558** — verified, not assumed:
-
-  ```bash
-  grep -rl 0.96558 appsretrieval_results.json submission_metrics.csv README.md docs/
-  ```
+Attach the final run's MTEB JSON, response CSV, metrics CSV, execution audit and
+reproduction evidence plus files needed to run. Include the current PPT, demo
+and reviewed AI form as required by the submission portal. Verify every required
+local path, use the measured source commit, and keep README/deck/video/metrics
+consistent. Archive superseded results with their historical operating point.

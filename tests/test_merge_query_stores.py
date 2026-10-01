@@ -1,4 +1,5 @@
 import json
+import hashlib
 
 import numpy as np
 import pytest
@@ -54,3 +55,16 @@ def test_the_cli_writes_a_manifest_and_enforces_the_expected_row_count(tmp_path,
     assert manifest["rows"] == 2
     with pytest.raises(SystemExit, match="expected 5"):
         main(["--out", str(tmp_path / "again.sqlite"), "--expect", "5", str(a)])
+
+
+def test_strict_merge_rejects_overlaps_bad_vectors_and_wrong_shard(tmp_path):
+    a = store(tmp_path / "a.sqlite", [("k1", unit(1))])
+    b = store(tmp_path / "b.sqlite", [("k1", unit(1))])
+    with pytest.raises(ValueError, match="overlap"):
+        merge([a, b], tmp_path / "overlap.sqlite", dimension=8, require_disjoint=True)
+    index = int(hashlib.sha256(b"k1").hexdigest()[:12], 16) % 2
+    with pytest.raises(ValueError, match="declared shard"):
+        merge([a], tmp_path / "wrong-shard.sqlite", dimension=8, shards=[(1 - index, 2)])
+    corrupted = store(tmp_path / "nan.sqlite", [("k2", np.full(8, np.nan))])
+    with pytest.raises(ValueError, match="non-finite"):
+        merge([corrupted], tmp_path / "nan-out.sqlite", dimension=8)

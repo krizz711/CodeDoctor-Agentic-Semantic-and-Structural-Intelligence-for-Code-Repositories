@@ -1,10 +1,21 @@
 # Experiment register
 
-Last reviewed: 2026-09-30. Branch: `v3`, base `7d64a80`.
+Last reviewed: 2026-10-01. Local correction branch: `fix/submission-corrections-local`;
+submitted base `408a61f`. Historical research base: `v3`, `7d64a80`.
 This is the current index of research outcomes and future cleanup candidates.
 Evidence below is repository-reported; creating this register did not rerun experiments.
 The protocols and raw results remain authoritative. Historical uses of “ships”
 mean candidate adoption unless a submitted result explicitly establishes otherwise.
+
+## Current reporting status
+
+Local correction work is engineering validation, not a new model experiment.
+The four CPU query shards completed, but a complete source-matched CPU P0 result
+is still absent. Historical GPU-query P0, hosted P1 and constructed Bonus remain
+under their original identities. Reconciliation and blockers are in the
+[local correction record](../docs/submission/LOCAL-CORRECTIONS.md). No Q8/OpenVINO
+adoption, EXT access, fresh score claim, merge or tag change follows from this
+work. All remote writes remain prohibited without explicit user permission.
 
 ## How to maintain this register
 

@@ -1,0 +1,20 @@
+{
+  "checks": "passed",
+  "paragraphs": 41,
+  "changed_parts": [
+    "word/document.xml"
+  ],
+  "human_signoff": "pending",
+  "template_sha256": "b3947950332a44f27c85655ed1c29f295a6b9313ce8eb7c9994bc93506e2069e",
+  "output_sha256": "3df4f45d441fc7900aee8cb151185de4c7e929cfa45f5d195d0b5afd1d89152b",
+  "guards": [
+    "existing output",
+    "template overwrite",
+    "XML escaping"
+  ],
+  "renderer": "bundled LibreOffice only",
+  "render_directory": "build/disclosure/fidelity-diff-2/b_render",
+  "rendered_pages": 2,
+  "all_pages_visually_inspected": true,
+  "video_assistance": "local whisper-tiny.en ASR through Transformers; FFmpeg cut-only preview; human transcript/cut/narration review pending"
+}

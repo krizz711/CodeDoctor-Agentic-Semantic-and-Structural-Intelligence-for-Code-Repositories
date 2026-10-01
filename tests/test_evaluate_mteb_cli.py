@@ -16,7 +16,8 @@ import pytest
 
 import scripts.evaluate_mteb as ev
 from app.indexing.cache import EmbeddingCache, recipe_cache_key
-from app.pipeline.encoder import CorpusCacheIncomplete, mteb_document_text
+from app.indexing.cache_validation import APPS_DATASET
+from app.pipeline.encoder import CorpusCacheIncomplete, QueryStoreIncomplete, mteb_document_text
 
 QUERIES = [f"Return the number {i}.\n\nInput\n{i}\n\nOutput\n{i}\n" for i in range(11)]
 DOCS = [{"id": f"d{i}", "text": f"  print({i})\n"} for i in range(7)]
@@ -60,7 +61,20 @@ def harness(monkeypatch, tmp_path):
     stub = Stub()
     audit: list[dict] = []
     monkeypatch.setattr(ev, "CodeEncoder", lambda **kw: stub)
-    monkeypatch.setattr(mteb, "get_task", lambda name: SimpleNamespace())
+    task = SimpleNamespace(metadata=SimpleNamespace(dataset=dict(APPS_DATASET)), dataset={"default": {"test": {
+        "queries": {"id": [f"q{i}" for i in range(len(QUERIES))]},
+        "corpus": {"id": [row["id"] for row in DOCS]},
+        "relevant_docs": {f"q{i}": {f"d{i % len(DOCS)}": 1} for i in range(len(QUERIES))},
+    }}})
+    task.data_loaded = False
+    task.unload_after_evaluation = False
+
+    def load_data():
+        assert audit and audit[-1]["reason"] == "final_run_started"
+        task.data_loaded = True
+
+    task.load_data = load_data
+    monkeypatch.setattr(mteb, "get_task", lambda name: task)
     monkeypatch.setattr(evaluation_harness, "record_persistent_audit",
                         lambda **kw: audit.append(kw) or kw)
 
@@ -72,7 +86,13 @@ def harness(monkeypatch, tmp_path):
         queries = model.encode(loader(QUERIES), prompt_type="query")
         docs = model.encode(loader([mteb_document_text(d) for d in DOCS]), prompt_type="document")
         model.similarity(queries, docs)
-        payload = {"scores": {"test": [{"ndcg_at_10": 0.5, "mrr_at_10": 0.25}]}}
+        payload = {"task_name": "AppsRetrieval", "dataset_revision": APPS_DATASET["revision"], "mteb_version": "2.21.0",
+                   "scores": {"test": [{"ndcg_at_10": 0.5, "mrr_at_10": 0.25}]}}
+        if task.unload_after_evaluation:
+            for labels in task.dataset["default"]["test"]["relevant_docs"].values():
+                labels.clear()
+            task.dataset = None
+            task.data_loaded = False
         return SimpleNamespace(task_results=[SimpleNamespace(to_dict=lambda: payload)])
 
     monkeypatch.setattr(mteb, "evaluate", fake_evaluate)
@@ -88,7 +108,7 @@ def harness(monkeypatch, tmp_path):
         stub.encoded.clear()
         return tmp_path / "corpus.sqlite"
 
-    return SimpleNamespace(stub=stub, audit=audit, run=run, corpus_cache=corpus_cache, tmp=tmp_path)
+    return SimpleNamespace(stub=stub, audit=audit, run=run, corpus_cache=corpus_cache, tmp=tmp_path, task=task)
 
 
 def test_three_shards_then_a_verified_final_run(harness):
@@ -113,7 +133,7 @@ def test_three_shards_then_a_verified_final_run(harness):
     harness.stub.encoded.clear()
     result = harness.tmp / "result.json"
     harness.run("--corpus-cache", cache, "--require-complete-corpus-cache", "--query-store",
-                harness.tmp / "merged.sqlite", "--query-verify", 4, "--output", result)
+                harness.tmp / "merged.sqlite", "--require-complete-query-store", "--query-verify", 4, "--output", result)
     assert json.loads(result.read_text(encoding="utf-8"))["scores"]["test"][0]["ndcg_at_10"] == 0.5
     # nothing but the 4 verification samples was encoded in the final run
     assert [mode for mode, _ in harness.stub.encoded] == ["query"] * 4
@@ -163,3 +183,63 @@ def test_the_default_output_is_under_results_and_an_execution_audit_sits_beside_
     assert audit["configuration"]["configuration"] == "config/submission.yaml"
     assert audit["configuration"]["model"].endswith("F2LLM-v2-1.7B")
     assert audit["corpus_cache"] == {"hits": len(DOCS), "misses": 0}
+
+
+def test_strict_replay_refuses_a_missing_query_without_live_fallback(harness):
+    cache = harness.corpus_cache()
+    store = EmbeddingCache(harness.tmp / "incomplete.sqlite")
+    store.put_many([(recipe_cache_key(harness.stub, text, "query"), harness.stub.encode(text, mode="query"))
+                    for text in QUERIES[:-1]])
+    harness.stub.encoded.clear()
+    with pytest.raises(QueryStoreIncomplete, match="1 missing"):
+        harness.run("--corpus-cache", cache, "--query-store", harness.tmp / "incomplete.sqlite",
+                    "--require-complete-query-store", "--output", harness.tmp / "incomplete.json")
+    assert harness.stub.encoded == []
+    assert not (harness.tmp / "incomplete.json").exists()
+
+
+def test_an_unexpected_task_revision_aborts_before_encoding(harness):
+    cache = harness.corpus_cache()
+    harness.task.metadata.dataset["revision"] = "wrong"
+    with pytest.raises(RuntimeError, match="dataset revision"):
+        harness.run("--corpus-cache", cache, "--output", harness.tmp / "wrong.json")
+    assert harness.stub.encoded == []
+
+
+def test_strict_replay_cannot_be_used_for_a_shard_or_without_a_store(harness):
+    for arguments in (["--require-complete-query-store"],
+                      ["--require-complete-query-store", "--query-store", "q.sqlite", "--query-shard", "0/3"]):
+        with pytest.raises(SystemExit):
+            harness.run(*arguments)
+    assert harness.audit == []
+
+
+def test_prediction_identity_survives_evaluator_unloading_the_dataset(harness, monkeypatch):
+    from app.indexing import cache_validation
+    from scripts import export_submission_csv
+
+    monkeypatch.setattr(ev, "APPS_TEST_QUERIES", len(QUERIES))
+    monkeypatch.setattr(cache_validation, "APPS_DOCUMENTS", len(DOCS))
+    cache = harness.corpus_cache()
+    store_path = harness.tmp / "complete.sqlite"
+    store = EmbeddingCache(store_path)
+    store.put_many([(recipe_cache_key(harness.stub, text, "query"), harness.stub.encode(text, mode="query"))
+                    for text in QUERIES])
+    harness.stub.encoded.clear()
+    harness.task.unload_after_evaluation = True
+    exports = []
+
+    def capture_export(folder, payload, out, **validation):
+        assert harness.task.dataset is None
+        assert validation["expected_query_ids"] == {f"q{i}" for i in range(len(QUERIES))}
+        assert validation["valid_corpus_ids"] == {row["id"] for row in DOCS}
+        assert validation["qrels"]["q0"] == {"d0": 1}
+        exports.append(validation)
+        return []
+
+    monkeypatch.setattr(export_submission_csv, "export_from_predictions", capture_export)
+    harness.run("--corpus-cache", cache, "--query-store", store_path, "--require-complete-query-store",
+                "--predictions", harness.tmp / "predictions", "--output", harness.tmp / "result.json")
+    assert len(exports) == 1 and harness.stub.encoded == []
+    audit = json.loads((harness.tmp / "execution_audit.json").read_text())
+    assert audit["prediction_identity_setup_seconds"] >= 0

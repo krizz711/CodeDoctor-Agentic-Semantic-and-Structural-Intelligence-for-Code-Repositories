@@ -1,0 +1,11 @@
+{
+  "a_docx": "/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/build/disclosure/template.docx",
+  "b_docx": "/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/LangAI3.0_AI_Disclosure.docx",
+  "pages_a": 2,
+  "pages_b": 2,
+  "changed_pages": [
+    1,
+    2
+  ],
+  "num_changed_pages": 2
+}

@@ -70,6 +70,67 @@ called sub-second. Python fixtures follow the unseen-dataset clarification.
 Model license and benchmark exposure disclosures remain explicit. The FAQ does
 not prescribe a model size, a latency threshold, or a P1/Bonus aggregate score.
 
+## Local correction amendment — 2026-10-01
+
+The user authorized the audited correction plan **locally only**. The submitted
+commit `408a61f0f6e0c2a58528e88155f3dc6a4fa25a33`, local `main`, the official
+tag and every published artifact remain unchanged. Work is on
+`fix/submission-corrections-local`; a local commit is not a submitted amendment.
+No GitHub/Kaggle/YouTube write is authorized by this amendment. Downloading
+previously completed run outputs is read-only evidence collection.
+
+This continues final reporting, not a model or ranking experiment. Keep the
+selected encoder, revision, instruction, pooling, sequence limits and execution
+settings unchanged. Repair artifact validation, the demo's tier mismatch,
+reproduction instructions and unsupported claims before freezing the corrected
+runtime. Preserve all historical evidence and test-split tuning disclosures.
+
+Before scoring, require the exact recipe-key sets of the pinned MTEB query and
+corpus texts, each shard's correct hash membership, no missing/unexpected keys,
+finite nonzero normalized 2,048-dimensional vectors, and matching dataset
+revision `f22508f96b7a36c2415181ed8bb76f76e04ae2d5`. There are 8,765 corpus
+records; identical text may share a vector (the recorded cache has 8,754).
+Use only content and the encoder recipe for these checks; labels and IDs are
+not retrieval features. Preserve the registered 30-query verification seed
+`20260930`, minimum cosine `0.999`, and reject nonfinite live vectors/cosines.
+Final replay must encode zero missing query keys. `cache=None` remains required.
+
+Use disposable isolated Linux for candidate execution, with no personal files
+or credentials mounted. Capture the actual platform, resources, threads,
+packages, model/data/source hashes, memory, timeout and spawn-failure records.
+The existing 11-hour scoring cap and one completed final run remain in force.
+Do not tune or repeat a valid completed run to improve its score. An
+infrastructure failure is retained and its cause reviewed before a retry.
+Keep EXT-lockbox sealed. Complete synthetic negative checks and a real-model
+cold Python functional check before APPS scoring; neither demonstrates unseen
+accuracy. No result from a reduced dataset substitutes for final reporting.
+
+This Mac has 8 GiB RAM, below the recorded 10.85 GB accuracy-tier peak. A local
+Linux evaluation is blocked unless suitable resources become available. A
+cloud notebook may be prepared locally, but uploading/launching it needs new
+explicit authorization. Never substitute lower precision, omit live checks,
+or relabel the historical GPU-query score as the current CPU result.
+
+FAQ alignment: A permits offline GPU document preprocessing; B's efficiency
+concern is respected by accounting for query encoding separately. The
+contamination and generalization answers require qualified disclosures and
+no claim of fresh unseen accuracy. The rerun answer requires an uncached CPU
+query path and working Python inputs. The license answer is a preference,
+not permission to invent a repository license. The P1 answer permits either
+incremental or full rebuilding; report time/resources with the fixture and
+machine. The demo-repository answer permits our reproducible Python fixture.
+The full relevant answers are retained verbatim below. They do not specify
+post-submission amendment permission, a response-CSV schema, a numerical
+latency limit or checkpointing acceptance. The checkpointing choice is the
+team's previously authorized procedure, not an invented jury requirement.
+
+The five-minute video requirement is on slide 11 of the supplied PPT template.
+Prepare cut-only footage under five minutes with the original preserved. Do
+not cut computation waits to imply faster execution. The public 5:46 video
+remains unchanged until separate permission is received. A locally corrected
+deck, video and disclosure do not change the submitted package. Human ethics
+attestations and representative signature cannot be supplied by the agent.
+
 ## Relevant FAQ evidence (verbatim)
 
 The questions are our team's; the answers are from the judge who evaluates this submission. Reproduced exactly as received. No summary is kept: an earlier paraphrase overstated the answers ("CPU-only" for "ideally use the CPU only", "must be documented" for "It would be nice if this fact is documented"). Quote the answers themselves.

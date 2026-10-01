@@ -36,13 +36,16 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def merge(inputs: list[Path], out: Path) -> dict:
+def merge(inputs: list[Path], out: Path, *, dimension: int | None = None,
+          shards: list[tuple[int, int]] | None = None, require_disjoint: bool = False) -> dict:
     """Copy every row of ``inputs`` into ``out`` (created if absent); return a manifest."""
     if not inputs:
         raise ValueError("no query stores to merge")
+    if shards is not None and len(shards) != len(inputs):
+        raise ValueError("each query store needs one declared shard")
     merged = EmbeddingCache(out)
     sources, disagreements, worst = [], 0, 1.0
-    for path in inputs:
+    for index, path in enumerate(inputs):
         if not path.exists():
             raise FileNotFoundError(f"query store not found: {path}")
         # WAL leftovers must be folded in before the file is hashed or copied
@@ -50,6 +53,10 @@ def merge(inputs: list[Path], out: Path) -> dict:
         connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         connection.close()
         store = EmbeddingCache(path)
+        if dimension is not None:
+            from app.indexing.cache_validation import validate_store
+
+            validate_store(store.conn, dimension=dimension, shard=shards[index] if shards is not None else None)
         keys = [key for (key,) in store.conn.execute("SELECT cache_key FROM embedding_cache WHERE is_real = 1")]
         fresh = []
         for key in keys:
@@ -58,7 +65,11 @@ def merge(inputs: list[Path], out: Path) -> dict:
             if existing is None:
                 fresh.append((key, vector))
                 continue
+            if require_disjoint:
+                raise ValueError(f"query shards overlap at key {key}")
             cosine = float(np.dot(existing, vector) / (np.linalg.norm(existing) * np.linalg.norm(vector)))
+            if not np.isfinite(cosine):
+                raise ValueError(f"duplicate query vector has non-finite cosine: {key}")
             worst = min(worst, cosine)
             disagreements += cosine < 0.9999
         merged.put_many(fresh)

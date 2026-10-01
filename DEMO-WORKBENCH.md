@@ -1,181 +1,110 @@
-# Retrieval workbench — local demo
+# Retrieval workbench demo
 
-> **Not part of the GitHub submission.** This file and everything it describes
-> live in the working tree only. Nothing here has been committed or pushed.
-> See *What is in the working tree* at the bottom for exactly which files are
-> demo and which are engine, so the two can be separated.
+The workbench returns ranked source spans with retrieval and execution evidence.
+It is part of the current repository implementation. Its symbol/BM25/structural
+router is a separate path from the submitted MTEB evaluator and does not produce
+its P0 score. Generation after retrieval is outside Theme 01's scope.
 
-The screening number is one half of Theme 01. The other half is someone
-sitting in front of the system typing questions at it. This is that half: a
-retrieval workbench, not a chat window. The centre of the screen says
-**Relevant code**, never *AI answer* — generation after retrieval is out of
-scope for the theme, and the UI is built to make that obvious at a glance.
+## Run and select the model
 
-## Run it
+Install the platform's PyTorch 2.8.0 wheel and `requirements-submission.txt`, then:
 
-```bash
-python -m uvicorn app.server:app --port 8077
+```sh
+python -m uvicorn app.server:app --host 127.0.0.1 --port 8077
 ```
 
-Open <http://localhost:8077>. No build step, no CDN, no `npm install` — the
-page is one self-contained HTML file, so it renders with the network
-unplugged.
+Open `http://127.0.0.1:8077`. The default accuracy tier is the pinned
+**F2LLM-v2-1.7B** CPU encoder. Set `CODEDOCTOR_TIER=interactive` before starting
+for the separate 0.6B tier. Label the tier in any recording; its latency cannot be
+paired with a different tier's accuracy. Model downloads require connectivity;
+the static page itself has no build step or CDN dependency.
 
-## The demo flow
+## Select a target
 
-```
-pick a corpus → pick a version → ask a question → read the top 10
-   → click #1 → inspect the evidence → switch version → same question
-   → watch the ranking move → read the latency
-```
+| Target | What it supports | Limit |
+| --- | --- | --- |
+| Open a folder | Source parsing, ranked retrieval, rebuilding with recipe-keyed vector reuse | One `working` snapshot, even when `.git` exists; external history is not imported |
+| CodeDoctor app | Built-in snapshots from this checkout's Git history, version comparison and cross-version ranking | Requires a normal Git checkout; source changes and available history determine snapshots |
+| commander | Python/JavaScript grammar and retrieval smoke coverage on a third-party JavaScript library | Often only one distinct snapshot; this is not a measured generalization benchmark |
+| CoIR AppsRetrieval train | Python prompt/example retrieval from prepared local artifacts | Requires `artifacts/apps/`; use train queries, preserve the test-access boundary |
 
-That single path covers P0, P1, the Bonus and speed.
+Supported source extensions are `.py`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.ts` and
+`.tsx`; the arbitrary-folder guard is 4,000 source files. Unsupported languages
+are outside the current grammar coverage. Source suffix support alone is not an
+accuracy guarantee. The train-query policy is distinct from loader I/O isolation;
+inspect loaders before preparing benchmark data, as `AGENTS.md` requires.
 
-### Three corpora, and why each is there
+## Recording sequence
 
-| corpus | language | what it proves |
-|---|---|---|
-| **CodeDoctor · app/** | Python | Four *real* commits from this repository, so ranks genuinely move between versions. P1 and the Bonus. |
-| **commander** | JavaScript | A third-party CLI library. Different language, different repository, no relationship to the screening corpus. Generalisation. |
-| **CoIR AppsRetrieval · train** | Python | The screening corpus. The only one where the execution pass has worked examples to run — so it is the only place the third pass fires live. |
+1. Open a small Python source folder, build its index and enter an actual question.
+   Show ranked responses, file/line spans, pass reasons and query timings.
+2. Inspect a result's evidence: per-method ranks and fusion contributions, and
+   execution verdicts when the statement supplies runnable worked examples.
+3. Edit source and rebuild. Show newly encoded and reused chunks rather than
+   claiming an unmeasured rebuild speedup.
+4. Select CodeDoctor app for a specific Git version, compare the same query on
+   two versions, then demonstrate a ranking across indexed versions. Opening an
+   external folder alone cannot demonstrate its Git history.
+5. State the tier, device, fixture and limitations. Scores shown in the recording
+   must identify whether they are historical or from validated current reporting.
 
-The AppsRetrieval corpus needs `artifacts/apps/`, which is gitignored
-(hundreds of MB of float32). When it is absent the corpus is listed as
-unavailable **with the command that regenerates it** rather than hidden:
+A version comparison must disclose when dense coverage differs; otherwise changed
+retrieval methods can be mistaken for code evolution. Unknown versions fail rather
+than silently falling back to HEAD. Cross-version results retain provenance and
+group related variants after verification, where executable examples are available.
 
-```bash
-python scripts/encode_apps.py
-```
+## Dense preprocessing and cache reuse
 
-> **Train, never test.** The workbench runs the *train* queries. The test
-> split has a two-access budget recorded in `data/test_split_audit_log.json`,
-> and a live UI would spend it on a page load.
-
-## What the screen shows, and why
-
-**The pass strip** reports all four passes every time, including the ones that
-did not run, with the reason the pipeline itself produced:
-
-- `Execution — not run — pass executes Python; this corpus is JavaScript`
-- `Execution — not run — statement has no machine-readable worked examples`
-- `Dense — not run — no vectors for this snapshot, lexical only`
-
-A demo that only shows the passes that succeeded is one a judge cannot check
-by looking. This one can be checked by looking.
-
-**The evidence panel** shows the arithmetic, not a claim about it. Reciprocal
-rank fusion is a sum, so each result carries its per-method rank, raw score
-and contribution, and those terms add up to the reported score exactly. When
-the execution pass promotes something, the bonus appears as its own line and
-the result is badged `was #4`.
-
-**The timings** separate query encoding from scoring. On a repository a query
-answers in single-digit milliseconds; on a 2,600-character AppsRetrieval
-statement the same query takes seconds, and essentially all of the difference
-is one transformer forward pass on a CPU. Lumping them together would make
-retrieval look slow when what is slow is the encoder.
-
-**A version comparison refuses to mislead.** If one side ran the dense pass
-and the other did not, the movement in the table is partly the retrieval
-changing rather than the code, so the page says the two versions are not
-comparable instead of presenting the diff as version drift.
-
-**The isolation chip** counts leaks against the snapshot's own document ids —
-it is checked, not asserted, and it covers every candidate retrieved, not just
-the ten that are displayed. An unknown version raises rather than falling back
-to HEAD.
-
-## Warming the dense index
-
-The interactive encoder is F2LLM-v2-0.6B on CPU, roughly 2.5 seconds per
-chunk. That is fine once and unacceptable per page load, so encode ahead of
-time into the cache the server reads:
-
-```bash
+```sh
 python scripts/warm_workbench.py --target self --versions 4
 ```
 
-Re-running is cheap — anything already cached is skipped, so this is also how
-to top the cache up after a commit. A chunk that survived a commit unchanged
-is encoded once for the whole history, which is what makes four versions cost
-far less than four times one. Measured on `app/`:
+The script uses the same default accuracy tier as the workbench. Stop other model
+processes before warming on a memory-limited machine. The persistent vector cache
+keys the encoder recipe and text; unchanged functions can reuse vectors across
+edits/renames. In-memory indexes are rebuilt after a server restart. A corpus cache
+is distinct from the disabled MTEB result cache. The FAQ permits GPU preprocessing
+and updates; the query recipe uses CPU.
 
-| | |
-|---|---|
-| cold warm-up, 4 versions | **15.3 min** — 1,250 chunks, of which only **269** were encoded and 878 came from the cache |
-| server rebuild against that cache | **48 s**, 2 encodes, 1,145 reused (most of it is loading the weights) |
-| query, dense + lexical | **339 ms**, of which 338 ms is the query encode and **1.4 ms** is scoring |
-| query, lexical only (`commander`, 489 chunks) | **1.6–2.9 ms** |
+Oversized chunks above the current 6,000-character dense-input guard stay
+lexically searchable but receive no dense rank. Whole-class and whole-file chunks
+may therefore be excluded while their smaller function chunks remain eligible.
+The page reports dense coverage and passes that did not run. Do not claim that
+lexical-only latency measures dense semantic retrieval.
 
-Without a warm cache the workbench still answers, lexically, and the pass
-strip says so. It never pretends a dense pass ran.
+## Recorded fixture evidence
 
-> **Stop the server first.** The encoder is ~1.4 GB resident, and the warm-up
-> script loads its own copy. On a 8 GB machine running both at once puts the
-> box into paging and the encode slows to a crawl — measured here as 1,000
-> seconds of kernel time for zero chunks encoded. Warm first, then serve.
+Retained hosted measurements used source `823aa87`, the 1.7B accuracy tier,
+Python 3.12.13 and PyTorch 2.8.0+cpu on a 2.20 GHz Xeon (4 logical/2 physical CPUs).
+They predate the present fixes. P1 used 40 Python functions in 10 modules, yielding
+50 chunks, and three repetitions:
 
-### Oversized chunks carry no vector
+| Operation | Median seconds | Encoded / reused |
+| --- | ---: | ---: |
+| Full build | 102.777 | 50 / 0 |
+| Unchanged | 1.512 | 0 / 50 |
+| One function edit | 6.452 | 2 / 48 |
+| Ten function edits | 29.507 | 13 / 37 |
+| Add function | 4.345 | 2 / 50 |
+| Delete function | 1.443 | 0 / 50 |
+| Rename file | 1.423 | 0 / 50 |
 
-The chunker emits a whole-file `FILE_SUMMARY` chunk and a whole-class `CLASS`
-chunk *in addition to* every function inside them, so those chunks can reach
-tens of thousands of characters. Past the model's 8,192-token cap the input is
-truncated, and since pooling is last-token the vector is then taken from an
-arbitrary interior token — a **wrong** vector, not a degraded one. That is the
-exact failure this project already paid about three NDCG points for once.
+All three repetitions matched fresh-build rankings on six probe queries, with
+minimum vector cosine 1.0. See `results/hands-on/hands-on/p1.json` and its
+`environment.json`; timing and memory are machine/fixture-specific.
 
-So a chunk whose encoder input exceeds `DENSE_MAX_INPUT_CHARS` (6,000) keeps
-its row in the matrix, filled with zeros. Cosine against a zero row is exactly
-0, so the dense pass returns no rank for it and fusion never invents one —
-while BM25 and exact matching still find it. The pass strip says how many.
+The synthetic Bonus fixture has 12 lineages across three versions with incorrect
+variants deliberately failing supplied examples. Correct variant first: 12/12
+with execution verification and 1/12 without; median query 5.818 s, maximum
+6.151 s (`results/hands-on/hands-on/bonus.json`). This is a functional check,
+not retrieval accuracy on an unseen repository or the jury's internal dataset.
+No new validated current P0 result is claimed by this guide.
 
-On `app/` that is 28 of 372 chunks, and a coverage check says 27 of those 28
-are already in the index as their own functions. The one that is not
-(`_extract_javascript_edges_part2`) is a split part the chunker could not split
-further; it stays findable lexically.
+## Limits to explain during the demo
 
-There is a second reason for the cap, which is simply time: CPU attention is
-quadratic, and a single 8k-token forward pass on this machine runs for minutes.
-Before the cap existed the warm-up burned a thousand seconds of CPU without
-finishing its first batch of eight.
-
-## Known rough edges
-
-- **`commander` has one version.** It was vendored in a single commit and
-  never changed, so there is nothing to compare. The Versions tab says this
-  rather than showing an empty diff. Use `app/` for P1.
-- **A server restart drops the indexes.** They are in memory. Rebuilding a
-  repository target takes seconds against a warm embedding cache.
-- **The newest `app/` snapshot is the working tree**, not the HEAD commit, and
-  is labelled `working tree` when the two differ. Older snapshots are read
-  from the git object store, so an uncommitted edit cannot leak backwards.
-- The previous VS Code-style explorer is still served at `/explorer.html`.
-
-## What is in the working tree
-
-Demo only — safe to drop entirely:
-
-| path | |
-|---|---|
-| `web/dist/index.html` | the workbench (replaces the old explorer page) |
-| `web/dist/explorer.html` | the old page, moved here so nothing is lost |
-| `app/workbench.py` | the service behind it |
-| `app/server.py` | `/api/workbench/*` routes, appended below the existing ones |
-| `scripts/warm_workbench.py` | the offline encode |
-| `tests/test_workbench.py` | 33 tests |
-| `tests/test_server_api.py` | frontend assertions updated to the new page |
-| `.claude/launch.json`, this file | local tooling |
-
-Engine changes, independent of the UI:
-
-| path | change |
-|---|---|
-| `app/retrieval/hybrid.py` | BM25 moved to an inverted index — **~440 ms → ~2 ms** per query on a 500-chunk repository, with bit-identical scores (asserted in `tests/test_workbench.py`). Symbol names normalised once instead of per query. Fusion now reports per-method rank and contribution. **Bug fix:** the dense pass raised `AttributeError` when document vectors were supplied without an encoder — the exact configuration the live service uses. |
-| `app/indexing/versioned.py` | one retriever per snapshot instead of one per query, dropped when a commit is re-indexed; `warm()` and `last_timings()`. |
-| `app/indexing/cache.py` | WAL journal and a busy timeout, so the warm-up script and the server can share `build/cache.db` instead of failing each other's locks. |
-
-To revert the UI and keep the engine work:
-
-```bash
-git checkout web/dist/index.html && rm web/dist/explorer.html
-```
+Example parsing can fail; fragments may not run alone; passing visible examples
+does not prove correctness. Queries without executable examples retain retrieval
+ordering. Execution verifies Python code, while the parser supports the listed
+JavaScript/TypeScript grammars. The subprocess runner limits resources and does
+not isolate network or filesystem access. The jury's hands-on dataset is unseen
+Python; a JavaScript demo is optional under the FAQ, not the required evaluation.
