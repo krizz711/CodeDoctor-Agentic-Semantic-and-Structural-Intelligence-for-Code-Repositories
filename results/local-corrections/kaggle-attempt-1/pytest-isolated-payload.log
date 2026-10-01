@@ -1,0 +1,120 @@
+..ss................sss..s.............................................. [ 26%]
+........................................................................ [ 52%]
+.............s...........................................FF............. [ 78%]
+..........................................................               [100%]
+=================================== FAILURES ===================================
+_______ test_a_child_that_succeeds_fails_or_hangs_is_recorded_faithfully _______
+
+tmp_path = PosixPath('/private/var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/pytest-of-manishharigovind/pytest-1/test_a_child_that_succeeds_fai0')
+
+    def test_a_child_that_succeeds_fails_or_hangs_is_recorded_faithfully(tmp_path):
+>       ok = run.run_logged([sys.executable, "-c", "print('hello from the child')"], tmp_path, 60)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_submission_run.py:84: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/submission_run.py:318: in run_logged
+    peak = max(peak, sum(p.memory_info().rss for p in [parent, *parent.children(recursive=True)]))
+                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/build/local-correction/venv/lib/python3.12/site-packages/psutil/__init__.py:966: in children
+    ppid_map = _ppid_map()
+               ^^^^^^^^^^^
+/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/build/local-correction/venv/lib/python3.12/site-packages/psutil/__init__.py:259: in _ppid_map
+    for pid in pids():
+               ^^^^^^
+/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/build/local-correction/venv/lib/python3.12/site-packages/psutil/__init__.py:1454: in pids
+    ret = sorted(_psplatform.pids())
+                 ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def pids():
+>       ls = cext.pids()
+             ^^^^^^^^^^^
+E       PermissionError: [Errno 1] Operation not permitted (originated from sysctl(KERN_PROC_ALL))
+
+/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/build/local-correction/venv/lib/python3.12/site-packages/psutil/_psosx.py:312: PermissionError
+________________ test_main_leaves_a_complete_environment_record ________________
+
+tmp_path = PosixPath('/private/var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/pytest-of-manishharigovind/pytest-1/test_main_leaves_a_complete_en0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x166a870b0>
+
+    def test_main_leaves_a_complete_environment_record(tmp_path, monkeypatch):
+        monkeypatch.setattr(run, "build_command", lambda *a, **k: [sys.executable, "-c", "print('stage ran')"])
+        out = tmp_path / "hands-on"
+>       assert run.main(["--stage", "hands-on", "--out", str(out)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_submission_run.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/submission_run.py:410: in main
+    result = run_logged(command, out, (args.timeout_hours or DEFAULT_HOURS[args.stage]) * 3600)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts/submission_run.py:318: in run_logged
+    peak = max(peak, sum(p.memory_info().rss for p in [parent, *parent.children(recursive=True)]))
+                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/build/local-correction/venv/lib/python3.12/site-packages/psutil/__init__.py:966: in children
+    ppid_map = _ppid_map()
+               ^^^^^^^^^^^
+/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/build/local-correction/venv/lib/python3.12/site-packages/psutil/__init__.py:259: in _ppid_map
+    for pid in pids():
+               ^^^^^^
+/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/build/local-correction/venv/lib/python3.12/site-packages/psutil/__init__.py:1454: in pids
+    ret = sorted(_psplatform.pids())
+                 ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def pids():
+>       ls = cext.pids()
+             ^^^^^^^^^^^
+E       PermissionError: [Errno 1] Operation not permitted (originated from sysctl(KERN_PROC_ALL))
+
+/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/build/local-correction/venv/lib/python3.12/site-packages/psutil/_psosx.py:312: PermissionError
+----------------------------- Captured stderr call -----------------------------
+WARNING: The directory '/Users/manishharigovind/Library/Caches/pip' or its parent directory is not owned or is not writable by the current user. The cache has been disabled. Check the permissions and owner of that directory. If executing pip with sudo, you should use sudo's -H flag.
+=============================== warnings summary ===============================
+tests/test_sandbox_runner.py::TestFailuresAreReportedNotRaised::test_subprocess_error_at_spawn_is_caught
+  /private/var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/codedoctor-fixed-payload-tests-ffp6rip1/app/pipeline/execution_rerank.py:963: RuntimeWarning: execution sandbox could not start a process (Exception occurred in preexec_fn.); candidates are not being verified
+    outcome = execute_candidate(code, example.stdin, config)
+
+tests/test_submission_run.py::test_a_child_that_succeeds_fails_or_hangs_is_recorded_faithfully
+  /Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/build/local-correction/venv/lib/python3.12/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-661 (copy_output)
+  
+  Traceback (most recent call last):
+    File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "/private/var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/codedoctor-fixed-payload-tests-ffp6rip1/scripts/submission_run.py", line 309, in copy_output
+      log.write(line)
+  ValueError: I/O operation on closed file.
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_submission_run.py::test_main_leaves_a_complete_environment_record
+  /Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/build/local-correction/venv/lib/python3.12/site-packages/_pytest/threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-662 (copy_output)
+  
+  Traceback (most recent call last):
+    File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "/private/var/folders/wh/rvj5dycx0zgbk951gfhl9jb80000gn/T/codedoctor-fixed-payload-tests-ffp6rip1/scripts/submission_run.py", line 309, in copy_output
+      log.write(line)
+  ValueError: I/O operation on closed file.
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_sandbox_runner.py:57: limits are enforced on Linux
+SKIPPED [1] tests/test_sandbox_runner.py:68: RLIMIT_AS is enforced on Linux
+SKIPPED [1] tests/test_sandbox_runner.py:183: RLIMIT_CPU is enforced on Linux
+SKIPPED [1] tests/test_sandbox_runner.py:187: RLIMIT_CPU is enforced on Linux
+SKIPPED [1] tests/test_sandbox_runner.py:191: RLIMIT_CPU is enforced on Linux
+SKIPPED [1] tests/test_judge_like_io.py:33: macOS fstat on a pipe reports the bytes already buffered (CI, 2026-09-26), so the idiom can pass through a pipe there; Linux and Windows report 0
+SKIPPED [1] tests/test_query_store_and_cache_guard.py:83: corpus texts not built
+2 failed, 265 passed, 7 skipped, 3 warnings in 19.89s

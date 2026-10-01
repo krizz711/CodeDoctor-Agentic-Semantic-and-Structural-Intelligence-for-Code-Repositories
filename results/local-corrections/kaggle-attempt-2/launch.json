@@ -1,0 +1,17 @@
+{
+  "recorded_at_utc": "2026-10-01T15:56:59.041565+00:00",
+  "platform": "Kaggle",
+  "kernel": "lifemeansfun/codedoctor-correction-p0",
+  "version": 2,
+  "runtime_commit": "18c4b6cbd097437bfb8498fefe572cddb658bc42",
+  "run_py_sha256": "f5fbe53ca17746b765bd8f36fb88227442ecbe245fc90f25e23ef9da5c7780f2",
+  "command": ".venv/bin/kaggle kernels push -p build/local-correction/kaggle-p0-retry",
+  "upload_exit_code": 0,
+  "status": "launched",
+  "retry_reason": "Documented missing packaged test support before model/APPS access.",
+  "infrastructure_retry_number": 1,
+  "github_changes_authorized": false,
+  "private": true,
+  "gpu_enabled": false,
+  "final_p0_available": false
+}
