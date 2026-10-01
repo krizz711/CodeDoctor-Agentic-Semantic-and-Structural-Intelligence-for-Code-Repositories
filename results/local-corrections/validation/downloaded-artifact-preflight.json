@@ -1,0 +1,151 @@
+{
+  "scope": "existing downloaded stores only; no fresh query/corpus text or model access",
+  "document_manifest": {
+    "dataset": {
+      "path": "CoIR-Retrieval/apps",
+      "revision": "f22508f96b7a36c2415181ed8bb76f76e04ae2d5"
+    },
+    "model": "codefuse-ai/F2LLM-v2-1.7B",
+    "revision": "3766d46e7a68545ed6190c15330983f9b39ab718",
+    "device": "cuda",
+    "gpu": "Tesla T4",
+    "dtype": "float16",
+    "documents": 8765,
+    "unique_vectors": 8754,
+    "limit": null,
+    "texts_sha256": "b24ac54826e8d59f5bbb426789966c805117b62c700794edf68207c2951f72d7",
+    "text_rule": "mteb._create_dataloaders._corpus_to_dict(row)['text'] (title joined, stripped)",
+    "seconds": 1301.727246826,
+    "packages": {
+      "torch": "2.8.0+cu128",
+      "transformers": "4.57.6",
+      "sentence-transformers": "5.0.0",
+      "mteb": "2.21.0",
+      "datasets": "3.6.0",
+      "numpy": "2.5.3"
+    },
+    "sha256": "a5f8329feb1764c551d76cd70b32e55a092ff3baf28cee80a2e71a2489167237"
+  },
+  "query_provenance": [
+    {
+      "path": "build/local-correction/queries/q0/results/queries.sqlite",
+      "environment_sha256": "1ab41140a7b49916dd9160444d3127980ac212f44881454d8d8e3651dcad77e1",
+      "report_sha256": "ff9f954702bd7007c58657a64b4e7b2451e9d446e0d11cea6a859eb134b70aed",
+      "source_commit": "823aa87dc0c6388f67c1637043c406cf743f1290",
+      "shard": [
+        0,
+        4
+      ],
+      "reported_rows": 971
+    },
+    {
+      "path": "build/local-correction/queries/q1/results/queries.sqlite",
+      "environment_sha256": "3981dc6e5b0c0b42116414723fde0ca1181be9079cc2facdfcfdfcafdde5330e",
+      "report_sha256": "b451c8e6473c3f05962e7207e6b3522dc6ae08c7b8db2e18a782870617ccbcd1",
+      "source_commit": "823aa87dc0c6388f67c1637043c406cf743f1290",
+      "shard": [
+        1,
+        4
+      ],
+      "reported_rows": 882
+    },
+    {
+      "path": "build/local-correction/queries/q2/results/queries.sqlite",
+      "environment_sha256": "0373a8839c20c66a630222981360a5d688e0640fed3909b95620889d10df8802",
+      "report_sha256": "a7f70234f2cee3a1e91eedc00864418485ee60b73c77c65902f7ce52eaf470b3",
+      "source_commit": "823aa87dc0c6388f67c1637043c406cf743f1290",
+      "shard": [
+        2,
+        4
+      ],
+      "reported_rows": 975
+    },
+    {
+      "path": "build/local-correction/queries/q3/results/queries.sqlite",
+      "environment_sha256": "919763a1a70e46446a8a1314beb2f1e306ea8bb2015953154adae4895eee884f",
+      "report_sha256": "705bca65521fddbbf3eb0133007e547e4d4d4449a8ebda279e6737523ae14266",
+      "source_commit": "823aa87dc0c6388f67c1637043c406cf743f1290",
+      "shard": [
+        3,
+        4
+      ],
+      "reported_rows": 937
+    }
+  ],
+  "merge": {
+    "inputs": [
+      {
+        "path": "build/local-correction/preflight-2/query-shard-0.sqlite",
+        "rows": 971,
+        "added": 971,
+        "sha256": "900cd2251bc4853d24136c92c660d132320a2e721e9c1943fda5868f9b6ac4ff"
+      },
+      {
+        "path": "build/local-correction/preflight-2/query-shard-1.sqlite",
+        "rows": 882,
+        "added": 882,
+        "sha256": "c0cb7fd7316b896947c4f579a4f00336a8b2f1fba4e53cda46041eebe25b20d6"
+      },
+      {
+        "path": "build/local-correction/preflight-2/query-shard-2.sqlite",
+        "rows": 975,
+        "added": 975,
+        "sha256": "107fcc145c6bbe6fe764bd4a78aa92e5048343614f2c7980495969c059743755"
+      },
+      {
+        "path": "build/local-correction/preflight-2/query-shard-3.sqlite",
+        "rows": 937,
+        "added": 937,
+        "sha256": "4ae666cc60c66865300ba8ad9a1fc58b399d9fffd7fad32db227c4c5a3d69f51"
+      }
+    ],
+    "rows": 3765,
+    "duplicate_keys_disagreeing": 0,
+    "worst_duplicate_cosine": 1.0,
+    "sha256": "00c466258680ad214e020298eb1b7b58aee993d934e21438547e1b5fd8508000"
+  },
+  "old_source_vs_submitted": [
+    {
+      "commit": "408a61f0f6e0c2a58528e88155f3dc6a4fa25a33",
+      "recorded_commit": "823aa87dc0c6388f67c1637043c406cf743f1290",
+      "files_checked": 52,
+      "differing": [],
+      "missing": [],
+      "configuration_matches": true,
+      "identical": true
+    },
+    {
+      "commit": "408a61f0f6e0c2a58528e88155f3dc6a4fa25a33",
+      "recorded_commit": "823aa87dc0c6388f67c1637043c406cf743f1290",
+      "files_checked": 52,
+      "differing": [],
+      "missing": [],
+      "configuration_matches": true,
+      "identical": true
+    },
+    {
+      "commit": "408a61f0f6e0c2a58528e88155f3dc6a4fa25a33",
+      "recorded_commit": "823aa87dc0c6388f67c1637043c406cf743f1290",
+      "files_checked": 52,
+      "differing": [],
+      "missing": [],
+      "configuration_matches": true,
+      "identical": true
+    },
+    {
+      "commit": "408a61f0f6e0c2a58528e88155f3dc6a4fa25a33",
+      "recorded_commit": "823aa87dc0c6388f67c1637043c406cf743f1290",
+      "files_checked": 52,
+      "differing": [],
+      "missing": [],
+      "configuration_matches": true,
+      "identical": true
+    }
+  ],
+  "pending": [
+    "exact text-to-key coverage using the pinned official task",
+    "real-model CPU cold Python validation",
+    "30 live query re-encodings",
+    "official full CPU scoring, raw predictions and metric reconciliation"
+  ]
+}

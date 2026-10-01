@@ -1,0 +1,88 @@
+{
+  "source_path": "/Users/manishharigovind/Movies/submisssion_vedio.mov",
+  "source_sha256": "b1f78e7ddc3211ab6979723b0f7b1a0b1cdc74846f8e2c6fe76296b4d8673656",
+  "source_mtime_ns": 1790792088522371698,
+  "preview_path": "build/local-correction/video/VITV_Doctors_Demo_cut_preview.mp4",
+  "preview_sha256": "7ff1fa744a1bb0ed15774b3de3ce93ae1c25054b0383df1386c018b0ea1b5561",
+  "cuts": [
+    {
+      "start": 15.32,
+      "end": 42.72,
+      "reason": "Introductory APPS-vs-codebase detour; later APPS/execution distinction retained"
+    },
+    {
+      "start": 264.76,
+      "end": 269.96,
+      "reason": "Navigation apology while screen is black, not query computation"
+    },
+    {
+      "start": 326.0,
+      "end": 346.133333,
+      "reason": "Closing remarks and extra README scrolling"
+    }
+  ],
+  "kept_intervals": [
+    [
+      0,
+      15.32
+    ],
+    [
+      42.72,
+      264.76
+    ],
+    [
+      269.96,
+      326.0
+    ]
+  ],
+  "expected_duration_seconds": 293.4,
+  "playback_speed": 1.0,
+  "audio_correspondence_checks": [
+    {
+      "preview_start": 5,
+      "source_start": 5,
+      "correlation": 0.9992039330017578,
+      "lag_ms": 0.0
+    },
+    {
+      "preview_start": 30,
+      "source_start": 57.4,
+      "correlation": 0.9994593800948343,
+      "lag_ms": 0.0
+    },
+    {
+      "preview_start": 140,
+      "source_start": 167.4,
+      "correlation": 0.9995850442663176,
+      "lag_ms": 0.0
+    },
+    {
+      "preview_start": 245,
+      "source_start": 277.6,
+      "correlation": 0.9984667364792829,
+      "lag_ms": -10.0
+    },
+    {
+      "preview_start": 280,
+      "source_start": 312.6,
+      "correlation": 0.9984235455622972,
+      "lag_ms": -10.0
+    }
+  ],
+  "human_review_required": true,
+  "asr_model": "openai/whisper-tiny.en",
+  "asr_revision": "87c7102498dcde7456f24cfd30239ca606ed9063",
+  "asr_is_provisional": true,
+  "publication_changed": false,
+  "limitations": [
+    "Audio-word and cut-boundary correctness need human listening; ASR has errors.",
+    "This cut preserves the recorded historical demo; it cannot add real dense-query or edit/rebuild demonstrations.",
+    "Local preview cut coordinates must be checked against the current YouTube timeline before any separately authorized Studio edit."
+  ],
+  "verified_duration_seconds": 293.41,
+  "video_audio_duration_difference_seconds": 0.010000000000047748,
+  "full_decode_exit_code": 0,
+  "full_decode_reported_errors": false,
+  "visual_boundary_frames_inspected": true,
+  "human_complete_audio_review_done": false
+}

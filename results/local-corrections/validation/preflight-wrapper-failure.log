@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/Users/manishharigovind/Desktop/VIT Vellore/PRISM/codedoctor/build/local-correction/preflight.py", line 31, in <module>
+    assert merged['total_vectors'] == 3765
+           ~~~~~~^^^^^^^^^^^^^^^^^
+KeyError: 'total_vectors'

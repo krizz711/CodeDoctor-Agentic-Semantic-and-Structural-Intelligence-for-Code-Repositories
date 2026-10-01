@@ -26,6 +26,24 @@ the real1.7B cold model path. Both remain dependent on sufficient Linux resource
   export and synthetic cold-Python checks. Real weights/data were not loaded.
 - `disclosure-structure.json` and `disclosure-render-diff.json`: template
   preservation and latest rendered2-page evidence. Human sign-off remains blank.
+- `clean-clone-suite.log`: frozen commit `d2fb22a` in a fresh local Git clone,
+  declared dependency environment, same existing test selection: **608 passed,
+  7 skipped, 6 deselected, 5 subtests**. Six skips are Mac platform differences;
+  one requires the optional pre-existing corpus-text artifact, absent from a
+  clean clone. Exact pinned-task text coverage still gates the final P0 run.
+- `downloaded-artifact-preflight.json`: existing downloaded GPU document cache
+  and four CPU query shards passed checksums/provenance, dimensions, finite
+  normalized-vector checks, declared membership and disjoint merging. Counts:
+  8,765 documents /8,754 unique document vectors and3,765 query vectors. All52
+  recorded shard source paths match submitted408a61f. No new query text, labels
+  or model was loaded; exact official text coverage and live checks remain pending.
+- `preflight-wrapper-failure.log`: first local evidence wrapper used a wrong
+  manifest field name (`total_vectors` instead of `rows`) after gates completed;
+  one corrected retry wrote the report. Raw inputs and failing attempt preserved.
+- `video-cut-review.json`, `video-preview-probe.json`, `video-decode.log`: local
+  cut-only4:53.410 preview; full decode passed, audio/video differ10ms, retained
+  audio spot checks >0.998 correlation. Original/public video unchanged. Human
+  listening and missing dense/edit demonstrations are not certified.
 
 Also passed: `ruff check app scripts tests --select F401,F811`, compilation,
 `make -B`, `make -B test`, sample evaluator/validator and strict historical

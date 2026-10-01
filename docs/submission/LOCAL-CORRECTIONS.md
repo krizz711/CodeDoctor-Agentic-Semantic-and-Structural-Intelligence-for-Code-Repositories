@@ -60,6 +60,21 @@ is recorded. Environment arguments normalize paths recursively. Final CLI,
 launcher, logging, CSV and cold-check regressions passed43 tests in the portable
 environment. No labels were added to retrieval features or tuning.
 
+The frozen correction commit `d2fb22a` was then tested from a clean local clone:
+608 passed, 7 skipped, 6 deselected, 5 subtests. The extra skip needs a local
+corpus-text artifact absent from the clean clone; the other six are Mac platform
+checks. Authentic downloaded-cache preflight passed for8,754 document vectors
+and3,765 disjoint CPU query vectors, with matching provenance and old source
+hashes. It did not access fresh query text or labels. The first local wrapper
+failed on a report-field typo after checking the vectors; its log is preserved
+and a single corrected retry produced the report. Exact pinned-task text
+coverage, real-model forwards, Linux checks and final P0 remain pending.
+
+The prepared notebook is `build/local-correction/kaggle-p0`, private CPU-only,
+packaged from clean commit `d2fb22a`. Its code and metadata are prepared, not
+uploaded. Read-only `git ls-remote` confirmed both public main and the official
+tag still resolve to submitted408a61f after all local work.
+
 All12 revised slides were rendered and visually inspected both through Artifact
 Tool and the PDF export. Package, geometry, reference font and import checks
 passed. This does not assert native Microsoft PowerPoint validation. The
