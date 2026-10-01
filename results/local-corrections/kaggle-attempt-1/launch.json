@@ -1,0 +1,19 @@
+{
+  "recorded_at_utc": "2026-10-01T15:48:40.919648+00:00",
+  "platform": "Kaggle",
+  "kernel": "lifemeansfun/codedoctor-correction-p0",
+  "version": 1,
+  "notebook_url": "https://www.kaggle.com/code/lifemeansfun/codedoctor-correction-p0",
+  "authorization": "User clarified local-only means no GitHub changes; other platforms allowed.",
+  "runtime_commit": "d2fb22a4a3e8be1ff94374dfb903c438428f74c6",
+  "protocol_commit": "01e71e37c315a5cfa9da640267597c8bb5b2f1fd",
+  "run_py_sha256": "0621cd21361148585624a77404f31c07bc0b9803b975c894f659ae365f245597",
+  "command": ".venv/bin/kaggle kernels push -p build/local-correction/kaggle-p0",
+  "cli_version": "2.2.4",
+  "upload_exit_code": 0,
+  "observed_status": "RUNNING",
+  "github_changes_authorized": false,
+  "gpu_enabled": false,
+  "private": true,
+  "final_p0_available": false
+}

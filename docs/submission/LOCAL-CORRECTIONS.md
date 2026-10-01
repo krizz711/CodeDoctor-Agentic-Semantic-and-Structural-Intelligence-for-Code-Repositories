@@ -72,8 +72,12 @@ and a single corrected retry produced the report. Exact pinned-task text
 coverage, real-model forwards, Linux checks and final P0 remain pending.
 
 The prepared notebook is `build/local-correction/kaggle-p0`, private CPU-only,
-packaged from clean commit `d2fb22a`. Its code and metadata are prepared, not
-uploaded. Read-only `git ls-remote` confirmed both public main and the official
+packaged from clean commit `d2fb22a`. Version 1 was uploaded successfully on
+2026-10-01 following the user's clarification and is running at
+https://www.kaggle.com/code/lifemeansfun/codedoctor-correction-p0 . Launch evidence
+is retained in `results/local-corrections/kaggle-attempt-1/`; no result exists
+until its checks and official evaluation complete. Read-only `git ls-remote`
+confirmed both public main and the official
 tag still resolve to submitted408a61f after all local work.
 
 All12 revised slides were rendered and visually inspected both through Artifact

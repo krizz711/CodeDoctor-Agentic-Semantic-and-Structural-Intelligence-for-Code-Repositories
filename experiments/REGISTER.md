@@ -15,7 +15,10 @@ is still absent. Historical GPU-query P0, hosted P1 and constructed Bonus remain
 under their original identities. Reconciliation and blockers are in the
 [local correction record](../docs/submission/LOCAL-CORRECTIONS.md). No Q8/OpenVINO
 adoption, EXT access, fresh score claim, merge or tag change follows from this
-work. All remote writes remain prohibited without explicit user permission.
+work. The user's 2026-10-01 clarification permits other platforms while forbidding
+GitHub changes. Private Kaggle correction-P0 version 1 is running from freeze
+`d2fb22a`; launch records are in `results/local-corrections/kaggle-attempt-1/`.
+No current CPU score is reported until all acceptance checks complete.
 
 ## How to maintain this register
 
