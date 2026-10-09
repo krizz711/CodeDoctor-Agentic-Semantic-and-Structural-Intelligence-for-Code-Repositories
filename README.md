@@ -1,6 +1,20 @@
+<div align="center">
+
+<img src="assets/banner.svg" width="100%" alt="CodeDoctor: agentic code retrieval with execution-verified reranking"/>
+
+<p>
+  <a href="https://github.com/krizz711/CodeDoctor-Agentic-Semantic-and-Structural-Intelligence-for-Code-Repositories/actions/workflows/ci.yml"><img src="https://github.com/krizz711/CodeDoctor-Agentic-Semantic-and-Structural-Intelligence-for-Code-Repositories/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
+  <img src="https://img.shields.io/badge/Samsung_PRISM-GenAI_Hackathon-1428A0?style=flat-square&logo=samsung&logoColor=white" alt="Samsung PRISM GenAI Hackathon"/>
+  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python"/>
+  <img src="https://img.shields.io/badge/benchmark-MTEB_AppsRetrieval-10b981?style=flat-square" alt="MTEB AppsRetrieval"/>
+  <img src="https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker"/>
+</p>
+
 # CodeDoctor · VITV / Doctors
 
 **Samsung PRISM GenAI Hackathon · Theme 01: Agentic Code Intelligence**
+
+</div>
 
 CodeDoctor retrieves ranked source code. Our contribution is a **pre/post-processing
 architecture around an existing embedding model**: prepare reusable, version-aware
